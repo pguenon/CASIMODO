@@ -69,16 +69,13 @@ if step_to_perform=='all' or step_to_perform=='discretize_conformations' or step
     u_traj=open_trajectory(strucfile,trajfile)
 ##############################################################
 
-#################get terminal atoms###########################
+#################get terminal atoms and frames###########################
 if step_to_perform=='all' :
-    
+
     if os.path.exists(f'{output_dir}terminal_atoms.txt'):
         os.system(f'rm {output_dir}terminal_atoms.txt')
     terminal_atoms, RESIDS_SELECTED, RESNAMES_SELECTED,indices_aa=get_terminal_atoms_MDA(u_traj, dic)
     save_terminal_atoms(terminal_atoms, RESIDS_SELECTED, RESNAMES_SELECTED,output_dir)
-##############################################################
-
-################ get frames #####################################
     times, times_indices=filter_times_and_indices(u_traj, time_zero, delta_time,output_dir)
 #################################################################
 
