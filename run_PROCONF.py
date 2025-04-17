@@ -63,13 +63,15 @@ if not os.path.exists(output_dir+'MI_plots'):
 if not os.path.exists(output_dir+'frequencies'):
     os.mkdir(output_dir+'frequencies')
 
-if step_to_perform=='all' or step_to_perform=='discretize_conformations' or step_to_perform=='get_distances_between_coordinates' : 
 #################open traj####################################
+if step_to_perform=='all' or step_to_perform=='discretize_conformations' or step_to_perform=='get_distances_between_coordinates' : 
+
     u_traj=open_trajectory(strucfile,trajfile)
 ##############################################################
 
-if step_to_perform=='all' :
 #################get terminal atoms###########################
+if step_to_perform=='all' :
+    
     if os.path.exists(f'{output_dir}terminal_atoms.txt'):
         os.system(f'rm {output_dir}terminal_atoms.txt')
     terminal_atoms, RESIDS_SELECTED, RESNAMES_SELECTED,indices_aa=get_terminal_atoms_MDA(u_traj, dic)
@@ -111,4 +113,9 @@ if step_to_perform=='all' or step_to_perform=='clusterize_MI':
     if os.path.exists(f'{output_dir}resids_in_cluster_from_MI.txt'):
         os.system(f'rm {output_dir}resids_in_cluster_from_MI.txt')
     clusterize_MI(output_dir,coordinates_to_add,barycenter_coordinates_to_add,step_to_perform,number_of_states_to_show)
+
+if step_to_perform=='all' or step_to_perform=='extract_conformations':
+    cluster_states(output_dir)
 #########################################################################
+
+

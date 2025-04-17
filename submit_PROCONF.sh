@@ -1,7 +1,7 @@
 #!/bin/bash
 
 ##################### STEP TO PERFORM ########################
-step_to_perform=clusterize_MI # Options: all (default), discretize_conformations, get_distances_between_coordinates, get_frequencies, get_mutual_information, get_entropy, clusterize_MI
+step_to_perform=extract_conformations # Options: all (default), discretize_conformations, get_distances_between_coordinates, get_frequencies, get_mutual_information, get_entropy, clusterize_MI, extract_conformations
 ##############################################################
 
 ###################### PARAMETERS TO MODIFY ##########################

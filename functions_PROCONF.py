@@ -1284,3 +1284,20 @@ def clusterize_MI(output_dir,coordinates_to_add,barycenter_coordinates_to_add,st
     MI_map_for_clusters(coordinates,MI,clusters_ndx,output_dir)
     get_states_from_clusters(clusters_ndx,output_dir,times_indices,number_of_states_to_show)
 
+def cluster_states(output_dir):
+    data_clusters,_=open_file(output_dir+'clusters_states.txt')
+    Indexes_of_clusters=[]
+    for i in range(len(data_clusters)):
+        if len(data_clusters[i])>1 and data_clusters[i][0]=='Cluster':
+            Indexes_of_clusters.append(data_clusters[i][1])
+    for i in range(len(Indexes_of_clusters)):
+        Ind_i=Indexes_of_clusters[i]
+        array_cluster=np.load(output_dir+f'Clusterize_MI/clusters_states/cluster_{Ind_i}_states.npy')
+        np.savetxt(output_dir+'temp_cluster_i.csv', array_cluster, delimiter=',')
+        yacare_clusterization(output_dir+'temp_cluster_i.csv',output_dir,'Get_conformations_cluster'+Ind_i,'clusterize_MI',len(array_cluster[0]))
+        os.system(f'rm {output_dir}temp_cluster_i.csv')
+        
+
+    
+
+
