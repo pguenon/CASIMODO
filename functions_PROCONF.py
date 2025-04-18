@@ -12,6 +12,8 @@ from math import exp,log
 from scipy.signal import find_peaks
 import yacare
 from scipy.ndimage import uniform_filter1d
+from scipy.spatial.distance import pdist, squareform
+
 
 
 def plot_progress_bar(current, total, bar_length=40):
@@ -1038,67 +1040,99 @@ def get_entropy(output_dir):
     plt.savefig(output_dir+'analysis/entropy_by_coordinate.png', dpi=200)
     plt.close()
 
-def yacare_clusterization(name_file_distance,output_dir,name_cluster_dir,step_to_perform,number_of_coords):
+def yacare_clusterization(output_dir,name_cluster_dir,step_to_perform,number_of_coords,distance_matrix,min_size_cluster,function_for_ratio,threshold_variable,amount_of_noise,percentage_moving_square):
     variables=yacare.Variables()
     variables.project_name = name_cluster_dir
-    variables.file_name = name_file_distance
     variables.save_images = True
-    yacare.load_data(variables)
-    yacare.perform_first_reordering(variables, percentage_moving_square = 3.0)
-    yacare.choose_if_we_reorder_again(variables,indices=np.arange(0,number_of_coords))
-    yacare.find_optimal_cutoff(variables, minimal_size_cluster = 0.0000000000001,function_for_ratio=2)
-    if step_to_perform == 'clusterize_MI' :
+    variables.distance_matrix=distance_matrix
+    yacare.perform_first_reordering(variables, percentage_moving_square = percentage_moving_square)
+    yacare.find_optimal_cutoff(variables, minimal_size_cluster = min_size_cluster,function_for_ratio=function_for_ratio)
+    if step_to_perform != 'all' :
+        yacare.choose_if_we_reorder_again(variables)
         yacare.change_proposed_cutoff(variables)
+    else :
+        yacare.choose_if_we_reorder_again(variables,indices=np.arange(0,number_of_coords))
     yacare.find_final_clusters(variables)
     yacare.compare_clusters(variables, display_stddev = True)
-    yacare.propose_list_for_concatenating_clusters(variables, threshold_variable = 1.0, choice_merging_clusters=3)
+    yacare.propose_list_for_concatenating_clusters(variables, threshold_variable = threshold_variable, choice_merging_clusters=3)
     yacare.concatenate_clusters(variables)
-    yacare.expand_clusters(variables, amount_of_noise = 0.3)
+    yacare.expand_clusters(variables, amount_of_noise = amount_of_noise)
     yacare.compare_final_clusters(variables)
     yacare.find_final_clusters(variables)
     yacare.write_indices(variables)
 
     os.system('mkdir -p '+output_dir+variables.project_name)
-    os.system('mv Clusterize_* '+output_dir+variables.project_name)
+    os.system('mv '+variables.project_name+'* '+output_dir+variables.project_name)
 
+def get_cluster_indexes_from_yacare(output_dir, cluster_dir):
+    """
+    Extracts cluster indexes from Yacare output.
+    """
+    print("Extracting cluster indexes from Yacare output...")
+    data_yacare, lines_yacare = open_file(output_dir + cluster_dir + '/' + cluster_dir + '_Clustering_Clusters.ndx')
+    clusters_ndx = []
+    cluster_i = []
 
-def convert_clusters_yacare_to_real_coordinates(output,output_dir,cluster_dir,name_output_cluster):
-    print("Converting clusters to real coordinates...")
-    data_yacare,lines_yacare=open_file(output_dir+cluster_dir+'/'+cluster_dir+'_Clustering_Clusters.ndx')
-    coordinates,X_cuts,Labels=load_data_discretization(output)
-    
-    file_out=open(output_dir+name_output_cluster,'w')
-    clusters_ndx=[]
-    cluster_i=[]
-    
     for l in range(len(lines_yacare)):
-        line=lines_yacare[l]
-        
-        if line[0]=='[':
-            if len(cluster_i)>=1 :
+        line = lines_yacare[l]
+        if line[0] == '[':
+            if len(cluster_i) >= 1:
                 clusters_ndx.append(cluster_i)
-                order_cluster_i=[index_coord for index_coord in cluster_i]
-                order_cluster_i.sort()
-                for index_coord in order_cluster_i:
-                    file_out.write(f'{coordinates[index_coord]} \n')
-            file_out.write('\n')
-            file_out.write(line)
-            cluster_i=[]
+            cluster_i = []
             continue
         else:
             for i in range(len(data_yacare[l])):
-                index_coord=int(data_yacare[l][i])-1
-                #file_out.write(f'{coordinates[index_coord]}\n')
+                index_coord = int(data_yacare[l][i]) - 1
                 cluster_i.append(index_coord)
-    
-    if len(cluster_i)>=1 :
+
+    if len(cluster_i) >= 1:
         clusters_ndx.append(cluster_i)
-        order_cluster_i=[index_coord for index_coord in cluster_i]
-        order_cluster_i.sort()
-        for index_coord in order_cluster_i:
-            file_out.write(f'{coordinates[index_coord]} \n')
-    file_out.close()
-    print("Conversion completed.")
+
+    print("Cluster indexes extracted.")
+    for i in range(len(clusters_ndx)):
+        clusters_ndx[i] = sorted(clusters_ndx[i])
+    return clusters_ndx
+
+def get_representative_structure_from_yacare(output_dir, cluster_dir):
+    """
+    Extracts cluster indexes from Yacare output.
+    """
+    print("Extracting cluster indexes from Yacare output...")
+    data_yacare, lines_yacare = open_file(output_dir + cluster_dir + '/' + cluster_dir + '_Clustering_RepresentativeStructures.ndx')
+    Representative_structures= []
+    cluster_i = []
+
+    for l in range(len(lines_yacare)):
+        if len(data_yacare[l])==1:
+            Representative_structures.append(int(data_yacare[l][0])-1)
+    print("Cluster indexes extracted.")
+    return Representative_structures
+
+
+def write_clusters_to_file(clusters_ndx, coordinates, output_dir, name_output_cluster):
+    """
+    Writes cluster information to a file.
+    """
+    print("Writing clusters to file...")
+    with open(output_dir + name_output_cluster, 'w') as file_out:
+        for i, cluster_i in enumerate(clusters_ndx):
+            file_out.write('\n\n')
+            if i != len(clusters_ndx) - 1:
+                file_out.write(f'[ Cluster{i} ]\n')
+            else:
+                file_out.write(f'[ Noise ]\n')
+            for index_coord in cluster_i:
+                file_out.write(f'{coordinates[index_coord]} \n')
+
+    print("Clusters written to file.")
+     
+
+def convert_clusters_yacare_to_real_coordinates(output,output_dir,cluster_dir,name_output_cluster):
+    print("Converting clusters to real coordinates...")
+    coordinates,X_cuts,Labels=load_data_discretization(output)
+    
+    clusters_ndx=get_cluster_indexes_from_yacare(output_dir,cluster_dir)
+    write_clusters_to_file(clusters_ndx, coordinates, output_dir, name_output_cluster)
     return clusters_ndx,coordinates
 
 def get_resids_in_clusters(clusters_ndx,coordinates,name_coordinates_to_add,barycenter_coordinates_to_add,name_output,output_dir):
@@ -1153,7 +1187,6 @@ def MI_map_for_clusters(coordinates,MI,clusters_ndx,output_dir):
     for i in range(len(clusters_ndx)-1):
         print(f"Creating MI map for cluster {i}...")
         cluster_i=clusters_ndx[i]
-        cluster_i.sort()
         cluster_i_MI=np.zeros((len(cluster_i),len(cluster_i)),dtype=float)
         names_cluster_i=[coordinates[cluster_i[j]] for j in range(len(cluster_i))]
         for j in range(len(cluster_i)):
@@ -1223,7 +1256,6 @@ def get_states_from_clusters(clusters_ndx,output_dir,times_indices,number_of_sta
         ind_cluster=0
         file_out.write(f'Cluster {i} states:\n')
         cluster_i=clusters_ndx[i]
-        cluster_i.sort()
         cluster_i_states=np.zeros((nframes,len(cluster_i)),dtype=int)
         for j in range(len(cluster_i)):
             index_coord=cluster_i[j]
@@ -1272,8 +1304,7 @@ def clusterize_MI(output_dir,coordinates_to_add,barycenter_coordinates_to_add,st
         for j in range(len(MI)):
             distance_MI[i,j]=-MI_no_diag[i,j]+max_MI
         distance_MI[i,i]=0
-    np.savetxt(output_dir+'distance_MI.csv', distance_MI, delimiter=',')
-    yacare_clusterization(output_dir+'distance_MI.csv',output_dir,'Clusterize_MI',step_to_perform,ncoord)
+    yacare_clusterization(output_dir,'Clusterize_MI',step_to_perform,ncoord,distance_MI,0.0001,2,1.0,0.3,1)
     clusters_ndx,coordinates=convert_clusters_yacare_to_real_coordinates(output_dir+"selected_coordinates.txt",output_dir,'Clusterize_MI','Clusters_of_coordinates_from_MI.txt')
     os.system(f'cp {output_dir}Clusterize_MI/Clusterize_MI_Yacare_11-Matrix-WithNoise.png {output_dir}MI_plots/')
     os.system(f'mv {output_dir}distance_MI.csv {output_dir}Clusterize_MI/')
@@ -1284,19 +1315,113 @@ def clusterize_MI(output_dir,coordinates_to_add,barycenter_coordinates_to_add,st
     MI_map_for_clusters(coordinates,MI,clusters_ndx,output_dir)
     get_states_from_clusters(clusters_ndx,output_dir,times_indices,number_of_states_to_show)
 
+def get_euclidian_distance_between_conformations(array_cluster):
+    """
+    Computes the Euclidean distance matrix between conformations in the array_cluster.
+    Uses scipy's pdist and squareform for efficiency.
+    """
+
+    print("Computing Euclidean distance matrix...")
+    distance_matrix = squareform(pdist(array_cluster, metric='euclidean'))
+    print("Euclidean distance matrix computed.")
+    return distance_matrix
+
+def get_representative_frames(unique_states, representative_structures, times_indices, array_cluster):
+    """
+    Get representative frames for each conformation.
+    """
+    frames_representative_structures = []
+    for i in range(len(representative_structures)):
+        frame_index = np.where((array_cluster == unique_states[representative_structures[i]]).all(axis=1))[0][0]
+        frames_representative_structures.append(times_indices[frame_index])
+    return frames_representative_structures
+
+def calculate_conformation_probabilities(clusters_ndx, probabilities):
+    """
+    Calculate probabilities for each conformation in a cluster.
+    """
+    conformation_probabilities = []
+    for cluster in clusters_ndx:
+        probability = sum(probabilities[ind - 1] for ind in cluster)
+        conformation_probabilities.append(probability)
+    return conformation_probabilities
+
+def write_conformation_to_file(file_out, conformation_index, representative_structure, frame, probability, coordinates, cluster_coordinates):
+    """
+    Write details of a conformation to the output file.
+    """
+    file_out.write(f"Conformation {conformation_index}:\n")
+    file_out.write(f"Representative structure: {', '.join(representative_structure)}\n")
+    file_out.write(f"Representative structure frame: {frame}\n")
+    file_out.write(f"Probability: {probability:.6f}\n")
+    file_out.write("Coordinates:\n")
+    for coord, value in zip(cluster_coordinates, representative_structure):
+        file_out.write(f"{coord}: {value}\n")
+    file_out.write("\n")
+
+def get_proba_conformation(unique_states, probabilities, output_dir, cluster_dir, ind_cluster, clusters_coordinates_ndx, coordinates, times_indices, array_cluster):
+    """
+    Main function to process conformations and write results to file.
+    """
+    clusters_ndx = get_cluster_indexes_from_yacare(output_dir, cluster_dir)
+    representative_structures = get_representative_structure_from_yacare(output_dir, cluster_dir)
+    frames_representative_structures = get_representative_frames(unique_states, representative_structures, times_indices, array_cluster)
+    conformation_probabilities = calculate_conformation_probabilities(clusters_ndx, probabilities)
+
+    cluster_coordinates = [coordinates[ndx] for ndx in clusters_coordinates_ndx[ind_cluster]]
+    file_out = open(output_dir + 'clusters_conformations.txt', 'a')
+    file_out.write(f"\n#######################################################################\n")
+    file_out.write(f"Cluster {ind_cluster} conformations:\n\n")
+
+    total_probabilities = 0
+    for i, (probability, frame, representative_structure) in enumerate(zip(conformation_probabilities, frames_representative_structures, unique_states[representative_structures])):
+        representative_structure = representative_structure.astype(str)
+        write_conformation_to_file(file_out, i, representative_structure, frame, probability, coordinates, cluster_coordinates)
+        total_probabilities += probability
+
+    file_out.write(f"Total probability: {total_probabilities:.6f}\n\n")
+    file_out.close()
+
+
 def cluster_states(output_dir):
     data_clusters,_=open_file(output_dir+'clusters_states.txt')
     Indexes_of_clusters=[]
+    file_out=open(output_dir+'clusters_conformations.txt','w')
+    file_out.write('Clusters conformations:\n\n')
+    file_out.close()
+    clusters_coordinates_ndx,coordinates=convert_clusters_yacare_to_real_coordinates(output_dir+"selected_coordinates.txt",output_dir,'Clusterize_MI','Clusters_of_coordinates_from_MI.txt')
+    times_indices=np.load(output_dir+"times_indices.npy")
     for i in range(len(data_clusters)):
         if len(data_clusters[i])>1 and data_clusters[i][0]=='Cluster':
-            Indexes_of_clusters.append(data_clusters[i][1])
+            Indexes_of_clusters.append(int(data_clusters[i][1]))
     for i in range(len(Indexes_of_clusters)):
+
+        print('\n')
+        print(f"Getting conformations from cluster {i}...")
         Ind_i=Indexes_of_clusters[i]
         array_cluster=np.load(output_dir+f'Clusterize_MI/clusters_states/cluster_{Ind_i}_states.npy')
-        np.savetxt(output_dir+'temp_cluster_i.csv', array_cluster, delimiter=',')
-        yacare_clusterization(output_dir+'temp_cluster_i.csv',output_dir,'Get_conformations_cluster'+Ind_i,'clusterize_MI',len(array_cluster[0]))
-        os.system(f'rm {output_dir}temp_cluster_i.csv')
-        
+        unique_states,count_unique_states=np.unique(array_cluster,axis=0,return_counts=True)
+        if len(unique_states)>100:
+            probabilities=count_unique_states/len(array_cluster)
+            distance_matrix=get_euclidian_distance_between_conformations(unique_states)
+            print(f"Doing clusterization for cluster {i}...")
+            print(Ind_i)
+            yacare_clusterization(output_dir,'Get_conformations_cluster'+str(Ind_i),'Get_conformations_cluster'+str(Ind_i),len(distance_matrix),distance_matrix,1,1,1.0,1.0,2)
+            get_proba_conformation(unique_states,probabilities,output_dir,'Get_conformations_cluster'+str(Ind_i),Ind_i,clusters_coordinates_ndx,coordinates,times_indices,array_cluster)
+        else :
+            print("Not enough conformations to clusterize.")
+            file_out=open(output_dir+'clusters_conformations.txt','a')
+            file_out.write(f'\n####################################################################### \n')
+            file_out.write(f'Cluster {i} states:\n')
+            for j in range(min(10,len(unique_states))):
+                state_j=unique_states[j]
+                state_j = state_j.astype(str)
+                file_out.write(f"State: ")
+                file_out.write(str(state_j))
+                file_out.write(f"   Probability: {count_unique_states[j]/len(array_cluster):.6f} \n")
+            file_out.write('\n\n')
+            file_out.close()
+    file_out.close()
 
     
 

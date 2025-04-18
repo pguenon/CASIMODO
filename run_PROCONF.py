@@ -111,7 +111,7 @@ if step_to_perform=='all' or step_to_perform=='clusterize_MI':
         os.system(f'rm {output_dir}resids_in_cluster_from_MI.txt')
     clusterize_MI(output_dir,coordinates_to_add,barycenter_coordinates_to_add,step_to_perform,number_of_states_to_show)
 
-if step_to_perform=='all' or step_to_perform=='extract_conformations':
+if step_to_perform=='extract_conformations':
     cluster_states(output_dir)
 #########################################################################
 
