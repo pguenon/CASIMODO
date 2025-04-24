@@ -503,8 +503,7 @@ def process_dihedral_i(i, Positions_atoms_C, Positions_atoms_N, Positions_atoms_
     psi_angle=np.zeros(len(times))
     delta_y = 2
     
-    if i>0:
-
+    if i>0 and np.linalg.norm(Positions_atoms_C[i-1,0, :]-Positions_atoms_N[i,0, :]) < 1.6 :
         phi_angle = np.rad2deg(mda.lib.distances.calc_dihedrals(Positions_atoms_C[i-1,:, :], Positions_atoms_N[i,:, :], Positions_atoms_CA[i , :, :], Positions_atoms_C[i, :, :]))
         if max(phi_angle)-min(phi_angle) > 180:
             phi_angle, y_max_phi, y_min_phi = adjust_angle_data(phi_angle, min(phi_angle), max(phi_angle), delta_y)
@@ -525,7 +524,7 @@ def process_dihedral_i(i, Positions_atoms_C, Positions_atoms_N, Positions_atoms_
                     save_coordinate_results(times, phi_angle,coordinate,output_dir)
 
             
-    if i<len(Positions_atoms_C)-1:
+    if i<len(Positions_atoms_C)-1 and np.linalg.norm(Positions_atoms_N[i+1,0, :]-Positions_atoms_C[i,0, :]) < 1.6 :
         psi_angle = np.rad2deg(mda.lib.distances.calc_dihedrals(Positions_atoms_N[i, :, :], Positions_atoms_CA[i, :, :], Positions_atoms_C[i , :, :], Positions_atoms_N[i+1, :, :]))
         if max(psi_angle)-min(psi_angle) > 180:
             psi_angle, y_max_psi, y_min_psi = adjust_angle_data(psi_angle, min(psi_angle), max(psi_angle), delta_y)
@@ -591,7 +590,8 @@ def get_contacts(u_traj, terminal_atoms, RESIDS_SELECTED, time_zero, size_block,
         u_traj, terminal_atoms, RESIDS_SELECTED, times, times_indices,indices_aa
     )
     save_positions(Positions_atoms_terminal, output_dir+"Positions_npy/Positions_terminal_atoms.npy")
-    save_positions(Positions_atoms_CA, output_dir+"Positions_npy/Positions_CA_atoms.npy")
+    if len(indices_aa) > 2:
+        save_positions(Positions_atoms_CA, output_dir+"Positions_npy/Positions_CA_atoms.npy")
 
     compute_all_distances(
         u_traj, terminal_atoms, RESIDS_SELECTED, Positions_atoms_terminal, Positions_atoms_CA,
@@ -605,7 +605,9 @@ def get_dihedrals(u_traj, indices_aa, time_zero, size_block, delta_time, cutoff_
     """
     times= np.load(output_dir+'times.npy')
     times_indices= np.load(output_dir+'times_indices.npy')
-
+    if len(indices_aa) < 2:
+        print("No amino acids selected for dihedral analysis.")
+        return
     Positions_atoms_C, Positions_atoms_N = precompute_C_and_N(
         u_traj, indices_aa, times, times_indices
     )
@@ -709,10 +711,10 @@ def get_positions_baricenters(u_traj,output_dir,RESIDS_SELECTED,indices_aa,termi
     data_zero=open_data_coordinate(output_dir+"coordinates_data/"+coordinates[0]+".dat")
     times_to_compare=data_zero[:,0]
     nframes=len(times_to_compare)
-
-    Positions_atoms_CA = np.load(output_dir+"Positions_npy/Positions_CA_atoms.npy")
-    Positions_atoms_C = np.load(output_dir+"Positions_npy/Positions_C_atoms.npy")
-    Positions_atoms_N = np.load(output_dir+"Positions_npy/Positions_N_atoms.npy")
+    if len(indices_aa) >= 2:
+        Positions_atoms_CA = np.load(output_dir+"Positions_npy/Positions_CA_atoms.npy")
+        Positions_atoms_C = np.load(output_dir+"Positions_npy/Positions_C_atoms.npy")
+        Positions_atoms_N = np.load(output_dir+"Positions_npy/Positions_N_atoms.npy")
     Positions_atoms_terminal = np.load(output_dir+"Positions_npy/Positions_terminal_atoms.npy")
 
     Positions_barycenters=np.zeros((ncoord,nframes,3))
@@ -1053,11 +1055,15 @@ def yacare_clusterization(output_dir,name_cluster_dir,step_to_perform,number_of_
     else :
         yacare.choose_if_we_reorder_again(variables,indices=np.arange(0,number_of_coords))
     yacare.find_final_clusters(variables)
-    yacare.compare_clusters(variables, display_stddev = True)
-    yacare.propose_list_for_concatenating_clusters(variables, threshold_variable = threshold_variable, choice_merging_clusters=3)
-    yacare.concatenate_clusters(variables)
+    print("Number of clusters before merging: "+str(variables.number_clusters))
+    if variables.number_clusters>1 :
+        yacare.compare_clusters(variables, display_stddev = True)
+        yacare.propose_list_for_concatenating_clusters(variables, threshold_variable = threshold_variable, choice_merging_clusters=3)
+        yacare.concatenate_clusters(variables)
     yacare.expand_clusters(variables, amount_of_noise = amount_of_noise)
-    yacare.compare_final_clusters(variables)
+    print("Number of clusters before finale merging: "+str(variables.number_clusters_extend_data))
+    if variables.number_clusters_extend_data>1 :
+        yacare.compare_final_clusters(variables)
     yacare.find_final_clusters(variables)
     yacare.write_indices(variables)
 
@@ -1304,7 +1310,9 @@ def clusterize_MI(output_dir,coordinates_to_add,barycenter_coordinates_to_add,st
         for j in range(len(MI)):
             distance_MI[i,j]=-MI_no_diag[i,j]+max_MI
         distance_MI[i,i]=0
-    yacare_clusterization(output_dir,'Clusterize_MI',step_to_perform,ncoord,distance_MI,0.0001,2,1.0,0.3,1)
+
+    min_size_cluster,function_for_ratio,threshold_variable,amount_of_noise,percentage_moving_square=0.0001,2,1.0,0.3,1
+    yacare_clusterization(output_dir,'Clusterize_MI',step_to_perform,ncoord,distance_MI, min_size_cluster,function_for_ratio,threshold_variable,amount_of_noise,percentage_moving_square)
     clusters_ndx,coordinates=convert_clusters_yacare_to_real_coordinates(output_dir+"selected_coordinates.txt",output_dir,'Clusterize_MI','Clusters_of_coordinates_from_MI.txt')
     os.system(f'cp {output_dir}Clusterize_MI/Clusterize_MI_Yacare_11-Matrix-WithNoise.png {output_dir}MI_plots/')
     os.system(f'mv {output_dir}distance_MI.csv {output_dir}Clusterize_MI/')
@@ -1359,6 +1367,36 @@ def write_conformation_to_file(file_out, conformation_index, representative_stru
         file_out.write(f"{coord}: {value}\n")
     file_out.write("\n")
 
+def get_frames_in_conformation(unique_states, clusters_ndx, times_indices, array_cluster,output_dir,ind_cluster):
+    """
+    Get frames in each conformation.
+    """
+    frames_in_conformation = []
+    print(len(clusters_ndx))
+    for i in range(len(clusters_ndx)):
+        frames_in_cluster_i = []
+        for j in range(len(clusters_ndx[i])):
+            state= clusters_ndx[i][j]
+            frame_indices = np.where((array_cluster == unique_states[state]).all(axis=1))[0]
+            frames_in_cluster_i+=list(times_indices[frame_indices])
+        frames_in_cluster_i.sort()
+        frames_in_conformation.append(frames_in_cluster_i)
+    file_conf_out=open(output_dir+'Get_conformations_cluster'+str(ind_cluster)+'/cluster'+str(ind_cluster)+'_conformations.ndx','w')
+    for i in range(len(frames_in_conformation)-1):
+        file_conf_out.write(f'[ Conformation{i} ] \n')
+        for j in range(len(frames_in_conformation[i])):
+            file_conf_out.write(f"{frames_in_conformation[i][j]} ")
+            if (j + 1) % 15 == 0:
+                file_conf_out.write("\n")
+        file_conf_out.write("\n\n")
+    file_conf_out.write(f'[ Noise ] \n')
+    for j in range(len(frames_in_conformation[-1])):
+        file_conf_out.write(f"{frames_in_conformation[-1][j]} ")
+        if (j + 1) % 15 == 0:
+            file_conf_out.write("\n")
+    file_conf_out.close()
+    
+
 def get_proba_conformation(unique_states, probabilities, output_dir, cluster_dir, ind_cluster, clusters_coordinates_ndx, coordinates, times_indices, array_cluster):
     """
     Main function to process conformations and write results to file.
@@ -1367,6 +1405,7 @@ def get_proba_conformation(unique_states, probabilities, output_dir, cluster_dir
     representative_structures = get_representative_structure_from_yacare(output_dir, cluster_dir)
     frames_representative_structures = get_representative_frames(unique_states, representative_structures, times_indices, array_cluster)
     conformation_probabilities = calculate_conformation_probabilities(clusters_ndx, probabilities)
+    get_frames_in_conformation(unique_states, clusters_ndx, times_indices, array_cluster,output_dir, ind_cluster)
 
     cluster_coordinates = [coordinates[ndx] for ndx in clusters_coordinates_ndx[ind_cluster]]
     file_out = open(output_dir + 'clusters_conformations.txt', 'a')
@@ -1374,7 +1413,7 @@ def get_proba_conformation(unique_states, probabilities, output_dir, cluster_dir
     file_out.write(f"Cluster {ind_cluster} conformations:\n\n")
 
     total_probabilities = 0
-    for i, (probability, frame, representative_structure) in enumerate(zip(conformation_probabilities, frames_representative_structures, unique_states[representative_structures])):
+    for i, (probability, frame, representative_structure) in enumerate(zip(conformation_probabilities[:-1], frames_representative_structures, unique_states[representative_structures])):
         representative_structure = representative_structure.astype(str)
         write_conformation_to_file(file_out, i, representative_structure, frame, probability, coordinates, cluster_coordinates)
         total_probabilities += probability
@@ -1406,7 +1445,8 @@ def cluster_states(output_dir):
             distance_matrix=get_euclidian_distance_between_conformations(unique_states)
             print(f"Doing clusterization for cluster {i}...")
             print(Ind_i)
-            yacare_clusterization(output_dir,'Get_conformations_cluster'+str(Ind_i),'Get_conformations_cluster'+str(Ind_i),len(distance_matrix),distance_matrix,1,1,1.0,1.0,2)
+            min_size_cluster,function_for_ratio,threshold_variable,amount_of_noise,percentage_moving_square=1,1,1.0,1.0,2
+            yacare_clusterization(output_dir,'Get_conformations_cluster'+str(Ind_i),'Get_conformations_cluster'+str(Ind_i),len(distance_matrix),distance_matrix,min_size_cluster,function_for_ratio,threshold_variable,amount_of_noise,percentage_moving_square)
             get_proba_conformation(unique_states,probabilities,output_dir,'Get_conformations_cluster'+str(Ind_i),Ind_i,clusters_coordinates_ndx,coordinates,times_indices,array_cluster)
         else :
             print("Not enough conformations to clusterize.")
