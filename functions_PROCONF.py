@@ -69,6 +69,7 @@ def get_terminal_atoms_MDA(u_traj, terminal_atoms_dic):
     RESNAMES_SELECTED = []
     indices_aa = []
     RES_NOT_FOUND=[]
+    CHAINS_SELECTED=[]
     for residue in u_traj.residues:
         resname = residue.resname
         resid = residue.resid
@@ -230,11 +231,11 @@ def compute_min_distances(Positions_atoms_terminal, Positions_atoms_CA, i, j,ind
 
     if RESIDS_SELECTED[i] in indices_aa:
         ind_aa=indices_aa.index(RESIDS_SELECTED[i])
-        Positions_i.append(Positions_atoms_CA[i,:,:])
+        Positions_i.append(Positions_atoms_CA[ind_aa,:,:])
         atoms_i.append('CA')
     if RESIDS_SELECTED[j] in indices_aa:
         ind_aa=indices_aa.index(RESIDS_SELECTED[j])
-        Positions_j.append(Positions_atoms_CA[j,:,:])
+        Positions_j.append(Positions_atoms_CA[ind_aa,:,:])
         atoms_j.append('CA')
     
     distances= np.zeros((len(atoms_i),len(atoms_j),len(Positions_i[0])))
@@ -282,13 +283,8 @@ def perform_kde(data, delta_y, bandwidth=None):
     kde = gaussian_kde(data, bw_method=bandwidth)
     H_kde = kde(x_smooth)
 
-    # Improve peak detection by dynamically adjusting height and prominence
-    peaks, properties = find_peaks(H_kde, height=np.max(H_kde) * 0.1, prominence=np.max(H_kde) * 0.05)
-
-    if len(peaks) > 1:
-        return True, H_kde, x_smooth
-    else:
-        return False, None, None
+    return H_kde, x_smooth
+    
     
 def compute_histogram(data, y_min, y_max, delta_y):
     return np.histogram(data, bins=np.arange(y_min, y_max + delta_y, delta_y), density=True)
@@ -391,8 +387,7 @@ def filter_minimums_KDE(minimums,x_smooth,H_kde,cutoff_value_kde,cutoff_value_x)
         delta_val = max_before - val_0
         delta_val2 = max_after - val_0  
         delta_x = x_after - x_before
-        
-        if delta_val > cutoff_value_kde and delta_val2 > cutoff_value_kde and delta_x > cutoff_value_x :
+        if  delta_val > cutoff_value_kde and delta_val2 > cutoff_value_kde and delta_x > cutoff_value_x :
             filtered_minimums.append(mini)
     return filtered_minimums
 
@@ -478,22 +473,19 @@ def process_distance_pair(i, j, Positions_atoms_terminal, Positions_atoms_CA, te
     if min_absolute_distance > cutoff_distances or delta_distance < delta_y*20:
         return
 
-    
-    
-    multimodality, H_kde, x_smooth = perform_kde(distance_to_save, delta_y)
-    if multimodality:
-        data, filtered_data, x, AVG, error_bars, delta_y, coord_type, xlabel = get_avg_histogram(times, distance_to_save, time_zero, size_block, 'distance')
-        cutoff_value_kde = max(H_kde) * height_cutoff / 100
-        cutoff_value_x= delta_y*5
-        minimums = find_minimums(x_smooth, H_kde)
+    H_kde, x_smooth = perform_kde(distance_to_save, delta_y)
+    data, filtered_data, x, AVG, error_bars, delta_y, coord_type, xlabel = get_avg_histogram(times, distance_to_save, time_zero, size_block, 'distance')
+    cutoff_value_kde = max(H_kde) * height_cutoff / 100
+    cutoff_value_x= delta_y*5
+    minimums = find_minimums(x_smooth, H_kde)
+    if len(minimums) > 0:
+        minimums = filter_minimums_KDE(minimums, x_smooth, H_kde, cutoff_value_kde,cutoff_value_x)
         if len(minimums) > 0:
-            minimums = filter_minimums_KDE(minimums, x_smooth, H_kde, cutoff_value_kde,cutoff_value_x)
-            if len(minimums) > 0:
-                coordinate = f"{RESIDS_SELECTED[i]}_{atom_i_to_save}_{RESIDS_SELECTED[j]}_{atom_j_to_save}"
-                plot_histogram(x, AVG, error_bars, H_kde, x_smooth, delta_y, coord_type, xlabel, coordinate, minimums,output_dir)
-                labels=get_labels_discretization_kde(minimums,x_smooth,H_kde)
-                save_minimums(minimums, coordinate, labels, output)
-                save_coordinate_results(times, distance_to_save, coordinate,output_dir)
+            coordinate = f"{RESIDS_SELECTED[i]}_{atom_i_to_save}_{RESIDS_SELECTED[j]}_{atom_j_to_save}"
+            plot_histogram(x, AVG, error_bars, H_kde, x_smooth, delta_y, coord_type, xlabel, coordinate, minimums,output_dir)
+            labels=get_labels_discretization_kde(minimums,x_smooth,H_kde)
+            save_minimums(minimums, coordinate, labels, output)
+            save_coordinate_results(times, distance_to_save, coordinate,output_dir)
 
 def process_dihedral_i(i, Positions_atoms_C, Positions_atoms_N, Positions_atoms_CA, RESIDS_SELECTED, times, time_zero, size_block, height_cutoff, output,output_dir):
     """
@@ -508,8 +500,8 @@ def process_dihedral_i(i, Positions_atoms_C, Positions_atoms_N, Positions_atoms_
         if max(phi_angle)-min(phi_angle) > 180:
             phi_angle, y_max_phi, y_min_phi = adjust_angle_data(phi_angle, min(phi_angle), max(phi_angle), delta_y)
         delta_angle= max(phi_angle) - min(phi_angle)
-        multimodality_phi, H_kde_phi, x_smooth_phi = perform_kde(phi_angle, delta_y)
-        if multimodality_phi and delta_angle > delta_y*20:
+        H_kde_phi, x_smooth_phi = perform_kde(phi_angle, delta_y)
+        if delta_angle > delta_y*20:
             data, filtered_data, x, AVG, error_bars, delta_y, coord_type, xlabel = get_avg_histogram(times, phi_angle, time_zero, size_block,'angle')
             cutoff_value = max(AVG) * height_cutoff / 100
             cutoff_value_x= delta_y*5
@@ -529,8 +521,8 @@ def process_dihedral_i(i, Positions_atoms_C, Positions_atoms_N, Positions_atoms_
         if max(psi_angle)-min(psi_angle) > 180:
             psi_angle, y_max_psi, y_min_psi = adjust_angle_data(psi_angle, min(psi_angle), max(psi_angle), delta_y)
         delta_angle= max(psi_angle) - min(psi_angle)
-        multimodality_psi, H_kde_psi, x_smooth_psi = perform_kde(psi_angle,delta_y)
-        if multimodality_psi and delta_angle > delta_y*20:
+        H_kde_psi, x_smooth_psi = perform_kde(psi_angle,delta_y)
+        if delta_angle > delta_y*20:
             data, filtered_data, x, AVG, error_bars, delta_y, coord_type, xlabel = get_avg_histogram(times, psi_angle, time_zero, size_block,'angle')
             cutoff_value = max(AVG) * height_cutoff / 100
             cutoff_value_x= delta_y*5
@@ -665,9 +657,9 @@ def add_coordinates(coordinates_to_add,type_coordinates_to_add,output_dir,time_z
             continue
         if type_coord == 'angle' and max(y_coord)-min(y_coord) > 180:
             y_coord,y_max,y_min=adjust_angle_data(y_coord,min(y_coord),max(y_coord),delta_y)
-        multimodality, H_kde, x_smooth = perform_kde(y_coord,delta_y)
+        H_kde, x_smooth = perform_kde(y_coord,delta_y)
         delta_coord= max(y_coord) - min(y_coord)
-        if multimodality and delta_coord > delta_y*20:
+        if delta_coord > delta_y*20:
             data, filtered_data, x, AVG, error_bars, delta_y, coord_type, xlabel = get_avg_histogram(t_coord, y_coord, time_zero, size_block,type_coord)
             cutoff_value = max(AVG) * height_cutoff / 100
             cutoff_value_x= delta_y*5
@@ -732,11 +724,11 @@ def get_positions_baricenters(u_traj,output_dir,RESIDS_SELECTED,indices_aa,termi
 
         if coord[:3]=='phi':
             index_resid=int(coord[3:])
-            ind_pos=RESIDS_SELECTED.index(index_resid)
+            ind_pos=indices_aa.index(index_resid)
             Positions_barycenters[i]=(Positions_atoms_C[ind_pos-1,:, :]+Positions_atoms_N[ind_pos,:, :]+Positions_atoms_CA[ind_pos , :, :]+Positions_atoms_C[ind_pos, :, :])/4
         elif coord[:3]=='psi':
             index_resid=int(coord[3:])
-            ind_pos=RESIDS_SELECTED.index(index_resid)
+            ind_pos=indices_aa.index(index_resid)
             Positions_barycenters[i]=(Positions_atoms_N[ind_pos, :, :]+Positions_atoms_CA[ind_pos, :, :]+Positions_atoms_C[ind_pos , :, :]+Positions_atoms_N[ind_pos+1, :, :])/4
         elif coord in name_coord_to_add :
             index_coord=name_coord_to_add.index(coord)
@@ -944,7 +936,10 @@ def plot_MI_vs_distance_clusters(MI,output_dir,avg_distances_barycenters,cluster
         print(f"Plotting cluster {i} data...")
         distance_i = avg_distances_barycenters[np.ix_(clusters_ndx[i], clusters_ndx[i])]
         MI_i = MI[np.ix_(clusters_ndx[i], clusters_ndx[i])]
-        plt.scatter(distance_i.flatten(), MI_i.flatten(),marker='x', alpha=0.8,label=f'Cluster {i}',color=plt.cm.rainbow(i / (len(clusters_ndx)-2)))
+        if len(clusters_ndx) > 2:
+            plt.scatter(distance_i.flatten(), MI_i.flatten(),marker='x', alpha=0.8,label=f'Cluster {i}',color=plt.cm.rainbow(i / (len(clusters_ndx)-2)))
+        else:
+            plt.scatter(distance_i.flatten(), MI_i.flatten(),marker='x', alpha=0.8,label=f'Cluster {i}',color='blue')
     plt.xlabel('Average Distance (A)')
     plt.ylabel('Mutual Information')
     plt.title('Mutual Information vs Average Distance')
@@ -1061,10 +1056,6 @@ def yacare_clusterization(output_dir,name_cluster_dir,step_to_perform,number_of_
         yacare.propose_list_for_concatenating_clusters(variables, threshold_variable = threshold_variable, choice_merging_clusters=3)
         yacare.concatenate_clusters(variables)
     yacare.expand_clusters(variables, amount_of_noise = amount_of_noise)
-    print("Number of clusters before finale merging: "+str(variables.number_clusters_extend_data))
-    if variables.number_clusters_extend_data>1 :
-        yacare.compare_final_clusters(variables)
-    yacare.find_final_clusters(variables)
     yacare.write_indices(variables)
 
     os.system('mkdir -p '+output_dir+variables.project_name)

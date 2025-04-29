@@ -11,7 +11,6 @@ def arg_parser():
     parser = argparse.ArgumentParser(description='get terminal atoms')  
     parser.add_argument('-struc', type=str, help='Path to gro file', required=True)
     parser.add_argument('-trj', type=str, help='Path to trajectory file', required=True)
-    parser.add_argument('-non_regular_dic', type=str, default='dic_non_regular_residues.txt', help='Path to non regular residues dictionary file')
     parser.add_argument('-dic', type=str, default='dic_terminal_atoms_protein.txt',help='Path to terminal atoms dictionary file')
     parser.add_argument('--o_dir', type=str,default='results/', help='Path to output directory')
     parser.add_argument('--cutoff_distances', type=int,default=5,help='Cutoff index for the contacts')
@@ -41,12 +40,23 @@ time_zero=args.time_zero
 size_block=args.size_block
 delta_time=args.delta_time
 height_cutoff=args.height_cutoff
-non_regular_dic=args.non_regular_dic
 coordinates_to_add=args.coordinates_to_add
 type_coordinates_to_add=args.type_coordinates_to_add
 barycenter_coordinates_to_add=args.barycenter_coordinates_to_add
 step_to_perform=args.step_to_perform
 number_of_states_to_show=args.number_of_states_to_show
+
+#####check if in the input files exist#######
+if not os.path.exists(strucfile):
+    print(f'Error: {strucfile} does not exist')
+    exit()
+if not os.path.exists(trajfile):
+    print(f'Error: {trajfile} does not exist')
+    exit()
+if not os.path.exists(dic):
+    print(f'Error: {dic} does not exist')
+    exit()
+#############################################
 
 if not os.path.exists(output_dir):
     os.mkdir(output_dir)
@@ -80,6 +90,11 @@ if step_to_perform=='all' or step_to_perform=='discretize_conformations' or step
         os.system(f'rm {output_dir}terminal_atoms.txt')
     terminal_atoms, RESIDS_SELECTED, RESNAMES_SELECTED,indices_aa=get_terminal_atoms_MDA(u_traj, dic)
     save_terminal_atoms(terminal_atoms, RESIDS_SELECTED, RESNAMES_SELECTED,output_dir)
+    print('\n')
+    print(f'Residues selected: {RESIDS_SELECTED}')
+    print(f'Residues names selected: {RESNAMES_SELECTED}')
+    print(f'Indices of the amino acids: {indices_aa}')
+    print('\n')
 #################################################################
 
 #################discretize conformations############################
@@ -106,7 +121,7 @@ if step_to_perform=='all' or step_to_perform=='get_mutual_information':
 if step_to_perform=='all' or step_to_perform=='get_entropy':
     get_entropy(output_dir)
 
-if step_to_perform=='all' or step_to_perform=='clusterize_MI':
+if step_to_perform=='clusterize_MI':
     if os.path.exists(f'{output_dir}Clusters_of_coordinate_from_MI.txt'):
         os.system(f'rm {output_dir}Clusters_of_coordinate_from_MI.txt')
     if os.path.exists(f'{output_dir}resids_in_cluster_from_MI.txt'):
