@@ -298,8 +298,8 @@ def compute_hist_tot(times,data, num_blocks, y_min, y_max, delta_y, time_zero_ps
         hist, bin_edges = compute_histogram(block_data, y_min, y_max, delta_y)
         HIST_TOT[i] = hist
         x = (bin_edges[:-1] + bin_edges[1:]) / 2
-        AVG = np.average(HIST_TOT, axis=0)
-        STD = np.std(HIST_TOT, axis=0)
+    AVG = np.average(HIST_TOT, axis=0)
+    STD = np.std(HIST_TOT, axis=0)
     return HIST_TOT, x, AVG, STD
 
 def compute_error_bars(STD, num_blocks, confidence_level=0.95):
@@ -812,7 +812,48 @@ def mutual_information(Discretized_Array,multiplicities,single_frequencies,doubl
                     index_freq_2+=1
             index_freq_1+=1
     return MI
+
 def compute_frequencies(Discretized_Array):
+    nframes, ncoord = Discretized_Array.shape
+    multiplicities = get_multiplicities(Discretized_Array)
+    multiplicity_tot = np.sum(multiplicities)
+    
+    index_freq = np.zeros(ncoord, dtype=int)
+    index_freq[1:] = np.cumsum(multiplicities[:-1])
+    
+    # Preallocate output arrays
+    single_frequencies = np.zeros(multiplicity_tot, dtype=float)
+    double_frequencies = np.zeros((multiplicity_tot, multiplicity_tot), dtype=float)
+    print("\nComputing single frequencies...")
+    # Compute single frequencies
+    for i in range(ncoord):
+        plot_progress_bar(i, ncoord)
+        col = Discretized_Array[:, i]
+        offset = index_freq[i]
+        counts = np.bincount(col, minlength=multiplicities[i])
+        single_frequencies[offset:offset + multiplicities[i]] = counts / nframes
+    plot_progress_bar(ncoord, ncoord)
+    print("\nSingle frequencies computed.")
+    # Compute double frequencies
+    print("\nComputing double frequencies...")
+    for i in range(ncoord):
+        col_i = Discretized_Array[:, i]
+        offset_i = index_freq[i]
+        for j in range(i, ncoord):
+            plot_progress_bar(i * ncoord + j, ncoord * ncoord)
+            col_j = Discretized_Array[:, j]
+            offset_j = index_freq[j]
+            joint_counts = np.zeros((multiplicities[i], multiplicities[j]), dtype=int)
+            np.add.at(joint_counts, (col_i, col_j), 1)
+            joint_probs = joint_counts / nframes
+            double_frequencies[offset_i:offset_i + multiplicities[i], offset_j:offset_j + multiplicities[j]] = joint_probs
+            if i != j:
+                double_frequencies[offset_j:offset_j + multiplicities[j], offset_i:offset_i + multiplicities[i]] = joint_probs.T
+    plot_progress_bar(ncoord * ncoord, ncoord * ncoord)
+    print("\nDouble frequencies computed.")
+    return single_frequencies, double_frequencies
+
+def compute_frequencies_slow(Discretized_Array):
     nframes, ncoord = Discretized_Array.shape
     multiplicities = get_multiplicities(Discretized_Array)
     multiplicity_tot = np.sum(multiplicities)
@@ -847,48 +888,6 @@ def compute_frequencies(Discretized_Array):
 
     return single_frequencies, double_frequencies
 
-def compute_frequencies_slow(Discretized_Array):
-    nframes,ncoord=np.shape(Discretized_Array)
-    multiplicities=get_multiplicities(Discretized_Array)
-    multiplicity_tot=np.sum(multiplicities)
-    
-    single_frequencies=np.zeros((multiplicity_tot),dtype=float)
-    index_freq=0
-    print("Computing single frequencies...")
-    for i in range(ncoord):
-        plot_progress_bar(i,ncoord)
-        for xi in range(multiplicities[i]):
-            probab_xi=0
-            for f in range(nframes):
-                if Discretized_Array[f,i]==xi:
-                    probab_xi+=1/nframes
-            single_frequencies[index_freq]=probab_xi
-            index_freq+=1
-    plot_progress_bar(ncoord,ncoord)
-    print("\nSingle frequencies computed.")
-    print("Computing double frequencies...")
-    double_frequencies=np.ones((multiplicity_tot,multiplicity_tot),dtype=float)
-    index_freq_1=0
-    count_step=0
-    for i in range(ncoord):
-        for xi in range(multiplicities[i]):
-            index_freq_2=0
-            for j in range(i,ncoord):
-                for xj in range(multiplicities[j]):
-                    plot_progress_bar(count_step,multiplicity_tot*multiplicity_tot)
-                    prob_xi_xj=0
-                    for f in range(nframes):
-                        if Discretized_Array[f,i]==xi and Discretized_Array[f,j]==xj:
-                            prob_xi_xj+=1/nframes
-                    double_frequencies[index_freq_1,index_freq_2]=prob_xi_xj
-                    double_frequencies[index_freq_2,index_freq_1]=prob_xi_xj
-                    index_freq_2+=1
-                    count_step+=1
-            index_freq_1+=1
-    plot_progress_bar(multiplicity_tot*multiplicity_tot,multiplicity_tot*multiplicity_tot)
-    print("\nDouble frequencies computed.")
-            
-    return single_frequencies, double_frequencies
             
 def plot_mutual_information(MI,output_dir,name_out):
     plt.figure(figsize=(10, 6))
