@@ -16,13 +16,100 @@ from scipy.spatial.distance import pdist, squareform
 
 
 
-def plot_progress_bar(current, total, bar_length=40):
+###################### PRINT LOGO #####################
+def print_casimodo_logo():
+    # CASIMODO stylized text (big letters)
+    casimodo_text = r"""
+   _____           _____ _____ __  __  ____  _____   ____  
+  / ____|   /\    / ____|_   _|  \/  |/ __ \|  __ \ / __ \ 
+ | |       /  \  | (___   | | | \  / | |  | | |  | | |  | |
+ | |      / /\ \  \___ \  | | | |\/| | |  | | |  | | |  | |
+ | |____ / ____ \ ____) |_| |_| |  | | |__| | |__| | |__| |
+  \_____/_/    \_\_____/|_____|_|  |_|\____/|_____/ \____/ 
+                                                           
+    """
+    # Simplified Notre-Dame ASCII art (famous twin towers + rose window)
+    notre_dame = r"""
+   ,             ,
+   :===.     .===:
+   |/V\|     |/V\|
+   ||||;  |  |||||
+   |||||__T__|||||
+   |;:;|.,.,.|;:;|
+   |:;:|;:;:;|:;:|
+   |.o.| ,=. |,o.|
+   |/V\|({o})|/V\|
+   ||||| `=' |||||
+   |;:;|:;;;:|:::|
+   |,".|,:::.|,".|
+   ||:|||:::|||:||
+  """
+
+    print(casimodo_text)
+    print("Conformational Analysis via Statistical Inference of MOlecular Dynamics Observables\n")
+    print(notre_dame)
+
+
+###################### GENERAL FUNCTIONS #####################
+def plot_progress_bar(current, total,previous_progress, bar_length=40):
     progress = current / total
     block = int(round(bar_length * progress))
-    text = f"\rProgress: [{'#' * block + '-' * (bar_length - block)}] {progress * 100:.2f}%"
-    print(text, end='')
-        
+    
+    if previous_progress==-1 or progress==1 or progress-previous_progress >=0.05:
+        text = f"\rProgress: [{'#' * block + '-' * (bar_length - block)}] {progress * 100:.0f}%"
+        print(text, end='')
+        return progress 
+    else:
+        return previous_progress   
 
+def open_file (namefile) :
+    file_opened=open(namefile,'r')
+    lines_file=file_opened.readlines()
+    data=[]
+    for row in lines_file :
+     #   print(row)
+        data.append([x for x in row.split()])
+    return data,lines_file
+
+def open_data_coordinate (namefile) :
+    with open(namefile, 'r') as f:
+        data = np.loadtxt(f)
+    return data
+
+
+##################### OPENING TRAJECTORY #####################
+def open_trajectory(grofile,trajfile):
+    """
+    Opens a trajectory file using MDAnalysis and returns the universe object.
+    """
+    u_traj = mda.Universe(grofile,trajfile)
+    return u_traj
+
+
+########################## FILTERING TIMES AND INDICES ##################
+def filter_times_and_indices(u_traj, time_zero, delta_time,output_dir):
+    """
+    Filters trajectory times and indices based on the given time_zero and delta_time.
+    """
+    print("\nFiltering times and indices...")
+    times=[]
+    times_indices=[]
+    previous_progress = -1
+    for ts in u_traj.trajectory:
+        previous_progress=plot_progress_bar(ts.frame, len(u_traj.trajectory),previous_progress)
+        if ts.time >= time_zero and ts.time % delta_time == 0:
+            times.append(ts.time)
+            times_indices.append(ts.frame)
+    plot_progress_bar(len(u_traj.trajectory), len(u_traj.trajectory),previous_progress)
+    times = np.array(times)
+    times_indices = np.array(times_indices)
+    np.save(output_dir+'times.npy', times)
+    np.save(output_dir+'times_indices.npy', times_indices)
+    print("\nTimes and indices filtered.")
+    return times,  times_indices
+
+
+####################### GET TERMINAL ATOMS #######################
 def read_dictionary(dic):
     """
     Reads the terminal atoms dictionary file and returns a dictionary of terminal atoms.
@@ -43,26 +130,11 @@ def read_dictionary(dic):
                 print(f"Skipping line: {line}")
     return terminal_atoms_dic,amino_acids
 
-
-def open_file (namefile) :
-    file_opened=open(namefile,'r')
-    lines_file=file_opened.readlines()
-    data=[]
-    for row in lines_file :
-     #   print(row)
-        data.append([x for x in row.split()])
-    return data,lines_file
-
-def open_data_coordinate (namefile) :
-    with open(namefile, 'r') as f:
-        data = np.loadtxt(f)
-    return data
-
-
 def get_terminal_atoms_MDA(u_traj, terminal_atoms_dic):
     """
     Get terminal atoms from MDAnalysis universe.
     """
+    print("\nGetting terminal atoms...")
     atoms_dic,amino_acids = read_dictionary(terminal_atoms_dic)
     terminal_atoms = []
     RESIDS_SELECTED = []
@@ -85,6 +157,7 @@ def get_terminal_atoms_MDA(u_traj, terminal_atoms_dic):
     return terminal_atoms, RESIDS_SELECTED, RESNAMES_SELECTED,indices_aa
 
 def save_terminal_atoms(terminal_atoms, RESIDS_SELECTED, RESNAMES_SELECTED,output_dir):
+    print("\nSaving terminal atoms to file...")
     with open(output_dir+'terminal_atoms.txt', 'w') as f:
         for k in range(len(terminal_atoms)):
             atom=terminal_atoms[k]
@@ -93,47 +166,11 @@ def save_terminal_atoms(terminal_atoms, RESIDS_SELECTED, RESNAMES_SELECTED,outpu
             f.write(f'{resid}   {type_aa}   {atom}\n')
         f.close()
 
-def open_trajectory(grofile,trajfile):
-    """
-    Opens a trajectory file using MDAnalysis and returns the universe object.
-    """
-    u_traj = mda.Universe(grofile,trajfile)
-    return u_traj
 
 
-def compute_distances_CA_from_gro(u_gro, RESIDS_SELECTED):
-    """
-    Computes the distances between terminal atoms and all other atoms in the universe.
-    """
-    number_of_resids= len(RESIDS_SELECTED)
 
-    distances_CA = np.zeros((number_of_resids,number_of_resids))
-    for i in range(number_of_resids-1):
-        for j in range(i+1,number_of_resids):
-            if i != j:
-                atom1 = u_gro.select_atoms(f"resid {RESIDS_SELECTED[i]} and name CA")
-                atom2 = u_gro.select_atoms(f"resid {RESIDS_SELECTED[j]} and name CA")
-                distances_CA[i, j] = np.linalg.norm(atom1.positions - atom2.positions)
-                distances_CA[j, i] = distances_CA[i, j]
-    
-    return distances_CA
 
-def first_selection_on_CA(u_gro, RESIDS_SELECTED, cutoff_CA):
-    """
-    Selects the first selection of residues based on the distances between CA atoms.
-    """
-    distances_CA = compute_distances_CA_from_gro(u_gro, RESIDS_SELECTED)
-    number_of_resids= len(RESIDS_SELECTED)
-    dic_selection_CA=np.zeros((number_of_resids,number_of_resids))
-    for i in range(number_of_resids-1):
-        for j in range(i+1,number_of_resids):
-            if distances_CA[i, j] < cutoff_CA:
-                dic_selection_CA[i, j] = 1
-                dic_selection_CA[j, i] = 1
-
-    return dic_selection_CA
-
-def precompute_CA_and_terminals(u_traj, terminal_atoms, RESIDS_SELECTED, times, times_indices,indices_aa):
+def precompute_terminals(u_traj, terminal_atoms, RESIDS_SELECTED, times, times_indices,indices_aa):
     """
     Optimized version of precomputing positions of terminal and CA atoms for all residues over the trajectory.
     """
@@ -149,36 +186,24 @@ def precompute_CA_and_terminals(u_traj, terminal_atoms, RESIDS_SELECTED, times, 
         atom_terminal_selections.append(
             [u_traj.select_atoms(f"resid {RESIDS_SELECTED[i]} and name {terminal_atoms[i][j]}") for j in range(len(terminal_atoms[i]))]
         )
-    atom_CA_selections = [
-        u_traj.select_atoms(f"resid {indices_aa[i]} and name CA")
-        for i in range(num_amino_acids)
-    ]
 
     # Initialize arrays for positions
     Positions_atoms_terminal = np.zeros((num_atoms, len(times_indices), 3))
-    Positions_atoms_CA = np.zeros((num_amino_acids, len(times_indices), 3))
 
     # Iterate over frames and precompute positions
+    previous_progress = -1
     for k, frame in enumerate(times_indices):
         u_traj.trajectory[frame]
-        plot_progress_bar(k, len(times_indices))
+        previous_progress=plot_progress_bar(k, len(times_indices),previous_progress)
         count_step=0
-        count_aa=0
         for i in range(num_residues):
 
             for j in range(len(terminal_atoms[i])):
                 Positions_atoms_terminal[count_step, k, :] = atom_terminal_selections[i][j].positions
-                if RESIDS_SELECTED[i] in indices_aa :
-                    if terminal_atoms[i][j]== 'CA':
-                        Positions_atoms_CA[count_aa, k, :] = Positions_atoms_terminal[count_step, k, :]
-                    count_aa += 1
                 count_step += 1
-        for i in range(num_amino_acids):
-            if 'CA' not in terminal_atoms[i] :
-                Positions_atoms_CA[i, k, :] = atom_CA_selections[i].positions
-    plot_progress_bar(len(times_indices), len(times_indices))
+    plot_progress_bar(len(times_indices), len(times_indices),previous_progress)
     print("\nPositions precomputed.")
-    return Positions_atoms_terminal, Positions_atoms_CA
+    return Positions_atoms_terminal
 
 def precompute_C_and_N(u_traj, RESIDS_SELECTED, times, times_indices):
     """
@@ -202,13 +227,14 @@ def precompute_C_and_N(u_traj, RESIDS_SELECTED, times, times_indices):
     Positions_atoms_N = np.zeros((num_residues, len(times_indices), 3))
 
     # Iterate over frames and precompute positions
+    previous_progress = -1
     for k, frame in enumerate(times_indices):
-        plot_progress_bar(k, len(times_indices))
+        previous_progress=plot_progress_bar(k, len(times_indices),previous_progress)
         u_traj.trajectory[frame]
         for i in range(num_residues):
             Positions_atoms_C[i, k, :] = atom_C_selections[i].positions
             Positions_atoms_N[i, k, :] = atom_N_selections[i].positions
-    plot_progress_bar(len(times_indices), len(times_indices))
+    plot_progress_bar(len(times_indices), len(times_indices),previous_progress)
     print("\nPositions precomputed.")
     return Positions_atoms_C, Positions_atoms_N
 
@@ -431,25 +457,6 @@ def save_minimums(minimums,coordinate,labels,name_output):
     file_output.write('\n')
     file_output.close()
 
-def filter_times_and_indices(u_traj, time_zero, delta_time,output_dir):
-    """
-    Filters trajectory times and indices based on the given time_zero and delta_time.
-    """
-    print("Filtering times and indices...")
-    times=[]
-    times_indices=[]
-    for ts in u_traj.trajectory:
-        plot_progress_bar(ts.frame, len(u_traj.trajectory))
-        if ts.time >= time_zero and ts.time % delta_time == 0:
-            times.append(ts.time)
-            times_indices.append(ts.frame)
-    plot_progress_bar(len(u_traj.trajectory), len(u_traj.trajectory))
-    times = np.array(times)
-    times_indices = np.array(times_indices)
-    np.save(output_dir+'times.npy', times)
-    np.save(output_dir+'times_indices.npy', times_indices)
-    print("\nTimes and indices filtered.")
-    return times,  times_indices
 
 def save_positions(Positions, outname):
     """
