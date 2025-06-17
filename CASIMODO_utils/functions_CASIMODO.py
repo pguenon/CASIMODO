@@ -13,135 +13,256 @@ from scipy.signal import find_peaks
 import yacare
 from scipy.ndimage import uniform_filter1d
 from scipy.spatial.distance import pdist, squareform
-
+from sklearn.mixture import GaussianMixture,BayesianGaussianMixture
+from sklearn.neighbors import KernelDensity
+from statsmodels.nonparametric.kde import KDEUnivariate
+from sklearn.neighbors import KernelDensity
+from scipy.interpolate import interp1d
 
 
 ###################### PRINT LOGO #####################
 def print_casimodo_logo():
-    # CASIMODO stylized text (big letters)
-    casimodo_text = r"""
-   _____           _____ _____ __  __  ____  _____   ____  
-  / ____|   /\    / ____|_   _|  \/  |/ __ \|  __ \ / __ \ 
- | |       /  \  | (___   | | | \  / | |  | | |  | | |  | |
- | |      / /\ \  \___ \  | | | |\/| | |  | | |  | | |  | |
- | |____ / ____ \ ____) |_| |_| |  | | |__| | |__| | |__| |
-  \_____/_/    \_\_____/|_____|_|  |_|\____/|_____/ \____/ 
-                                                           
-    """
-    # Simplified Notre-Dame ASCII art (famous twin towers + rose window)
-    notre_dame = r"""
-   ,             ,
-   :===.     .===:
-   |/V\|     |/V\|
-   ||||;  |  |||||
-   |||||__T__|||||
-   |;:;|.,.,.|;:;|
-   |:;:|;:;:;|:;:|
-   |.o.| ,=. |,o.|
-   |/V\|({o})|/V\|
-   ||||| `=' |||||
-   |;:;|:;;;:|:::|
-   |,".|,:::.|,".|
-   ||:|||:::|||:||
-  """
-
-    print(casimodo_text)
-    print("Conformational Analysis via Statistical Inference of MOlecular Dynamics Observables\n")
+    with open("CASIMODO_utils/notre_dame.txt", encoding="utf-8") as f:
+        notre_dame = f.read()
     print(notre_dame)
 
 
 ###################### GENERAL FUNCTIONS #####################
-def plot_progress_bar(current, total,previous_progress, bar_length=40):
+def plot_progress_bar(current, total, previous_progress, bar_length=40):
+    """
+    Displays a textual progress bar in the console.
+
+    Parameters:
+    - current (int): The current progress count.
+    - total (int): The total count to reach 100% completion.
+    - previous_progress (float): The last recorded progress value.
+    - bar_length (int): The length of the progress bar in characters (default is 40).
+
+    Returns:
+    - float: The new progress value if updated, otherwise returns previous_progress.
+
+    Note:
+    - The progress bar is only updated if:
+        - It's the first call (previous_progress == -1),
+        - Progress reaches 100%,
+        - Or if progress has increased by at least 5% since the last update.
+    """
     progress = current / total
     block = int(round(bar_length * progress))
     
-    if previous_progress==-1 or progress==1 or progress-previous_progress >=0.05:
+    if previous_progress == -1 or progress == 1 or progress - previous_progress >= 0.05:
         text = f"\rProgress: [{'#' * block + '-' * (bar_length - block)}] {progress * 100:.0f}%"
         print(text, end='')
         return progress 
     else:
         return previous_progress   
 
-def open_file (namefile) :
-    file_opened=open(namefile,'r')
-    lines_file=file_opened.readlines()
-    data=[]
-    for row in lines_file :
-     #   print(row)
-        data.append([x for x in row.split()])
-    return data,lines_file
+def open_file(namefile):
+    """
+    Opens a text file and reads its contents.
 
-def open_data_coordinate (namefile) :
+    Parameters:
+    - namefile (str): The name or path of the file to open.
+
+    Returns:
+    - data (list of lists): The file contents split by whitespace into lists of strings.
+    - lines_file (list of str): The original lines as strings from the file.
+
+    Note:
+    - Each line is split using default whitespace and stored in the `data` list.
+    """
+    file_opened = open(namefile, 'r')
+    lines_file = file_opened.readlines()
+    data = []
+    for row in lines_file:
+        data.append([x for x in row.split()])
+    return data, lines_file
+
+
+
+def open_data_coordinate(namefile):
+    """
+    Loads numerical data from a file using NumPy.
+
+    Parameters:
+    - namefile (str): The name or path of the file to open.
+
+    Returns:
+    - data (numpy.ndarray): A NumPy array containing the numerical data from the file.
+
+    Note:
+    - The file is expected to contain whitespace-separated numerical values.
+    """
     with open(namefile, 'r') as f:
         data = np.loadtxt(f)
     return data
 
+def load_data_discretization(output_selected_coordinates):
+    """
+    Loads discretization data from a file and extracts:
+    - coordinate names
+    - cut points for discretization (minima)
+    - corresponding labels for each region
+
+    Parameters:
+    - output_selected_coordinates (str): Path to the file containing discretization results.
+
+    Returns:
+    - coordinates (list of str): Names of the coordinates.
+    - X_cuts (list of list of float): Cut points (e.g., minima) for each coordinate.
+    - Labels (list of list of int): Labels corresponding to each region between cuts.
+    """
+
+    # Read file content (assumes open_file returns parsed data and raw lines)
+    data_discretization, lines_discretization = open_file(output_selected_coordinates)
+
+    coordinates = [row[0] for row in data_discretization]  # Extract coordinate names
+    X_cuts = []  # To hold lists of cut points for each coordinate
+    Labels = []  # To hold lists of region labels
+
+    for row in data_discretization:
+        xcut_i = []
+        labels_i = []
+
+        # Process alternating cut-point and label values (starting from column 1)
+        for idx in range(1, len(row)):
+            value = row[idx]
+            if idx % 2 == 1:
+                xcut_i.append(float(value))   # Even-indexed in 1-based count (odd in 0-based)
+            else:
+                labels_i.append(int(value))   # Odd-indexed in 1-based count (even in 0-based)
+
+        X_cuts.append(xcut_i)
+        Labels.append(labels_i)
+
+    return coordinates, X_cuts, Labels
+
 
 ##################### OPENING TRAJECTORY #####################
-def open_trajectory(grofile,trajfile):
+def open_trajectory(posfile, trajfile):
     """
-    Opens a trajectory file using MDAnalysis and returns the universe object.
+    Opens a molecular dynamics trajectory using MDAnalysis.
+
+    Parameters:
+    - posfile (str): The topology file (e.g., .psf, .gro, or .pdb) that describes the molecular structure.
+    - trajfile (str): The trajectory file (e.g., .dcd, .xtc) containing atomic coordinates over time.
+
+    Returns:
+    - u_traj (MDAnalysis.Universe): An MDAnalysis Universe object representing the system and trajectory,
+      which can be used for further analysis (e.g., atom selections, RMSD calculations, etc.).
     """
-    u_traj = mda.Universe(grofile,trajfile)
+    u_traj = mda.Universe(posfile, trajfile)
     return u_traj
 
 
+
 ########################## FILTERING TIMES AND INDICES ##################
-def filter_times_and_indices(u_traj, time_zero, delta_time,output_dir):
+def filter_times_and_indices(u_traj, time_zero, delta_time, output_dir):
     """
-    Filters trajectory times and indices based on the given time_zero and delta_time.
+    Filters trajectory frames based on time criteria and saves the results.
+
+    Parameters:
+    - u_traj (MDAnalysis.Universe): The trajectory universe object.
+    - time_zero (float): The minimum time threshold. Frames before this time are ignored.
+    - delta_time (float): The time step interval for selecting frames (e.g., every 100 ps).
+    - output_dir (str): Path to the directory where the output files will be saved.
+
+    Returns:
+    - times (np.ndarray): Array of selected frame times.
+    - times_indices (np.ndarray): Array of corresponding frame indices.
+
+    Behavior:
+    - Iterates through the trajectory.
+    - Uses a progress bar to show filtering progress in the terminal.
+    - Selects frames where the time is greater than or equal to `time_zero`
+      and where the time is a multiple of `delta_time`.
+    - Saves the selected times and their frame indices as `.npy` files in the specified output directory.
     """
     print("\nFiltering times and indices...")
-    times=[]
-    times_indices=[]
+    times = []
+    times_indices = []
     previous_progress = -1
+
     for ts in u_traj.trajectory:
-        previous_progress=plot_progress_bar(ts.frame, len(u_traj.trajectory),previous_progress)
+        # Update progress bar
+        previous_progress = plot_progress_bar(ts.frame, len(u_traj.trajectory), previous_progress)
+        
+        # Apply time filter
         if ts.time >= time_zero and ts.time % delta_time == 0:
             times.append(ts.time)
             times_indices.append(ts.frame)
-    plot_progress_bar(len(u_traj.trajectory), len(u_traj.trajectory),previous_progress)
+
+    # Complete progress bar
+    plot_progress_bar(len(u_traj.trajectory), len(u_traj.trajectory), previous_progress)
+
+    # Convert to NumPy arrays and save
     times = np.array(times)
     times_indices = np.array(times_indices)
-    np.save(output_dir+'times.npy', times)
-    np.save(output_dir+'times_indices.npy', times_indices)
-    print("\nTimes and indices filtered.")
-    return times,  times_indices
+    np.save(output_dir + 'times.npy', times)
+    np.save(output_dir + 'times_indices.npy', times_indices)
 
+    print("\nTimes and indices filtered.")
+    return times, times_indices
 
 ####################### GET TERMINAL ATOMS #######################
 def read_dictionary(dic):
     """
-    Reads the terminal atoms dictionary file and returns a dictionary of terminal atoms.
+    Reads a dictionary file containing terminal atom definitions.
+
+    Parameters:
+    - dic (str): Path to the dictionary text file.
+
+    Returns:
+    - terminal_atoms_dic (dict): A dictionary where each key is a residue name (e.g., amino acid),
+      and each value is a list of terminal atom names for that residue.
+    - amino_acids (list): A list of residue names marked as amino acids using the '@amino_acid' tag.
+
+    Notes:
+    - Lines ending with '@amino_acid' are treated specially to distinguish amino acids from other residues.
+    - Lines with insufficient data (length <= 1) are skipped and reported.
     """
     terminal_atoms_dic = {}
-    amino_acids=[]
+    amino_acids = []
     with open(dic, 'r') as f:
         lines = f.readlines()
         for line in lines:
             line = line.strip().split()
             if len(line) > 1:
-                if line[-1] == "@amino_acid" :
+                if line[-1] == "@amino_acid":
                     terminal_atoms_dic[line[0]] = line[1:-1]
                     amino_acids.append(line[0])
-                else :
+                else:
                     terminal_atoms_dic[line[0]] = line[1:]
             else:
                 print(f"Skipping line: {line}")
-    return terminal_atoms_dic,amino_acids
+    return terminal_atoms_dic, amino_acids
 
 def get_terminal_atoms_MDA(u_traj, terminal_atoms_dic):
     """
-    Get terminal atoms from MDAnalysis universe.
+    Extracts terminal atom definitions from an MDAnalysis Universe.
+
+    Parameters:
+    - u_traj (MDAnalysis.Universe): The trajectory object containing residues and atoms.
+    - terminal_atoms_dic (str): Path to the terminal atom dictionary file.
+
+    Returns:
+    - terminal_atoms (list): List of terminal atom names (per residue).
+    - RESIDS_SELECTED (list): List of residue IDs corresponding to the terminal atoms.
+    - RESNAMES_SELECTED (list): List of residue names corresponding to the terminal atoms.
+    - indices_aa (list): List of residue IDs that are amino acids (based on the dictionary).
+    
+    Notes:
+    - Residues not found in the dictionary are reported once.
     """
     print("\nGetting terminal atoms...")
-    atoms_dic,amino_acids = read_dictionary(terminal_atoms_dic)
+    atoms_dic, amino_acids = read_dictionary(terminal_atoms_dic)
     terminal_atoms = []
     RESIDS_SELECTED = []
     RESNAMES_SELECTED = []
     indices_aa = []
-    RES_NOT_FOUND=[]
-    CHAINS_SELECTED=[]
+    RES_NOT_FOUND = []
+    CHAINS_SELECTED = []
+
     for residue in u_traj.residues:
         resname = residue.resname
         resid = residue.resid
@@ -154,64 +275,118 @@ def get_terminal_atoms_MDA(u_traj, terminal_atoms_dic):
         elif resname not in RES_NOT_FOUND:
             print(f"Residue {resname} not found in terminal_atoms_dic")
             RES_NOT_FOUND.append(resname)
-    return terminal_atoms, RESIDS_SELECTED, RESNAMES_SELECTED,indices_aa
+    return terminal_atoms, RESIDS_SELECTED, RESNAMES_SELECTED, indices_aa
 
-def save_terminal_atoms(terminal_atoms, RESIDS_SELECTED, RESNAMES_SELECTED,output_dir):
+def save_terminal_atoms(terminal_atoms, RESIDS_SELECTED, RESNAMES_SELECTED, output_dir):
+    """
+    Saves terminal atom information to a text file.
+
+    Parameters:
+    - terminal_atoms (list): List of terminal atom names per residue.
+    - RESIDS_SELECTED (list): List of corresponding residue IDs.
+    - RESNAMES_SELECTED (list): List of corresponding residue names.
+    - output_dir (str): Directory path where the output file will be saved.
+
+    Output:
+    - A text file named 'terminal_atoms.txt' containing:
+      <resid>   <resname>   <atom_names>
+    """
     print("\nSaving terminal atoms to file...")
-    with open(output_dir+'terminal_atoms.txt', 'w') as f:
+    with open(output_dir + 'terminal_atoms.txt', 'w') as f:
         for k in range(len(terminal_atoms)):
-            atom=terminal_atoms[k]
-            resid=RESIDS_SELECTED[k]
-            type_aa=RESNAMES_SELECTED[k]
+            atom = terminal_atoms[k]
+            resid = RESIDS_SELECTED[k]
+            type_aa = RESNAMES_SELECTED[k]
             f.write(f'{resid}   {type_aa}   {atom}\n')
         f.close()
+    print("Terminal atoms saved to file.")
 
 
-
-
-
-def precompute_terminals(u_traj, terminal_atoms, RESIDS_SELECTED, times, times_indices,indices_aa):
+############################## PRECOMPUTE POSITIONS OF ATOMS ##################
+def precompute_terminals(u_traj, terminal_atoms, RESIDS_SELECTED, times, times_indices):
     """
-    Optimized version of precomputing positions of terminal and CA atoms for all residues over the trajectory.
-    """
-    print("Precomputing positions...")
-    num_residues = len(RESIDS_SELECTED)
-    num_atoms = np.sum([len(terminal_atoms[i]) for i in range(num_residues)])
+    Precomputes the 3D positions of terminal atoms 
+    for a selected set of residues across specified frames in a trajectory.
 
-    num_amino_acids = len(indices_aa)
-   
-    # Pre-select atoms for terminal and CA
-    atom_terminal_selections = []
+    Parameters:
+    - u_traj (MDAnalysis.Universe): The MDAnalysis universe object containing the trajectory.
+    - terminal_atoms (list of lists): A list of terminal atom names for each selected residue.
+    - RESIDS_SELECTED (list): Residue IDs corresponding to the residues with terminal atoms.
+    - times (np.ndarray): Time values for the selected frames (not directly used here but useful contextually).
+    - times_indices (np.ndarray): Indices of the frames in the trajectory to process.
+
+    Returns:
+    - Positions_terminal_atoms (np.ndarray): A NumPy array of shape (num_atoms, num_frames, 3),
+      storing the x, y, z coordinates of each terminal atom across selected frames.
+
+    Behavior:
+    - Preselects terminal atoms for all residues to avoid repetitive selection in each frame.
+    - Iterates over selected trajectory frames and stores the positions of each terminal atom.
+    - Displays a progress bar during processing.
+    """
+    print("\nPrecomputing terminal atoms positions...")
+
+    num_residues = len(RESIDS_SELECTED)  # Total number of residues with terminal atoms
+    num_atoms = np.sum([len(terminal_atoms[i]) for i in range(num_residues)])  # Total number of terminal atoms
+
+    # Pre-select atom groups for each terminal atom in each residue to avoid repeated selections
+    terminal_atom_selections = []
     for i in range(num_residues):
-        atom_terminal_selections.append(
-            [u_traj.select_atoms(f"resid {RESIDS_SELECTED[i]} and name {terminal_atoms[i][j]}") for j in range(len(terminal_atoms[i]))]
-        )
+        terminal_atom_selections.append([
+            u_traj.select_atoms(f"resid {RESIDS_SELECTED[i]} and name {terminal_atoms[i][j]}")
+            for j in range(len(terminal_atoms[i]))
+        ])
 
-    # Initialize arrays for positions
-    Positions_atoms_terminal = np.zeros((num_atoms, len(times_indices), 3))
+    # Initialize array to store terminal atom positions:
+    # Shape: (total terminal atoms, number of selected frames, 3 coordinates)
+    Positions_terminal_atoms = np.zeros((num_atoms, len(times_indices), 3))
 
-    # Iterate over frames and precompute positions
+    # Iterate through selected frames and record positions
     previous_progress = -1
     for k, frame in enumerate(times_indices):
-        u_traj.trajectory[frame]
-        previous_progress=plot_progress_bar(k, len(times_indices),previous_progress)
-        count_step=0
+        u_traj.trajectory[frame]  # Move to the specific frame
+        previous_progress = plot_progress_bar(k, len(times_indices), previous_progress)
+        count_step = 0  # Index for placing atoms in the output array
         for i in range(num_residues):
-
             for j in range(len(terminal_atoms[i])):
-                Positions_atoms_terminal[count_step, k, :] = atom_terminal_selections[i][j].positions
+                Positions_terminal_atoms[count_step, k, :] = terminal_atom_selections[i][j].positions
                 count_step += 1
-    plot_progress_bar(len(times_indices), len(times_indices),previous_progress)
-    print("\nPositions precomputed.")
-    return Positions_atoms_terminal
 
-def precompute_C_and_N(u_traj, RESIDS_SELECTED, times, times_indices):
+    # Complete the progress bar
+    plot_progress_bar(len(times_indices), len(times_indices), previous_progress)
+    print("\nTerminal atoms positions precomputed.")
+
+    return Positions_terminal_atoms
+
+def precompute_backbone(u_traj, RESIDS_SELECTED, times, times_indices):
     """
-    Optimized version of precomputing positions of C and N atoms for all residues over the trajectory.
+    Precomputes the 3D positions of backbone atoms (C, N, and CA) for each selected residue
+    across specified trajectory frames.
+
+    Parameters:
+    - u_traj (MDAnalysis.Universe): The MDAnalysis universe object containing the trajectory.
+    - RESIDS_SELECTED (list): List of residue IDs for which backbone atoms are to be tracked.
+    - times (np.ndarray): Array of time values for selected frames (not directly used here).
+    - times_indices (np.ndarray): Indices of the trajectory frames to be processed.
+
+    Returns:
+    - Positions_atoms_C (np.ndarray): Array of shape (num_residues, num_frames, 3)
+      with the 3D positions of the carbon (C) atoms.
+    - Positions_atoms_N (np.ndarray): Array of shape (num_residues, num_frames, 3)
+      with the 3D positions of the nitrogen (N) atoms.
+    - Positions_atoms_CA (np.ndarray): Array of shape (num_residues, num_frames, 3)
+      with the 3D positions of the alpha-carbon (CA) atoms.
+
+    Behavior:
+    - Selects backbone atoms (C, N, CA) once per residue to avoid repeated lookups.
+    - Iterates through specified trajectory frames and stores atom positions for each frame.
+    - Shows progress using a progress bar.
     """
-    print("Precomputing positions...")
+    print("\nPrecomputing backbone positions...")
+
     num_residues = len(RESIDS_SELECTED)
 
+    # Preselect atom groups for each backbone atom type
     atom_C_selections = [
         u_traj.select_atoms(f"resid {RESIDS_SELECTED[i]} and name C")
         for i in range(num_residues)
@@ -222,463 +397,915 @@ def precompute_C_and_N(u_traj, RESIDS_SELECTED, times, times_indices):
         for i in range(num_residues)
     ]
 
-    # Initialize arrays for positions
+    atom_CA_selections = [
+        u_traj.select_atoms(f"resid {RESIDS_SELECTED[i]} and name CA")
+        for i in range(num_residues)
+    ]
+
+    # Initialize arrays to store positions of backbone atoms over time
     Positions_atoms_C = np.zeros((num_residues, len(times_indices), 3))
     Positions_atoms_N = np.zeros((num_residues, len(times_indices), 3))
+    Positions_atoms_CA = np.zeros((num_residues, len(times_indices), 3))
 
-    # Iterate over frames and precompute positions
+    # Iterate through selected frames and record positions
     previous_progress = -1
     for k, frame in enumerate(times_indices):
-        previous_progress=plot_progress_bar(k, len(times_indices),previous_progress)
-        u_traj.trajectory[frame]
+        previous_progress = plot_progress_bar(k, len(times_indices), previous_progress)
+        u_traj.trajectory[frame]  # Set trajectory to the specific frame
+
         for i in range(num_residues):
             Positions_atoms_C[i, k, :] = atom_C_selections[i].positions
             Positions_atoms_N[i, k, :] = atom_N_selections[i].positions
-    plot_progress_bar(len(times_indices), len(times_indices),previous_progress)
-    print("\nPositions precomputed.")
-    return Positions_atoms_C, Positions_atoms_N
+            Positions_atoms_CA[i, k, :] = atom_CA_selections[i].positions
 
-def compute_min_distances(Positions_atoms_terminal, Positions_atoms_CA, i, j,indices_aa,terminal_atoms, RESIDS_SELECTED):
-    """
-    Computes the minimum distances between terminal and CA atoms for two residues.
-    """
-    num_term_i= len(terminal_atoms[i])
-    num_term_j= len(terminal_atoms[j])
-    
-    ind_term_0_i=sum([len(terminal_atoms[k]) for k in range(i)])
-    ind_term_0_j=sum([len(terminal_atoms[k]) for k in range(j)])
+    # Complete progress bar
+    plot_progress_bar(len(times_indices), len(times_indices), previous_progress)
+    print("\nBackbone positions precomputed.")
 
-    Positions_i=[Positions_atoms_terminal[ind_term_0_i+k,:,:] for k in range(num_term_i)]
-    Positions_j=[Positions_atoms_terminal[ind_term_0_j+k,:,:] for k in range(num_term_j)]
-    
-    atoms_i=terminal_atoms[i].copy()
-    atoms_j=terminal_atoms[j].copy()
-    
-
-    if RESIDS_SELECTED[i] in indices_aa:
-        ind_aa=indices_aa.index(RESIDS_SELECTED[i])
-        Positions_i.append(Positions_atoms_CA[ind_aa,:,:])
-        atoms_i.append('CA')
-    if RESIDS_SELECTED[j] in indices_aa:
-        ind_aa=indices_aa.index(RESIDS_SELECTED[j])
-        Positions_j.append(Positions_atoms_CA[ind_aa,:,:])
-        atoms_j.append('CA')
-    
-    distances= np.zeros((len(atoms_i),len(atoms_j),len(Positions_i[0])))
-    for k in range(len(atoms_i)):
-        for l in range(len(atoms_j)):
-            distances[k,l]=np.linalg.norm(Positions_i[k]-Positions_j[l],axis=1)
-    minimal_distances=np.zeros((len(atoms_i),len(atoms_j)))
-    for k in range(len(atoms_i)):
-        for l in range(len(atoms_j)):
-            minimal_distances[k,l]=np.min(distances[k,l])
-    minimal_indexes = np.unravel_index(np.argmin(minimal_distances, axis=None), minimal_distances.shape)
-    
-    
-    min_absolute_distance = minimal_distances[minimal_indexes[0], minimal_indexes[1]]
-    distance_to_save = distances[minimal_indexes[0], minimal_indexes[1]]
-    atom_i_to_save= atoms_i[minimal_indexes[0]]
-    atom_j_to_save= atoms_j[minimal_indexes[1]]
-    return min_absolute_distance,distance_to_save,atom_i_to_save,atom_j_to_save
+    return Positions_atoms_C, Positions_atoms_N, Positions_atoms_CA
 
 
-def save_coordinate_results(times, distance_to_save, coordinate,output_dir):
-    """
-    Saves the distance results to a file.
-    """
-    Time_evolution = np.column_stack((times, distance_to_save))
-    output_file = output_dir+"coordinates_data/"+coordinate+".dat"
-    np.savetxt(output_file, Time_evolution, fmt="%.2f   %.2f")
-
-
-def perform_kde(data, delta_y, bandwidth=None):
-    # Convert data to numpy array
-    data = np.asarray(data)
-
-    delta_y_smooth = delta_y/5
-    # Adaptive bandwidth selection if not provided
-    if bandwidth is None:
-        silverman_bw = 1.06 * np.std(data) * len(data) ** (-1 / 5)
-        scott_bw = np.power(len(data), -1 / (data.ndim + 4))
-        bandwidth = min(silverman_bw, scott_bw)  # Use the more conservative estimate
-
-    # Create a grid for KDE
-    x_smooth = np.arange(np.min(data), np.max(data), delta_y_smooth)
-
-    # Perform KDE
-    kde = gaussian_kde(data, bw_method=bandwidth)
-    H_kde = kde(x_smooth)
-
-    return H_kde, x_smooth
-    
-    
-def compute_histogram(data, y_min, y_max, delta_y):
-    return np.histogram(data, bins=np.arange(y_min, y_max + delta_y, delta_y), density=True)
-
-def compute_hist_tot(times,data, num_blocks, y_min, y_max, delta_y, time_zero_ps, size_block_ps):
-    HIST_TOT = np.zeros((num_blocks, len(np.arange(y_min, y_max + delta_y, delta_y)) - 1))
-    for i in range(num_blocks):
-        start_time = time_zero_ps + i * size_block_ps
-        end_time = start_time + size_block_ps
-        block_data = data[(times >= start_time) & (times < end_time)]
-        hist, bin_edges = compute_histogram(block_data, y_min, y_max, delta_y)
-        HIST_TOT[i] = hist
-        x = (bin_edges[:-1] + bin_edges[1:]) / 2
-    AVG = np.average(HIST_TOT, axis=0)
-    STD = np.std(HIST_TOT, axis=0)
-    return HIST_TOT, x, AVG, STD
-
-def compute_error_bars(STD, num_blocks, confidence_level=0.95):
-    degrees_freedom = num_blocks - 1
-    t_value = t.ppf((1 + confidence_level) / 2, degrees_freedom)
-    return t_value * (STD / np.sqrt(num_blocks))
-
-
-
-def adjust_angle_data(data, y_min, y_max, delta_y):
-    hist_all, bin_edges_all = compute_histogram(data, y_min, y_max, delta_y)
-    x_all = (bin_edges_all[:-1] + bin_edges_all[1:]) / 2
-    min_indices = np.where(hist_all == np.min(hist_all))[0]
-    x_min_all = x_all[min_indices[len(min_indices) // 2]] if len(min_indices) > 1 else x_all[min_indices[0]]
-    data = np.where(data < x_min_all, data + 360, data)
-    y_max = max(data)
-    y_min = min(data)
-    return data, y_max, y_min
-
-def get_avg_histogram(times,data,time_zero_ps,size_block_ps,coord_type):
-
-    if coord_type == 'distance':
-        xlabel = 'Distance (Angstroms)'
-        delta_y=0.1
-    elif coord_type == 'angle':
-        xlabel = 'Angle (degrees)'
-        delta_y = 2
-    
-    num_blocks = int((times[-1] - time_zero_ps) / size_block_ps)
-    y_max = max(data)
-    y_min = min(data)
-
-
-    discretized_data = np.zeros_like(data)
-
-    HIST_TOT, x, AVG, STD = compute_hist_tot(times,data, num_blocks, y_min, y_max, delta_y, time_zero_ps, size_block_ps)
-    error_bars = compute_error_bars(STD, num_blocks)
-    return data,data,x,AVG,error_bars,delta_y,coord_type,xlabel
-
-def find_minimums(x_smooth,H_kde):
-    D_kde = np.gradient(H_kde, x_smooth[1] - x_smooth[0])
-    D2_kde = np.gradient(D_kde, x_smooth[1] - x_smooth[0])
-    
-    zero_crossings = np.where(np.diff(np.sign(D_kde)))[0]
-    minimums = []
-    for idx in zero_crossings:
-        if D2_kde[idx] > 0:
-            minimums.append(x_smooth[idx])
-    return minimums
-
-def filter_minimums_KDE(minimums,x_smooth,H_kde,cutoff_value_kde,cutoff_value_x):
-    filtered_minimums = []
-    val_0=0
-
-    indexes_minimums=[np.where(x_smooth == minimums[i])[0][0] for i in range(len(minimums))]
-
-
-    for i in range(len(indexes_minimums)):
-        ind_mini=indexes_minimums[i]
-        mini=x_smooth[ind_mini]
-        if len(filtered_minimums)>0:
-            ind_before = np.where(x_smooth == filtered_minimums[-1])[0][0]
-            
-        else:
-            ind_before = 0
-        if ind_before < ind_mini:
-            max_before = max(H_kde[ind_before:ind_mini])
-            x_before = x_smooth[ind_before+np.argmax(H_kde[ind_before:ind_mini])]
-        else:
-            max_before = 0
-            x_before = 0
-        if i < len(indexes_minimums) - 1:
-            ind_after = indexes_minimums[i+1]
-            if ind_mini < ind_after:
-                max_after = max(H_kde[ind_mini:ind_after])
-                x_after = x_smooth[ind_mini+np.argmax(H_kde[ind_mini:ind_after])]
-            else:
-                max_after = 0
-                x_after = 0
-        else:
-            max_after = max(H_kde[ind_mini:])
-            x_after = x_smooth[ind_mini+np.argmax(H_kde[ind_mini:])]
-        val_0 = H_kde[ind_mini]
-        x_mini=x_smooth[ind_mini]
-        delta_val = max_before - val_0
-        delta_val2 = max_after - val_0  
-        delta_x = x_after - x_before
-        if  delta_val > cutoff_value_kde and delta_val2 > cutoff_value_kde and delta_x > cutoff_value_x :
-            filtered_minimums.append(mini)
-    return filtered_minimums
-
-def plot_histogram(x, AVG, error_bars, H_kde, x_smooth, delta_y, coord_type, xlabel, coordinate,minimums,output_dir):
-    fig, ax = plt.subplots()
-    ax.plot(x, AVG, color='black', label='Average')
-    ax.fill_between(x, AVG - error_bars, AVG + error_bars, color='black', alpha=0.3)
-    ax.plot(x_smooth, H_kde, color='red', lw=2, label='KDE')
-    for mini in minimums:
-        ax.axvline(x=mini, color='blue', linestyle='--')
-    ax.set_xlabel(xlabel)
-    ax.set_ylabel('Probability density')
-    ax.set_title(coordinate)
-    ax.legend()
-    plt.savefig(f'{output_dir}coordinates_plots/{coordinate}.png', dpi=150)
-    plt.close()
-
-
-def get_labels_discretization_kde(minimums,x_smooth,H_kde):
-    indexes_minimums = [np.where(x_smooth==mini)[0][0] for mini in minimums]
-    all_minimums=[0]+indexes_minimums+[len(x_smooth)-1]
-    inter_max=[]
-    for i in range(len(all_minimums)-1):
-        inter_max.append(max(H_kde[all_minimums[i]:all_minimums[i+1]]))
-    sorted_indices = np.argsort(inter_max)[::-1]
-    labels=np.zeros(len(sorted_indices),dtype=int)
-
-    for i in range(len(sorted_indices)):
-        labels[sorted_indices[i]]=i
-    return labels
-
-def save_minimums(minimums,coordinate,labels,name_output):
-    
-
-    file_output=open(name_output,'a')
-    file_output.write(f'{coordinate} ')
-    for i in range(len(minimums)):
-        file_output.write(f' {labels[i]}')
-        file_output.write(f' {minimums[i]:.3f}')
-    file_output.write(f' {labels[-1]}')
-    file_output.write('\n')
-    file_output.close()
-
-
+###########################Save positions###################################
 def save_positions(Positions, outname):
     """
     Saves precomputed positions
     """
     np.save(outname, Positions)
-    
 
-def process_distance_pair(i, j, Positions_atoms_terminal, Positions_atoms_CA, terminal_atoms, RESIDS_SELECTED, times, time_zero, size_block, cutoff_distances, height_cutoff, output,indices_aa,output_dir):
+
+
+
+############################ Functions for computing average histograms and error bars ########################
+def compute_histogram(data, y_min, y_max, delta_y):
+    """
+    Computes a normalized histogram (probability density) of the data.
+
+    Parameters:
+    - data (array-like): Input data to histogram.
+    - y_min (float): Minimum bin edge.
+    - y_max (float): Maximum bin edge.
+    - delta_y (float): Bin width.
+
+    Returns:
+    - hist (array): Normalized histogram (PDF).
+    - bin_edges (array): Edges of the bins.
+    """
+    bins = np.arange(y_min, y_max + delta_y, delta_y)
+    hist, bin_edges = np.histogram(data, bins=bins, density=True)
+    return hist, bin_edges
+
+
+def compute_hist_tot(times, data, num_blocks, y_min, y_max, delta_y, time_zero_ps, size_block_ps):
+    """
+    Computes block-averaged histograms over time.
+
+    Parameters:
+    - times (array): Time points corresponding to the data.
+    - data (array): Coordinate values over time.
+    - num_blocks (int): Number of time blocks to divide data into.
+    - y_min (float): Minimum bin edge.
+    - y_max (float): Maximum bin edge.
+    - delta_y (float): Bin width.
+    - time_zero_ps (float): Starting time for analysis.
+    - size_block_ps (float): Duration of each time block.
+
+    Returns:
+    - HIST_TOT (2D array): Histogram for each block.
+    - x (array): Bin centers.
+    - AVG (array): Average histogram across blocks.
+    - STD (array): Standard deviation of histogram across blocks.
+    """
+    bins = np.arange(y_min, y_max + delta_y, delta_y)
+    HIST_TOT = np.zeros((num_blocks, len(bins) - 1))
+
+    for i in range(num_blocks):
+        start_time = time_zero_ps + i * size_block_ps
+        end_time = start_time + size_block_ps
+
+        # Extract data for the current time block
+        block_data = data[(times >= start_time) & (times < end_time)]
+        
+        # Compute histogram for this block
+        hist, bin_edges = compute_histogram(block_data, y_min, y_max, delta_y)
+        HIST_TOT[i] = hist
+
+    # Compute bin centers
+    x = (bin_edges[:-1] + bin_edges[1:]) / 2
+    AVG = np.average(HIST_TOT, axis=0)
+    STD = np.std(HIST_TOT, axis=0)
+
+    return HIST_TOT, x, AVG, STD
+
+
+def compute_error_bars(STD, num_blocks, confidence_level=0.95):
+    """
+    Computes error bars using the t-distribution for a given confidence level.
+
+    Parameters:
+    - STD (array): Standard deviation of histogram across blocks.
+    - num_blocks (int): Number of blocks used in averaging.
+    - confidence_level (float): Desired confidence level (default is 0.95).
+
+    Returns:
+    - error_bars (array): Error bars for each bin.
+    """
+    degrees_freedom = num_blocks - 1
+    t_value = t.ppf((1 + confidence_level) / 2, degrees_freedom)
+    return t_value * (STD / np.sqrt(num_blocks))
+
+
+def get_avg_histogram(times, data, time_zero_ps, size_block_ps, coord_type):
+    """
+    Computes the average histogram and error bars for a coordinate type (e.g., distance, angle).
+
+    Parameters:
+    - times (array): Time points of the trajectory.
+    - data (array): Coordinate values.
+    - time_zero_ps (float): Starting time for analysis.
+    - size_block_ps (float): Size of each time block.
+    - coord_type (str): Type of coordinate ('distance' or 'angle').
+
+    Returns:
+    - data: Original data (unchanged).
+    - filtered_data: Copy of original data (currently same as data).
+    - x: Bin centers.
+    - AVG: Average histogram across blocks.
+    - error_bars: Error bars for each bin.
+    - delta_y: Bin width used.
+    - coord_type: Coordinate type (for labeling).
+    - xlabel: Label for plotting x-axis.
+    """
+    # Set histogram parameters based on coordinate type
+    if coord_type == 'distance':
+        xlabel = 'Distance (Angstroms)'
+        delta_y = 0.1
+    elif coord_type == 'angle':
+        xlabel = 'Angle (degrees)'
+        delta_y = 2
+    else:
+        raise ValueError(f"Unsupported coordinate type: {coord_type}")
+
+    # Compute number of blocks
+    num_blocks = int((times[-1] - time_zero_ps) / size_block_ps)
+
+    y_max = max(data)
+    y_min = min(data)
+
+    # Compute histograms
+    HIST_TOT, x, AVG, STD = compute_hist_tot(times, data, num_blocks, y_min, y_max, delta_y,
+                                             time_zero_ps, size_block_ps)
+
+    # Compute confidence intervals
+    error_bars = compute_error_bars(STD, num_blocks)
+
+    return data, data, x, AVG, error_bars, delta_y, coord_type, xlabel
+
+
+
+######################## Functions for discretizing coordinates ########################
+def smooth_coordinate(y, delta_y):
+    """
+    Smooth a 1D distribution using Kernel Density Estimation (KDE)
+    with a Gaussian kernel and fixed bandwidth.
+
+    Parameters:
+    - y: array-like, 1D input data (e.g., trajectory values).
+    - delta_y: float, bandwidth for the KDE and spacing for the evaluation grid.
+
+    Returns:
+    - x_smooth: 1D array of x-values (evaluation grid for the KDE).
+    - y_smooth: 1D array of corresponding smoothed probability density values.
+    """
+
+    # Ensure input is a NumPy array and reshape for sklearn's KDE
+    y = np.asarray(y).reshape(-1, 1)
+
+    # Step 1: Fit Gaussian KDE to the input data
+    kde = KernelDensity(kernel='gaussian', bandwidth=delta_y)
+    kde.fit(y)
+
+    # Step 2: Create an evaluation grid over the range of y
+    x_min, x_max = np.min(y), np.max(y)
+    x_smooth = np.arange(x_min, x_max, delta_y / 10).reshape(-1, 1)
+
+    # Step 3: Evaluate the log density on the grid
+    log_density = kde.score_samples(x_smooth)
+    y_smooth = np.exp(log_density)  # Convert from log-density to density
+
+    # Step 4: Normalize the density so it integrates to 1
+    y_smooth /= np.trapz(y_smooth, x_smooth.ravel())
+
+    # Return 1D arrays for usability
+    return x_smooth.ravel(), y_smooth
+
+
+def find_minima(x_smooth, y_smooth, prominence_minima, distance_minima):
+    """
+    Identifies local minima in a smoothed curve, robust to noise.
+
+    Parameters:
+    - x_smooth: 1D array of x-values (e.g., positions or spatial bins).
+    - y_smooth: 1D array of y-values corresponding to a smoothed function or KDE.
+    - prominence_minima: Minimum prominence required for a local minimum to be considered significant.
+                         Higher values ignore shallow dips (i.e., reduce sensitivity to noise).
+    - distance_minima: Minimum horizontal distance (in number of points) between neighboring minima.
+                       Useful for avoiding spurious minima clustered too closely.
+
+    Returns:
+    - minima: List of x-values where local minima are detected.
+    - indexes_minima_smooth: List of indices corresponding to those minima in x_smooth/y_smooth.
+    """
+
+    # Invert the smoothed curve to convert minima into peaks
+    inverted = -y_smooth
+
+    # Use find_peaks to detect peaks on the inverted curve, i.e., minima on the original curve
+    indexes_minima_smooth, _ = find_peaks(
+        inverted,
+        prominence=prominence_minima,
+        distance=distance_minima
+    )
+
+    # Extract the x-positions of the identified minima
+    minima = x_smooth[indexes_minima_smooth].tolist()
+
+    return minima, indexes_minima_smooth.tolist()
+
+
+def get_labels_discretization(minima, x_smooth, y_smooth):
+    """
+    Assigns labels to discretized regions based on their relative importance (e.g., density peak height).
+
+    Each region is defined by two consecutive minima in the smoothed distribution. The function:
+    1. Determines the index of each minimum in the x_smooth array.
+    2. Calculates the maximum density value (peak) within each region.
+    3. Sorts the regions by peak height (descending).
+    4. Assigns labels to each region based on this order (label 0 = highest peak, etc.).
+
+    Parameters:
+    - minima: List of x values (positions of selected minima).
+    - x_smooth: Array of smoothed x values (e.g., coordinate range).
+    - y_smooth: Array of smoothed density values (same length as x_smooth).
+
+    Returns:
+    - labels: Array of labels, ranked by peak height within each discretized region.
+    """
+
+    # Find indices in x_smooth corresponding to the provided minima
+    indexes_minima = [np.where(x_smooth == mini)[0][0] for mini in minima]
+
+    # Define region boundaries: start at 0, go through all minima, end at last index
+    all_minima = [0] + indexes_minima + [len(x_smooth) - 1]
+
+    # Compute maximum density in each region (between minima)
+    inter_max = []
+    for i in range(len(all_minima) - 1):
+        max_density = max(y_smooth[all_minima[i]:all_minima[i + 1]])
+        inter_max.append(max_density)
+
+    # Sort the regions by their max peak height (descending)
+    sorted_indices = np.argsort(inter_max)[::-1]
+
+    # Assign labels based on sorted order
+    labels = np.zeros(len(sorted_indices), dtype=int)
+    for i in range(len(sorted_indices)):
+        labels[sorted_indices[i]] = i  # Highest peak gets label 0, and so on
+
+    return labels
+
+def save_minima(minima, coordinate, labels, name_output):
+    """
+    Saves the discretization minima and their associated labels to a file.
+
+    The output format for each line is:
+    <coordinate_type> <label_0> <minimum_0> <label_1> <minimum_1> ... <label_N>
+    
+    The last label is repeated at the end, which may represent the label of the final interval.
+
+    Parameters:
+    - minima: List of x-values (floats) where local minima were found (used as discretization boundaries).
+    - coordinate: String indicating the coordinate type (e.g., "distance", "angle", etc.).
+    - labels: List of integers representing the region label associated with each minimum.
+    - name_output: Path to the output file where the minima and labels will be appended.
+    """
+
+    # Open the output file in append mode
+    with open(name_output, 'a') as file_output:
+        # Write the coordinate type first
+        file_output.write(f'{coordinate} ')
+        
+        # Write each label-minimum pair
+        for i in range(len(minima)):
+            file_output.write(f' {labels[i]}')               # Write label
+            file_output.write(f' {minima[i]:.3f}')         # Write minimum value with 3 decimal precision
+
+        # Write the final label again (to cover the last interval)
+        file_output.write(f' {labels[-1]}\n')  # Newline at the end of the line
+
+def save_coordinate_results(times, distance_to_save, coordinate, output_dir):
+    """
+    Saves the evolution of a coordinate (e.g., distance) over time to a .dat file.
+
+    Each line in the output file contains a time point and the corresponding coordinate value.
+
+    Parameters:
+    - times: 1D array of time points (floats).
+    - distance_to_save: 1D array of coordinate values (floats), same length as times.
+    - coordinate: String representing the coordinate name (used as filename).
+    - output_dir: String path to the output directory (should end with a slash).
+    """
+
+    # Stack time and coordinate values into two columns
+    Time_evolution = np.column_stack((times, distance_to_save))
+
+    # Construct output file path
+    output_file = output_dir + "coordinates_data/" + coordinate + ".dat"
+
+    # Save to file with two decimal places, separated by three spaces
+    np.savetxt(output_file, Time_evolution, fmt="%.2f   %.2f")
+
+def plot_histogram(x, AVG, error_bars, y_smooth, x_smooth, delta_y, coord_type, xlabel, coordinate_name, minima, output_dir):
+    """
+    Plots the histogram of coordinate data with error bars, KDE curve, and vertical lines at selected minima.
+
+    Parameters:
+    - x: Array of bin centers for the histogram.
+    - AVG: Average histogram values (probability density).
+    - error_bars: Error estimates for each bin (e.g., standard error).
+    - y_smooth: Smoothed density estimation from Kernel Density Estimation (KDE).
+    - x_smooth: x-values corresponding to the KDE curve.
+    - delta_y: Bin width or resolution (not directly used here but may be useful for labeling).
+    - coord_type: Type of coordinate (unused here but kept for compatibility).
+    - xlabel: Label string for the x-axis.
+    - coordinate_name: Name of the coordinate (used for plot title and filename).
+    - minima: List of x-values representing local minima to highlight on the plot.
+    - output_dir: Directory path to save the plot image.
+
+    The function saves the plot as a PNG file and closes the figure to free memory.
+    """
+
+    fig, ax = plt.subplots()
+
+    # Plot average histogram as a black line
+    ax.plot(x, AVG, color='black', label='Average')
+
+    # Fill between error bars to show variability
+    ax.fill_between(x, AVG - error_bars, AVG + error_bars, color='black', alpha=0.3)
+
+    # Plot KDE smoothed curve in red
+    ax.plot(x_smooth, y_smooth, color='red', lw=2, label='KDE')
+
+    # Draw vertical dashed blue lines at each minimum position
+    for mini in minima:
+        ax.axvline(x=mini, color='blue', linestyle='--')
+
+    # Set axis labels and plot title
+    ax.set_xlabel(xlabel)
+    ax.set_ylabel('Probability density')
+    ax.set_title(coordinate_name)
+
+    # Show legend
+    ax.legend()
+
+    # Save plot to specified directory with dpi for quality
+    plt.savefig(f'{output_dir}coordinates_plots/{coordinate_name}.png', dpi=150)
+
+    # Close the figure to free memory
+    plt.close()
+
+def discretize_coordinate(y, delta_y, coordinate_type, times, time_zero, size_block,
+                          coordinate_name, output, output_dir):
+    """
+    Discretizes a continuous coordinate distribution into distinct regions based on local minima 
+    identified in the smoothed probability density.
+
+    Workflow:
+    1. Smooth the coordinate distribution using KDE.
+    2. Compute an average histogram and related statistics from the raw data.
+    3. Detect local minima in the smoothed KDE curve.
+    4. Generate labels for discretized regions based on detected minima.
+    5. Save minima, labels, and coordinate data for downstream use.
+    6. Plot and save the histogram with KDE curve and highlighted minima.
+
+    Parameters:
+    - y (array-like): 1D array of coordinate values (trajectory over time).
+    - delta_y (float): Bin width or resolution for histogram and smoothing.
+    - coordinate_type (str): Label describing the coordinate type.
+    - times (array-like): 1D array of time points corresponding to the trajectory.
+    - time_zero (float): Starting time for analysis.
+    - size_block (float): Block size for time-averaging histograms.
+    - coordinate_name (str): Identifier used for saving files.
+    - output (str or file-like): Path or handle to save minima/label information.
+    - output_dir (str): Directory to save coordinate data and plots.
+
+    Returns:
+    - None. Results are saved to disk.
+    """
+
+    # Step 1: Smooth the coordinate distribution using KDE
+    x_smooth, y_smooth = smooth_coordinate(y, delta_y)
+
+    # Step 2: Compute the average histogram and error bars from raw data
+    data, filtered_data, x, AVG, error_bars, delta_y, coord_type, xlabel = get_avg_histogram(
+        times, y, time_zero, size_block, coordinate_type
+    )
+
+    # Step 3: Detect local minima in the smoothed density (robust to noise)
+    minima, indexes_minima_smooth = find_minima(
+        x_smooth, y_smooth,
+        prominence_minima=0.01,
+        distance_minima=20
+    )
+
+    # Exit early if no minima are detected
+    if len(minima) == 0:
+        return
+
+    # Step 4: Generate region labels from the minima
+    labels = get_labels_discretization(minima, x_smooth, y_smooth)
+
+    # Step 5: Save detected minima and corresponding labels
+    save_minima(minima, coordinate_name, labels, output)
+
+    # Step 6: Save the original coordinate data and metadata
+    save_coordinate_results(times, y, coordinate_name, output_dir)
+
+    # Step 7: Plot the histogram with KDE and show detected minima
+    plot_histogram(
+        x, AVG, error_bars,
+        y_smooth, x_smooth, delta_y,
+        coord_type, xlabel,
+        coordinate_name, minima,
+        output_dir
+    )
+
+
+############################### Compute minimum distance between terminal atoms ##################
+def compute_min_distances(Positions_terminal_atoms, i, j, terminal_atoms, RESIDS_SELECTED):
+    """
+    Computes the minimum distance between terminal atoms 
+    of two residues across all frames in the trajectory.
+
+    Parameters:
+    - Positions_terminal_atoms (np.ndarray): A 3D array of shape 
+      (total_terminal_atoms, num_frames, 3), storing positions of terminal atoms.
+    - i (int): Index of the first residue in RESIDS_SELECTED and terminal_atoms.
+    - j (int): Index of the second residue in RESIDS_SELECTED and terminal_atoms.
+    - terminal_atoms (list of lists): A list where each entry contains the names 
+      of terminal atoms for the corresponding residue.
+    - RESIDS_SELECTED (list): List of residue IDs corresponding to the atoms.
+
+    Returns:
+    - min_absolute_distance (float): The minimum distance between any pair of terminal 
+      atoms from residues i and j, over all frames.
+    - distance_to_save (np.ndarray): A 1D array containing the distance values over time 
+      for the pair of atoms that gave the minimum distance.
+    - atom_i_to_save (str): Name of the atom in residue i involved in the minimum distance.
+    - atom_j_to_save (str): Name of the atom in residue j involved in the minimum distance.
+
+    Description:
+    - Computes pairwise distances between all terminal atoms of residue i and residue j.
+    - For each atom pair, the Euclidean distance is computed across all frames.
+    - From all possible atom pair combinations, the one with the smallest minimum 
+      distance (across all time steps) is selected and returned.
+    """
+
+    # Get number of terminal atoms for each residue
+    num_term_i = len(terminal_atoms[i])
+    num_term_j = len(terminal_atoms[j])
+
+    # Calculate starting indices of terminal atoms for residues i and j
+    ind_term_0_i = sum([len(terminal_atoms[k]) for k in range(i)])
+    ind_term_0_j = sum([len(terminal_atoms[k]) for k in range(j)])
+
+    # Extract positions for all terminal atoms of residue i and j
+    Positions_i = [Positions_terminal_atoms[ind_term_0_i + k, :, :] for k in range(num_term_i)]
+    Positions_j = [Positions_terminal_atoms[ind_term_0_j + k, :, :] for k in range(num_term_j)]
+
+    # Copy the terminal atom names
+    atoms_i = terminal_atoms[i].copy()
+    atoms_j = terminal_atoms[j].copy()
+
+    # Initialize distance matrix: shape (num_atoms_i, num_atoms_j, num_frames)
+    distances = np.zeros((len(atoms_i), len(atoms_j), len(Positions_i[0])))
+
+    # Compute pairwise distances over time
+    for k in range(len(atoms_i)):
+        for l in range(len(atoms_j)):
+            distances[k, l] = np.linalg.norm(Positions_i[k] - Positions_j[l], axis=1)
+
+    # Find the minimal distance for each atom pair across all frames
+    minimal_distances = np.zeros((len(atoms_i), len(atoms_j)))
+    for k in range(len(atoms_i)):
+        for l in range(len(atoms_j)):
+            minimal_distances[k, l] = np.min(distances[k, l])
+
+    # Find the atom pair with the absolute minimal distance
+    minimal_indexes = np.unravel_index(np.argmin(minimal_distances, axis=None), minimal_distances.shape)
+
+    # Extract values to return
+    min_absolute_distance = minimal_distances[minimal_indexes[0], minimal_indexes[1]]
+    distance_to_save = distances[minimal_indexes[0], minimal_indexes[1]]
+    atom_i_to_save = atoms_i[minimal_indexes[0]]
+    atom_j_to_save = atoms_j[minimal_indexes[1]]
+
+    return min_absolute_distance, distance_to_save, atom_i_to_save, atom_j_to_save
+
+
+############################# process distance pair #############################
+def process_distance_pair(i, j, Positions_terminal_atoms, terminal_atoms, RESIDS_SELECTED, times, time_zero, size_block, cutoff_distances, height_cutoff, output,output_dir):
     """
     Processes a pair of residues to compute distances and analyze multimodality.
     """
     min_absolute_distance,distance_to_save,atom_i_to_save,atom_j_to_save = compute_min_distances(
-        Positions_atoms_terminal, Positions_atoms_CA, i, j,indices_aa,terminal_atoms, RESIDS_SELECTED
+        Positions_terminal_atoms, i, j,terminal_atoms, RESIDS_SELECTED
     )
-   
-    delta_y=0.1
 
-    delta_distance = max(distance_to_save) - min(distance_to_save)
-          
-    if min_absolute_distance > cutoff_distances or delta_distance < delta_y*20:
+    if min_absolute_distance > cutoff_distances :
         return
-
-    H_kde, x_smooth = perform_kde(distance_to_save, delta_y)
-    data, filtered_data, x, AVG, error_bars, delta_y, coord_type, xlabel = get_avg_histogram(times, distance_to_save, time_zero, size_block, 'distance')
-    cutoff_value_kde = max(H_kde) * height_cutoff / 100
-    cutoff_value_x= delta_y*5
-    minimums = find_minimums(x_smooth, H_kde)
-    if len(minimums) > 0:
-        minimums = filter_minimums_KDE(minimums, x_smooth, H_kde, cutoff_value_kde,cutoff_value_x)
-        if len(minimums) > 0:
-            coordinate = f"{RESIDS_SELECTED[i]}_{atom_i_to_save}_{RESIDS_SELECTED[j]}_{atom_j_to_save}"
-            plot_histogram(x, AVG, error_bars, H_kde, x_smooth, delta_y, coord_type, xlabel, coordinate, minimums,output_dir)
-            labels=get_labels_discretization_kde(minimums,x_smooth,H_kde)
-            save_minimums(minimums, coordinate, labels, output)
-            save_coordinate_results(times, distance_to_save, coordinate,output_dir)
-
-def process_dihedral_i(i, Positions_atoms_C, Positions_atoms_N, Positions_atoms_CA, RESIDS_SELECTED, times, time_zero, size_block, height_cutoff, output,output_dir):
-    """
-    Processes a residue to compute dihedrals and analyze multimodality.
-    """
-    phi_angle=np.zeros(len(times))
-    psi_angle=np.zeros(len(times))
-    delta_y = 2
     
-    if i>0 and np.linalg.norm(Positions_atoms_C[i-1,0, :]-Positions_atoms_N[i,0, :]) < 1.6 :
-        phi_angle = np.rad2deg(mda.lib.distances.calc_dihedrals(Positions_atoms_C[i-1,:, :], Positions_atoms_N[i,:, :], Positions_atoms_CA[i , :, :], Positions_atoms_C[i, :, :]))
-        if max(phi_angle)-min(phi_angle) > 180:
-            phi_angle, y_max_phi, y_min_phi = adjust_angle_data(phi_angle, min(phi_angle), max(phi_angle), delta_y)
-        delta_angle= max(phi_angle) - min(phi_angle)
-        H_kde_phi, x_smooth_phi = perform_kde(phi_angle, delta_y)
-        if delta_angle > delta_y*20:
-            data, filtered_data, x, AVG, error_bars, delta_y, coord_type, xlabel = get_avg_histogram(times, phi_angle, time_zero, size_block,'angle')
-            cutoff_value = max(AVG) * height_cutoff / 100
-            cutoff_value_x= delta_y*5
-            minimums = find_minimums(x_smooth_phi, H_kde_phi)
-            if len(minimums) > 0:
-                minimums = filter_minimums_KDE(minimums, x_smooth_phi, H_kde_phi, cutoff_value,cutoff_value_x)
-                if len(minimums) > 0:
-                    coordinate = f"phi{RESIDS_SELECTED[i]}"
-                    plot_histogram(x, AVG, error_bars,H_kde_phi,x_smooth_phi,delta_y,'angle',xlabel,coordinate,minimums,output_dir)
-                    labels=get_labels_discretization_kde(minimums,x_smooth_phi,H_kde_phi)
-                    save_minimums(minimums,coordinate,labels,output)
-                    save_coordinate_results(times, phi_angle,coordinate,output_dir)
-
-            
-    if i<len(Positions_atoms_C)-1 and np.linalg.norm(Positions_atoms_N[i+1,0, :]-Positions_atoms_C[i,0, :]) < 1.6 :
-        psi_angle = np.rad2deg(mda.lib.distances.calc_dihedrals(Positions_atoms_N[i, :, :], Positions_atoms_CA[i, :, :], Positions_atoms_C[i , :, :], Positions_atoms_N[i+1, :, :]))
-        if max(psi_angle)-min(psi_angle) > 180:
-            psi_angle, y_max_psi, y_min_psi = adjust_angle_data(psi_angle, min(psi_angle), max(psi_angle), delta_y)
-        delta_angle= max(psi_angle) - min(psi_angle)
-        H_kde_psi, x_smooth_psi = perform_kde(psi_angle,delta_y)
-        if delta_angle > delta_y*20:
-            data, filtered_data, x, AVG, error_bars, delta_y, coord_type, xlabel = get_avg_histogram(times, psi_angle, time_zero, size_block,'angle')
-            cutoff_value = max(AVG) * height_cutoff / 100
-            cutoff_value_x= delta_y*5
-            minimums = find_minimums(x_smooth_psi, H_kde_psi)
-            
-            if len(minimums) > 0:
-                minimums = filter_minimums_KDE(minimums, x_smooth_psi, H_kde_psi, cutoff_value,cutoff_value_x)
-                if len(minimums) > 0:
-                    coordinate = f"psi{RESIDS_SELECTED[i]}"
-                    plot_histogram(x, AVG, error_bars,H_kde_psi,x_smooth_psi,delta_y,'angle',xlabel,coordinate,minimums,output_dir)
-                    labels=get_labels_discretization_kde(minimums,x_smooth_psi,H_kde_psi)
-                    save_minimums(minimums,coordinate,labels,output)
-                    save_coordinate_results(times, psi_angle,coordinate,output_dir)
+    y= distance_to_save
+    delta_y=0.1
+    coordinate_type= 'distance'
+    coordinate_name = f"{RESIDS_SELECTED[i]}_{atom_i_to_save}_{RESIDS_SELECTED[j]}_{atom_j_to_save}"
     
-    
+    discretize_coordinate(
+        y, delta_y,coordinate_type,times, time_zero, size_block,coordinate_name,output,output_dir
+    )
 
-def compute_all_distances(u_traj, terminal_atoms, RESIDS_SELECTED, Positions_atoms_terminal, Positions_atoms_CA, times, time_zero, size_block, delta_resid, cutoff_distances, height_cutoff, output,indices_aa,output_dir):
+
+####################### Function to compute distances between terminal atoms for all residue pairs ##########################
+def compute_all_distances(u_traj,terminal_atoms,RESIDS_SELECTED,Positions_terminal_atoms,times,time_zero,size_block,delta_resid,cutoff_distances,height_cutoff,output,output_dir):
     """
-    Computes distances for all residue pairs and processes them.
+    Computes pairwise distances between all valid residue pairs based on their terminal atoms,
+    and processes each pair using a custom distance analysis function.
+
+    Parameters:
+    - u_traj (MDAnalysis.Universe): The MDAnalysis universe object containing the trajectory.
+      (Not directly used here but may be needed in `process_distance_pair`.)
+    - terminal_atoms (list of lists): Terminal atom names for each residue.
+    - RESIDS_SELECTED (list): List of selected residue IDs.
+    - Positions_terminal_atoms (np.ndarray): 3D array of precomputed positions of terminal atoms.
+      Shape: (total_terminal_atoms, num_frames, 3).
+    - times (np.ndarray): Array of times corresponding to selected frames.
+    - time_zero (float): Reference time used for distance analysis.
+    - size_block (int): Size of blocks used in post-processing (likely temporal).
+    - delta_resid (int): Minimum residue index separation; avoids comparing too-close residues.
+    - cutoff_distances (float): Distance threshold for further analysis.
+    - height_cutoff (float): Height threshold used in filtering results.
+    - output (file-like or handle): Destination for saving results.
+    - output_dir (str): Directory where output files will be written.
+
+    Returns:
+    - None (results are saved to files via `process_distance_pair`)
+
+    Behavior:
+    - Iterates over all valid residue index pairs `(i, j)` where `j >= i + delta_resid`.
+    - For each pair, calls `process_distance_pair` to compute and process distances.
+    - A progress bar is shown during processing.
     """
+
     num_residues = len(RESIDS_SELECTED)
-    total_combinations = num_residues * (num_residues - delta_resid) / 2
+    total_combinations = num_residues * (num_residues - delta_resid) / 2  # total number of pairs
     count_step = 0
-    print("Computing distances...")
+
+    print("\nComputing distances...")
+
+    # Iterate over all valid residue pairs
+    previous_progress = -1  # Initialize progress bar
     for i in range(num_residues - delta_resid):
         for j in range(i + delta_resid, num_residues):
-            plot_progress_bar(count_step, total_combinations)
+            # Update progress bar
+            previous_progress=plot_progress_bar(count_step, total_combinations, previous_progress)
             count_step += 1
-            process_distance_pair(i, j, Positions_atoms_terminal, Positions_atoms_CA, terminal_atoms, RESIDS_SELECTED, times, time_zero, size_block, cutoff_distances, height_cutoff, output,indices_aa,output_dir)
 
-    plot_progress_bar(total_combinations, total_combinations)
+            # Process this residue pair
+            process_distance_pair(
+                i, j,Positions_terminal_atoms,terminal_atoms,RESIDS_SELECTED,times,time_zero,size_block,cutoff_distances,height_cutoff,output,output_dir
+            )
+
+    # Finalize progress bar
+    plot_progress_bar(total_combinations, total_combinations,previous_progress)
     print("\nDistances computed and saved.")
 
 
+########################## Function to get the multimodal contacts ################################
+def get_contacts(u_traj, terminal_atoms, RESIDS_SELECTED, time_zero, size_block, delta_time, cutoff_distances, delta_resid, height_cutoff, indices_aa, output_dir):
+    """
+    Main function to compute and process distances (contacts) between terminal atoms
+    throughout a molecular dynamics trajectory.
 
-def compute_all_dihedrals(u_traj, RESIDS_SELECTED, Positions_atoms_C, Positions_atoms_N, Positions_atoms_CA, times, time_zero, size_block, height_cutoff, output,output_dir):  
+    This function performs the following steps:
+    1. Loads pre-filtered time points and frame indices from .npy files.
+    2. Precomputes the 3D positions of all terminal atoms across the selected frames.
+    3. Saves the computed positions to a file for later use.
+    4. Computes distances between all valid residue pairs and processes the results.
+
+    Parameters:
+    - u_traj: MDAnalysis Universe object containing the trajectory.
+    - terminal_atoms: List of terminal atom names for each selected residue.
+    - RESIDS_SELECTED: List of residue IDs to analyze.
+    - time_zero: Time reference for analysis start.
+    - size_block: Block size used for distance analysis (e.g., time window).
+    - delta_time: Time interval used to sample frames (used when loading times).
+    - cutoff_distances: Maximum distance threshold to consider a contact.
+    - delta_resid: Minimum residue index separation to avoid local contacts.
+    - height_cutoff: Cutoff for additional filtering of distance results.
+    - indices_aa: List of indices corresponding to amino acid residues (not directly used here).
+    - output_dir: Directory path to read inputs and save outputs.
+
+    Returns:
+    - None. Results are saved to files.
     """
-    Computes dihedrals for all residue pairs and processes them.
+
+    # Load time points and frame indices previously filtered and saved
+    times = np.load(output_dir + 'times.npy')
+    times_indices = np.load(output_dir + 'times_indices.npy')
+
+    # Precompute terminal atom positions across trajectory
+    Positions_terminal_atoms = precompute_terminals(u_traj, terminal_atoms, RESIDS_SELECTED, times, times_indices)
+
+    # Save precomputed positions to disk
+    save_positions(Positions_terminal_atoms, output_dir + "Positions_npy/Positions_terminal_atoms.npy")
+
+    # Compute and process distances between all valid residue pairs
+    compute_all_distances(
+        u_traj, terminal_atoms, RESIDS_SELECTED, Positions_terminal_atoms,
+        times, time_zero, size_block, delta_resid,
+        cutoff_distances, height_cutoff,
+        output_dir + "selected_coordinates.txt", output_dir
+    )
+
+
+########################### Functions to process dihedrals for a single residue ##########################
+def adjust_angle_data(data, y_min, y_max, delta_y):
     """
+    Adjust angle data by "unwrapping" values below the global minimum histogram bin center.
+    This is useful for circular data like angles (0-360 degrees), to reduce edge effects
+    by shifting low values above the main minimum.
+
+    Parameters:
+    - data: 1D array of angle measurements (in degrees).
+    - y_min: Minimum angle value for histogram binning.
+    - y_max: Maximum angle value for histogram binning.
+    - delta_y: Bin width for histogram.
+
+    Returns:
+    - adjusted_data: Angle data after adjustment (values below min histogram bin center shifted by +360).
+    - new_y_max: Updated max value after adjustment.
+    - new_y_min: Updated min value after adjustment.
+    """
+
+    # Compute histogram of the input angle data
+    hist_all, bin_edges_all = compute_histogram(data, y_min, y_max, delta_y)
+
+    # Compute bin centers from edges
+    x_all = (bin_edges_all[:-1] + bin_edges_all[1:]) / 2
+
+    # Find all indices where histogram attains its global minimum
+    min_indices = np.where(hist_all == np.min(hist_all))[0]
+
+    # Select the median min bin center if multiple minima, else single minimum bin center
+    if len(min_indices) > 1:
+        median_index = min_indices[len(min_indices) // 2]
+    else:
+        median_index = min_indices[0]
+
+    x_min_all = x_all[median_index]
+
+    # Shift all angle values less than the selected minimum bin center by +360 degrees
+    adjusted_data = np.where(data < x_min_all, data + 360, data)
+
+    # Update min and max values after adjustment
+    new_y_max = adjusted_data.max()
+    new_y_min = adjusted_data.min()
+
+    return adjusted_data, new_y_max, new_y_min
+
+
+def process_dihedral_i(i, Positions_atoms_C, Positions_atoms_N, Positions_atoms_CA, RESIDS_SELECTED, 
+                       times, time_zero, size_block, height_cutoff, output, output_dir):
+    """
+    Processes the i-th residue to compute phi and psi dihedral angles, adjust for angle wrapping,
+    and discretize the angle distributions for further analysis.
+
+    Parameters:
+    - i: Index of the residue to process.
+    - Positions_atoms_C, Positions_atoms_N, Positions_atoms_CA: 3D arrays of atomic positions
+      with shape (num_residues, num_timepoints, 3).
+    - RESIDS_SELECTED: List or array of residue identifiers.
+    - times: 1D array of time points corresponding to frames.
+    - time_zero: Start time for analysis.
+    - size_block: Block size for time-averaging during discretization.
+    - height_cutoff: Threshold used in multimodality detection (not used here, but passed for consistency).
+    - output: File handle or path for saving results.
+    - output_dir: Directory path for saving outputs.
+
+    Notes:
+    - Phi angle is defined only if the previous residue exists and the C-N distance is reasonable.
+    - Psi angle is defined only if the next residue exists and the N-C distance is reasonable.
+    - Angles are converted from radians to degrees.
+    - If the angle range exceeds 180°, the data is "unwrapped" to reduce circular boundary artifacts.
+    - Discretization is performed on adjusted angles.
+    """
+
+    delta_y = 2  # Bin width for histogram/discretization (degrees)
+    coordinate_type = 'angle'
+
+    # Initialize empty arrays (optional, overwritten later)
+    phi_angle = np.zeros(len(times))
+    psi_angle = np.zeros(len(times))
+
+    # Process phi dihedral if previous residue exists and backbone geometry is valid
+    if i > 0:
+        distance_C_N = np.linalg.norm(Positions_atoms_C[i - 1, 0, :] - Positions_atoms_N[i, 0, :])
+        if distance_C_N < 1.6:
+            coordinate_name = f"phi{RESIDS_SELECTED[i]}"
+            # Calculate phi dihedral angles (radians) and convert to degrees
+            phi_angle = np.rad2deg(mda.lib.distances.calc_dihedrals(Positions_atoms_C[i - 1, :, :],Positions_atoms_N[i, :, :],Positions_atoms_CA[i, :, :],Positions_atoms_C[i, :, :])            )
+            # Adjust angles if range spans more than 180 degrees (unwrap circular data)
+            if np.ptp(phi_angle) > 180:
+                phi_angle, _, _ = adjust_angle_data(phi_angle, np.min(phi_angle), np.max(phi_angle), delta_y)
+            
+            # Discretize the phi angle data for further analysis
+            discretize_coordinate(phi_angle, delta_y, proba_cutoff=0.01, coordinate_type=coordinate_type,
+                                  times=times, time_zero=time_zero, size_block=size_block,
+                                  coordinate_name=coordinate_name, output=output, output_dir=output_dir)
+
+    # Process psi dihedral if next residue exists and backbone geometry is valid
+    if i < len(Positions_atoms_C) - 1:
+        distance_N_C = np.linalg.norm(Positions_atoms_N[i + 1, 0, :] - Positions_atoms_C[i, 0, :])
+        if distance_N_C < 1.6:
+            coordinate_name = f"psi{RESIDS_SELECTED[i]}"
+            # Calculate psi dihedral angles (radians) and convert to degrees
+            psi_angle = np.rad2deg(mda.lib.distances.calc_dihedrals(Positions_atoms_N[i, :, :],Positions_atoms_CA[i, :, :],Positions_atoms_C[i, :, :],Positions_atoms_N[i + 1, :, :]))
+            # Adjust angles if range spans more than 180 degrees (unwrap circular data)
+            if np.ptp(psi_angle) > 180:
+                psi_angle, _, _ = adjust_angle_data(psi_angle, np.min(psi_angle), np.max(psi_angle), delta_y)
+            
+            # Discretize the psi angle data for further analysis
+            discretize_coordinate(psi_angle, delta_y, proba_cutoff=0.01, coordinate_type=coordinate_type,
+                                  times=times, time_zero=time_zero, size_block=size_block,
+                                  coordinate_name=coordinate_name, output=output, output_dir=output_dir)
+        
+    
+########################### Function to compute dihedrals for all residues ##########################
+def compute_all_dihedrals(u_traj, RESIDS_SELECTED, Positions_atoms_C, Positions_atoms_N, Positions_atoms_CA, times, time_zero, size_block, height_cutoff, output, output_dir):  
+    """
+    Iterates over all selected residues and computes dihedral angles between them.
+
+    This function processes each selected residue's dihedral angle one by one using
+    precomputed backbone atom positions and stores the results for further analysis.
+
+    Parameters:
+    - u_traj: MDAnalysis Universe or trajectory object.
+    - RESIDS_SELECTED: List of residue indices for which to compute dihedrals.
+    - Positions_atoms_C: Precomputed C atom positions for each residue over time.
+    - Positions_atoms_N: Precomputed N atom positions for each residue over time.
+    - Positions_atoms_CA: Precomputed CA atom positions for each residue over time.
+    - times: 1D array of time points (e.g., in ps).
+    - time_zero: Time (in ps) to start analysis from.
+    - size_block: Block size (in ps) for time-averaging.
+    - height_cutoff: Threshold for peak filtering or discretization (used later).
+    - output: Path to output file where selected features/labels are written.
+    - output_dir: Directory where output data (e.g., plots or processed values) is stored.
+
+    Returns:
+    - None. Outputs are saved directly to disk.
+    """
+
     num_residues = len(RESIDS_SELECTED)
-    print("Computing dihedrals...")
 
-    for i in range(num_residues ):
-        plot_progress_bar(i,num_residues)
-        process_dihedral_i(i, Positions_atoms_C, Positions_atoms_N, Positions_atoms_CA, RESIDS_SELECTED, times, time_zero, size_block, height_cutoff, output,output_dir)
+    print("\nComputing dihedrals...")
+
+    for i in range(num_residues):
+        plot_progress_bar(i, num_residues)
+        process_dihedral_i(i, Positions_atoms_C, Positions_atoms_N, Positions_atoms_CA, RESIDS_SELECTED, times, time_zero, size_block, height_cutoff, output, output_dir)
 
     plot_progress_bar(num_residues, num_residues)
     print("\nDihedrals computed and saved.")
 
-def get_contacts(u_traj, terminal_atoms, RESIDS_SELECTED, time_zero, size_block, delta_time, cutoff_distances, delta_resid, height_cutoff,indices_aa,output_dir):
-    """
-    Main function to compute distances between terminal atoms over the trajectory.
-    """
-    times= np.load(output_dir+'times.npy')
-    times_indices= np.load(output_dir+'times_indices.npy')
-    Positions_atoms_terminal, Positions_atoms_CA = precompute_CA_and_terminals(
-        u_traj, terminal_atoms, RESIDS_SELECTED, times, times_indices,indices_aa
-    )
-    save_positions(Positions_atoms_terminal, output_dir+"Positions_npy/Positions_terminal_atoms.npy")
-    if len(indices_aa) > 2:
-        save_positions(Positions_atoms_CA, output_dir+"Positions_npy/Positions_CA_atoms.npy")
 
-    compute_all_distances(
-        u_traj, terminal_atoms, RESIDS_SELECTED, Positions_atoms_terminal, Positions_atoms_CA,
-        times, time_zero, size_block, delta_resid, cutoff_distances, height_cutoff, output_dir+"selected_coordinates.txt",indices_aa,output_dir
-    )
-
-def get_dihedrals(u_traj, indices_aa, time_zero, size_block, delta_time, cutoff_distances, delta_resid, height_cutoff,output_dir):
-
+########################## Function to get the multimodal dihedrals ################################
+def get_dihedrals(u_traj, indices_aa, time_zero, size_block, delta_time, 
+                  cutoff_distances, delta_resid, height_cutoff, output_dir):
     """
-    Computes dihedrals for all residue pairs and processes them.
+    Computes and processes dihedral angles for selected amino acid residues in a trajectory.
+
+    Workflow:
+    1. Loads simulation time points and their indices.
+    2. Checks if at least two amino acids are selected.
+    3. Precomputes and saves backbone atom positions (N, C, CA).
+    4. Computes all dihedral angles and processes them for further analysis.
+
+    Parameters:
+    - u_traj: MDAnalysis Universe or trajectory object.
+    - indices_aa: List of amino acid residue indices to analyze.
+    - time_zero: Starting time for dihedral analysis.
+    - size_block: Size of blocks used for averaging time intervals.
+    - delta_time: Temporal resolution (not used directly in this function).
+    - cutoff_distances: Distance cutoffs for residue pairing (not used here).
+    - delta_resid: Minimum sequence separation between residue pairs (not used here).
+    - height_cutoff: Threshold for dihedral peak detection or filtering.
+    - output_dir: Directory to save output files.
+
+    Returns:
+    - None. Saves dihedral angles and intermediate data to disk.
     """
-    times= np.load(output_dir+'times.npy')
-    times_indices= np.load(output_dir+'times_indices.npy')
+
+    # Load time values and their corresponding frame indices
+    times = np.load(output_dir + 'times.npy')
+    times_indices = np.load(output_dir + 'times_indices.npy')
+
+    # Early exit if fewer than two residues are selected
     if len(indices_aa) < 2:
         print("No amino acids selected for dihedral analysis.")
         return
-    Positions_atoms_C, Positions_atoms_N = precompute_C_and_N(
+
+    # Step 1: Precompute backbone atom positions (N, C, and CA atoms)
+    Positions_atoms_C, Positions_atoms_N, Positions_atoms_CA = precompute_backbone(
         u_traj, indices_aa, times, times_indices
     )
-    save_positions(Positions_atoms_C, output_dir+"Positions_npy/Positions_C_atoms.npy")
-    save_positions(Positions_atoms_N, output_dir+"Positions_npy/Positions_N_atoms.npy")
-    Positions_atoms_CA = np.load(output_dir+"Positions_npy/Positions_CA_atoms.npy")
-    
-    compute_all_dihedrals(
-        u_traj, indices_aa, Positions_atoms_C,Positions_atoms_N, Positions_atoms_CA,
-        times, time_zero, size_block, height_cutoff, output_dir+"selected_coordinates.txt",output_dir
-    )
 
-def load_data_discretization(output_selected_coordinates):
-    data_discretization,lines_discretization=open_file(output_selected_coordinates)
-    coordinates=[data_discretization[i][0] for i in range(len(data_discretization))]
-    X_cuts=[]
-    Labels=[]
-    for i in range(len(data_discretization)):
-        data_i=data_discretization[i]
-        xcut_i=[]
-        labels_i=[]
-        for c in range(1,len(data_i)):
-            if c%2==0:
-                xcut_i.append(float(data_i[c]))
-            if c%2==1:
-                labels_i.append(int(data_i[c]))
-        X_cuts.append(xcut_i)
-        Labels.append(labels_i)
-    return coordinates,X_cuts,Labels
+    # Step 2: Save backbone atom positions to disk for future use
+    save_positions(Positions_atoms_C, output_dir + "Positions_npy/Positions_C_atoms.npy")
+    save_positions(Positions_atoms_N, output_dir + "Positions_npy/Positions_N_atoms.npy")
+    save_positions(Positions_atoms_CA, output_dir + "Positions_npy/Positions_CA_atoms.npy")
 
-def add_coordinates(coordinates_to_add,type_coordinates_to_add,output_dir,time_zero,size_block,height_cutoff):
-    coordinates,X_cuts,Labels=load_data_discretization(output_dir+"selected_coordinates.txt")
-    
-    data_zero=open_data_coordinate(output_dir+"coordinates_data/"+coordinates[0]+".dat")
-    times_to_compare=data_zero[:,0]
-    delta_y=0
-    for coord_file in coordinates_to_add:
-        data_coord_raw=open_data_coordinate(coord_file)
-        coord_name=coord_file.split('/')[-1].split('.')[0]
-        type_coord=type_coordinates_to_add[coordinates_to_add.index(coord_file)]
+    # Step 3: Compute all dihedral angles and write selected features
+    compute_all_dihedrals(u_traj, indices_aa, Positions_atoms_C, Positions_atoms_N, Positions_atoms_CA, times, time_zero, size_block, height_cutoff, output_dir + "selected_coordinates.txt", output_dir)
+
+
+############################# Function to add new coordinates to the existing discretization ##########################
+def add_coordinates(coordinates_to_add, type_coordinates_to_add, output_dir, time_zero, size_block, height_cutoff):
+    """
+    Adds new coordinates (distance or angle) to an existing discretization setup.
+
+    Arguments:
+    coordinates_to_add -- list of file paths to the new coordinate data (.dat files)
+    type_coordinates_to_add -- list indicating the type of each coordinate ('distance' or 'angle')
+    output_dir -- path to the directory where outputs are stored
+    time_zero -- starting time point for block analysis
+    size_block -- block size for histogram averaging
+    height_cutoff -- threshold for multimodal analysis (not used in this function)
+
+    Notes:
+    - Coordinate data must be 2-column files: [time, value]
+    - Aligns new data to the reference timeline (from the first existing coordinate)
+    - Discretizes the new coordinate and appends it to selected_coordinates.txt
+    """
+
+    # Load already discretized coordinates
+    coordinates, X_cuts, Labels = load_data_discretization(output_dir + "selected_coordinates.txt")
+
+    # Reference time values from the first known coordinate
+    data_zero = open_data_coordinate(output_dir + "coordinates_data/" + coordinates[0] + ".dat")
+    times_to_compare = data_zero[:, 0]
+
+    for i, coord_file in enumerate(coordinates_to_add):
+        data_coord_raw = open_data_coordinate(coord_file)
+        coord_name = coord_file.split('/')[-1].split('.')[0]
+        type_coord = type_coordinates_to_add[i]
+
+        # Set histogram resolution based on coordinate type
         if type_coord == 'distance':
-            delta_y=0.1
+            delta_y = 0.1
         elif type_coord == 'angle':
-            delta_y=2
-        y_coord=[]
-        t_coord=[]
-        for i in range(len(data_coord_raw)):
-            if data_coord_raw[i][0] in times_to_compare:
-                y_coord.append(data_coord_raw[i][1])
-                t_coord.append(data_coord_raw[i][0])
-        y_coord=np.array(y_coord)
-        t_coord=np.array(t_coord)
-        if len(t_coord)!=len(times_to_compare) or max(times_to_compare-t_coord)!=0 :
-            print(f"Warning: {coord_file} has different steps than the reference file.")
+            delta_y = 2
+        else:
+            print(f"Unknown coordinate type for {coord_file}, skipping.")
             continue
-        if type_coord == 'angle' and max(y_coord)-min(y_coord) > 180:
-            y_coord,y_max,y_min=adjust_angle_data(y_coord,min(y_coord),max(y_coord),delta_y)
-        H_kde, x_smooth = perform_kde(y_coord,delta_y)
-        delta_coord= max(y_coord) - min(y_coord)
-        if delta_coord > delta_y*20:
-            data, filtered_data, x, AVG, error_bars, delta_y, coord_type, xlabel = get_avg_histogram(t_coord, y_coord, time_zero, size_block,type_coord)
-            cutoff_value = max(AVG) * height_cutoff / 100
-            cutoff_value_x= delta_y*5
-            minimums = find_minimums(x_smooth, H_kde)
-            
-            if len(minimums) > 0:
-                minimums = filter_minimums_KDE(minimums, x_smooth, H_kde, cutoff_value,cutoff_value_x)
-                if len(minimums) > 0:
-                    plot_histogram(x, AVG, error_bars,H_kde,x_smooth,delta_y,type_coord,xlabel,coord_name,minimums,output_dir)
-                    labels=get_labels_discretization_kde(minimums,x_smooth,H_kde)
-                    save_minimums(minimums,coord_name,labels,output_dir+"selected_coordinates.txt")
-                    save_coordinate_results(t_coord, y_coord,coord_name,output_dir)
+
+        # Filter values matching reference times
+        y_coord = []
+        t_coord = []
+        for row in data_coord_raw:
+            if row[0] in times_to_compare:
+                t_coord.append(row[0])
+                y_coord.append(row[1])
+
+        y_coord = np.array(y_coord)
+        t_coord = np.array(t_coord)
+
+        # Check for mismatched time alignment
+        if len(t_coord) != len(times_to_compare) or not np.allclose(t_coord, times_to_compare):
+            print(f"Warning: {coord_file} has different time steps than the reference file. Skipping.")
+            continue
+
+        # Fix angle wrapping (e.g., from -180 to 180 or 0 to 360)
+        if type_coord == 'angle' and (np.max(y_coord) - np.min(y_coord) > 180):
+            y_coord, _, _ = adjust_angle_data(y_coord, np.min(y_coord), np.max(y_coord), delta_y)
+
+        # Discretize and append this coordinate to selected_coordinates.txt
+        discretize_coordinate(y_coord, delta_y, proba_cutoff=0.01, coordinate_type=type_coord,
+                              times=times_to_compare, time_zero=time_zero, size_block=size_block,
+                              coordinate_name=coord_name, output=output_dir + "selected_coordinates.txt",
+                              output_dir=output_dir)
+        
+
+
+###############################################################################################################
+        
         
         
 def get_discretized_array(output_dir):
@@ -714,7 +1341,7 @@ def get_positions_baricenters(u_traj,output_dir,RESIDS_SELECTED,indices_aa,termi
         Positions_atoms_CA = np.load(output_dir+"Positions_npy/Positions_CA_atoms.npy")
         Positions_atoms_C = np.load(output_dir+"Positions_npy/Positions_C_atoms.npy")
         Positions_atoms_N = np.load(output_dir+"Positions_npy/Positions_N_atoms.npy")
-    Positions_atoms_terminal = np.load(output_dir+"Positions_npy/Positions_terminal_atoms.npy")
+    Positions_terminal_atoms = np.load(output_dir+"Positions_npy/Positions_terminal_atoms.npy")
 
     Positions_barycenters=np.zeros((ncoord,nframes,3))
 
@@ -768,11 +1395,11 @@ def get_positions_baricenters(u_traj,output_dir,RESIDS_SELECTED,indices_aa,termi
                 index_term2=int(np.sum([len(terminal_atoms[k]) for k in range(index_resid)])+ind_at)
             
             if index_term1 != -1 and index_term2 != -1:
-                Positions_barycenters[i]=(Positions_atoms_terminal[index_term1,:,:]+Positions_atoms_terminal[index_term2,:,:])/2
+                Positions_barycenters[i]=(Positions_terminal_atoms[index_term1,:,:]+Positions_terminal_atoms[index_term2,:,:])/2
             elif index_CA1 != -1 and index_term2 != -1:
-                Positions_barycenters[i]=(Positions_atoms_CA[index_CA1,:,:]+Positions_atoms_terminal[index_term2,:,:])/2
+                Positions_barycenters[i]=(Positions_atoms_CA[index_CA1,:,:]+Positions_terminal_atoms[index_term2,:,:])/2
             elif index_term1 != -1 and index_CA2 != -1:
-                Positions_barycenters[i]=(Positions_atoms_terminal[index_term1,:,:]+Positions_atoms_CA[index_CA2,:,:])/2
+                Positions_barycenters[i]=(Positions_terminal_atoms[index_term1,:,:]+Positions_atoms_CA[index_CA2,:,:])/2
             elif index_CA1 != -1 and index_CA2 != -1:
                 Positions_barycenters[i]=(Positions_atoms_CA[index_CA1,:,:]+Positions_atoms_CA[index_CA2,:,:])/2
     plot_progress_bar(len(coordinates),len(coordinates))
