@@ -21,10 +21,10 @@ from scipy.interpolate import interp1d
 
 
 ###################### PRINT LOGO #####################
-def print_casimodo_logo():
-    with open("CASIMODO_utils/notre_dame.txt", encoding="utf-8") as f:
-        notre_dame = f.read()
-    print(notre_dame)
+def print_header():
+    with open("CASIMODO_utils/header_casimodo.txt", encoding="utf-8") as f:
+        header = f.read()
+    print(header)
 
 
 ###################### GENERAL FUNCTIONS #####################
@@ -127,16 +127,31 @@ def load_data_discretization(output_selected_coordinates):
         # Process alternating cut-point and label values (starting from column 1)
         for idx in range(1, len(row)):
             value = row[idx]
-            if idx % 2 == 1:
-                xcut_i.append(float(value))   # Even-indexed in 1-based count (odd in 0-based)
+            if idx % 2 == 0:
+                xcut_i.append(float(value))   # Even-indexed
             else:
-                labels_i.append(int(value))   # Odd-indexed in 1-based count (even in 0-based)
+                labels_i.append(int(value))   # Odd-indexed 
 
         X_cuts.append(xcut_i)
         Labels.append(labels_i)
 
     return coordinates, X_cuts, Labels
 
+
+def get_multiplicities(Discretized_Array):
+    # Get the shape of the input array: number of rows (frames) and columns (coordinates/features)
+    nframes, ncoord = np.shape(Discretized_Array)
+    
+    # Initialize an array to hold the multiplicity (number of unique values) for each column
+    multiplicities = np.zeros((ncoord), dtype=int)
+    
+    # Loop over each column (coordinate/feature)
+    for i in range(ncoord):
+        # Count the number of unique values in column i and store it in the multiplicities array
+        multiplicities[i] = len(np.unique(Discretized_Array[:, i]))
+    
+    # Return the array of multiplicities
+    return multiplicities
 
 ##################### OPENING TRAJECTORY #####################
 def open_trajectory(posfile, trajfile):
@@ -598,39 +613,140 @@ def smooth_coordinate(y, delta_y):
     # Return 1D arrays for usability
     return x_smooth.ravel(), y_smooth
 
-
-def find_minima(x_smooth, y_smooth, prominence_minima, distance_minima):
+def find_minima(x_smooth, y_smooth, size_window):
     """
-    Identifies local minima in a smoothed curve, robust to noise.
+    Identify local minima in a smoothed distribution using derivative-based detection 
+    and filtering based on a window around each candidate.
 
     Parameters:
-    - x_smooth: 1D array of x-values (e.g., positions or spatial bins).
-    - y_smooth: 1D array of y-values corresponding to a smoothed function or KDE.
-    - prominence_minima: Minimum prominence required for a local minimum to be considered significant.
-                         Higher values ignore shallow dips (i.e., reduce sensitivity to noise).
-    - distance_minima: Minimum horizontal distance (in number of points) between neighboring minima.
-                       Useful for avoiding spurious minima clustered too closely.
+    ----------
+    x_smooth : np.ndarray
+        The x-values corresponding to the smoothed data (must be evenly spaced).
+    y_smooth : np.ndarray
+        The y-values of the smoothed data (e.g., a KDE or smoothed histogram).
+    size_window : float
+        The half-width of the window (in x-units) used to validate extrema.
 
     Returns:
-    - minima: List of x-values where local minima are detected.
-    - indexes_minima_smooth: List of indices corresponding to those minima in x_smooth/y_smooth.
+    -------
+    filter_minima : list of float
+        A list of validated local minima positions (x-values).
     """
 
-    # Invert the smoothed curve to convert minima into peaks
-    inverted = -y_smooth
+    def closest_idx(array, value):
+        """Return the index of the element in array closest to value."""
+        return np.abs(array - value).argmin()
 
-    # Use find_peaks to detect peaks on the inverted curve, i.e., minima on the original curve
-    indexes_minima_smooth, _ = find_peaks(
-        inverted,
-        prominence=prominence_minima,
-        distance=distance_minima
-    )
+    # Compute first and second derivatives
+    dx = x_smooth[1] - x_smooth[0]
+    D_y = np.gradient(y_smooth, dx)
+    D2_y = np.gradient(D_y, dx)
 
-    # Extract the x-positions of the identified minima
-    minima = x_smooth[indexes_minima_smooth].tolist()
+    # Find zero-crossings in the first derivative: potential extrema
+    zero_crossings = np.where(np.diff(np.sign(D_y)))[0]
+    minima, maxima = [], []
 
-    return minima, indexes_minima_smooth.tolist()
+    for idx in zero_crossings:
+        # Use second derivative to classify extremum
+        if D2_y[idx] > 0:
+            minima.append(x_smooth[idx])  # local minimum
+        elif D2_y[idx] < 0:
+            maxima.append(x_smooth[idx])  # local maximum
 
+    # Ensure uniqueness and sorting
+    minima = sorted(set(minima))
+    maxima = sorted(set(maxima))
+
+    filter_maxima = []  # (not returned here, but logic is preserved)
+
+    for maxi in maxima:
+        index_maxi = np.where(x_smooth == maxi)[0][0]
+        # Define local window around the maximum
+        min_w = maxi - size_window
+        max_w = maxi + size_window
+        i_min = closest_idx(x_smooth, min_w)
+        i_max = closest_idx(x_smooth, max_w)
+
+        i_peak = closest_idx(x_smooth, maxi)
+        index_max_window = np.argmax(y_smooth[i_min:i_max+1]) + i_min 
+
+        # Keep maximum only if it's truly the highest point in its window
+        if abs(index_maxi-index_max_window)<5 :
+            filter_maxima.append(maxi)
+    minima_between_modes = []
+    for i in range(len(filter_maxima) - 1):
+        left = filter_maxima[i]
+        right = filter_maxima[i + 1]
+        min_in_between = [m for m in minima if left < m < right]
+        if min_in_between:
+            y_vals = [y_smooth[closest_idx(x_smooth, m)] for m in min_in_between]
+            min_absolute = min_in_between[np.argmin(y_vals)]
+            minima_between_modes.append(min_absolute)
+    
+    return minima_between_modes
+
+def filter_significant_minima(x_smooth, y_smooth, minima, proba_cutoff):
+    """
+    Filters a list of local minima by removing those that do not separate regions
+    with significant probability mass (area under the curve).
+
+    For each pair of consecutive minima, the function calculates the integrated
+    probability (area under the y_smooth curve). If the area is less than the 
+    specified cutoff, it compares the depths of the two bounding minima and 
+    removes the less significant one (i.e., the one closer in height to the 
+    local maximum between them).
+
+    Parameters:
+    - x_smooth: 1D array of smoothed x-values (typically the coordinate range).
+    - y_smooth: 1D array of smoothed probability density values corresponding to x_smooth.
+    - minima: List of x-values corresponding to detected local minima.
+    - proba_cutoff: Minimum probability threshold required to consider the region between minima as significant.
+
+    Returns:
+    - selected_minima: List of filtered minima that define significant regions.
+    """
+    selected_minima = []
+    previous = x_smooth[0]  # Start from the leftmost boundary of the distribution
+
+    for next_minimum in minima:
+        # Define the region between the current and next minimum
+        mask = (x_smooth >= previous) & (x_smooth <= next_minimum)
+        area = np.trapz(y_smooth[mask], x_smooth[mask])  # Integrated probability
+
+        if area < proba_cutoff:
+            # Skip the first boundary (cannot remove the start)
+            if previous == x_smooth[0]:
+                continue
+
+            # Compare the "depth" of the two minima relative to the maximum in-between
+            y_prev = y_smooth[np.where(x_smooth == previous)[0][0]]
+            y_next = y_smooth[np.where(x_smooth == next_minimum)[0][0]]
+            max_in_range = max(y_smooth[mask])
+
+            delta_prev = abs(y_prev - max_in_range)
+            delta_next = abs(y_next - max_in_range)
+
+            if delta_prev < delta_next:
+                # The previous minimum is shallower: replace it with the current one
+                if previous in selected_minima:
+                    selected_minima.remove(previous)
+                selected_minima.append(next_minimum)
+                previous = next_minimum
+            else:
+                # Keep the previous, skip this one
+                continue
+        else:
+            # Area is sufficient to keep the region — keep current minimum
+            selected_minima.append(next_minimum)
+            previous = next_minimum
+
+    # Check the final region between last minimum and end of curve
+    final_mask = (x_smooth >= previous) & (x_smooth <= x_smooth[-1])
+    final_area = np.trapz(y_smooth[final_mask], x_smooth[final_mask])
+    if final_area < proba_cutoff and previous in selected_minima:
+        selected_minima.remove(previous)
+
+    return selected_minima
 
 def get_labels_discretization(minima, x_smooth, y_smooth):
     """
@@ -724,7 +840,7 @@ def save_coordinate_results(times, distance_to_save, coordinate, output_dir):
     # Save to file with two decimal places, separated by three spaces
     np.savetxt(output_file, Time_evolution, fmt="%.2f   %.2f")
 
-def plot_histogram(x, AVG, error_bars, y_smooth, x_smooth, delta_y, coord_type, xlabel, coordinate_name, minima, output_dir):
+def plot_histogram(x, AVG, error_bars, x_smooth, y_smooth, delta_y, coord_type, xlabel, coordinate_name, minima, output_dir):
     """
     Plots the histogram of coordinate data with error bars, KDE curve, and vertical lines at selected minima.
 
@@ -810,22 +926,24 @@ def discretize_coordinate(y, delta_y, coordinate_type, times, time_zero, size_bl
         times, y, time_zero, size_block, coordinate_type
     )
 
-    # Step 3: Detect local minima in the smoothed density (robust to noise)
-    minima, indexes_minima_smooth = find_minima(
-        x_smooth, y_smooth,
-        prominence_minima=0.01,
-        distance_minima=20
-    )
+    # Step 3: Detect local minima in the smoothed density (robust to noise) and filter them
+    minima = find_minima(x_smooth,y_smooth,size_window=10*delta_y)
 
     # Exit early if no minima are detected
     if len(minima) == 0:
         return
+    
+    selected_minima = filter_significant_minima(
+        x_smooth, y_smooth, minima, proba_cutoff=0.01
+    )
+    if len(selected_minima) == 0:
+        return
 
     # Step 4: Generate region labels from the minima
-    labels = get_labels_discretization(minima, x_smooth, y_smooth)
+    labels = get_labels_discretization(selected_minima, x_smooth, y_smooth)
 
     # Step 5: Save detected minima and corresponding labels
-    save_minima(minima, coordinate_name, labels, output)
+    save_minima(selected_minima, coordinate_name, labels, output)
 
     # Step 6: Save the original coordinate data and metadata
     save_coordinate_results(times, y, coordinate_name, output_dir)
@@ -833,9 +951,9 @@ def discretize_coordinate(y, delta_y, coordinate_type, times, time_zero, size_bl
     # Step 7: Plot the histogram with KDE and show detected minima
     plot_histogram(
         x, AVG, error_bars,
-        y_smooth, x_smooth, delta_y,
+        x_smooth, y_smooth, delta_y,
         coord_type, xlabel,
-        coordinate_name, minima,
+        coordinate_name, selected_minima,
         output_dir
     )
 
@@ -1128,7 +1246,7 @@ def process_dihedral_i(i, Positions_atoms_C, Positions_atoms_N, Positions_atoms_
                 phi_angle, _, _ = adjust_angle_data(phi_angle, np.min(phi_angle), np.max(phi_angle), delta_y)
             
             # Discretize the phi angle data for further analysis
-            discretize_coordinate(phi_angle, delta_y, proba_cutoff=0.01, coordinate_type=coordinate_type,
+            discretize_coordinate(phi_angle, delta_y, coordinate_type=coordinate_type,
                                   times=times, time_zero=time_zero, size_block=size_block,
                                   coordinate_name=coordinate_name, output=output, output_dir=output_dir)
 
@@ -1144,7 +1262,7 @@ def process_dihedral_i(i, Positions_atoms_C, Positions_atoms_N, Positions_atoms_
                 psi_angle, _, _ = adjust_angle_data(psi_angle, np.min(psi_angle), np.max(psi_angle), delta_y)
             
             # Discretize the psi angle data for further analysis
-            discretize_coordinate(psi_angle, delta_y, proba_cutoff=0.01, coordinate_type=coordinate_type,
+            discretize_coordinate(psi_angle, delta_y, coordinate_type=coordinate_type,
                                   times=times, time_zero=time_zero, size_block=size_block,
                                   coordinate_name=coordinate_name, output=output, output_dir=output_dir)
         
@@ -1177,12 +1295,12 @@ def compute_all_dihedrals(u_traj, RESIDS_SELECTED, Positions_atoms_C, Positions_
     num_residues = len(RESIDS_SELECTED)
 
     print("\nComputing dihedrals...")
-
+    previous_progress = -1  # Initialize progress bar
     for i in range(num_residues):
-        plot_progress_bar(i, num_residues)
+        previous_progress=plot_progress_bar(i, num_residues,previous_progress)
         process_dihedral_i(i, Positions_atoms_C, Positions_atoms_N, Positions_atoms_CA, RESIDS_SELECTED, times, time_zero, size_block, height_cutoff, output, output_dir)
 
-    plot_progress_bar(num_residues, num_residues)
+    plot_progress_bar(num_residues, num_residues,previous_progress)
     print("\nDihedrals computed and saved.")
 
 
@@ -1262,6 +1380,7 @@ def add_coordinates(coordinates_to_add, type_coordinates_to_add, output_dir, tim
     data_zero = open_data_coordinate(output_dir + "coordinates_data/" + coordinates[0] + ".dat")
     times_to_compare = data_zero[:, 0]
 
+    print("\nAdding new coordinates...")
     for i, coord_file in enumerate(coordinates_to_add):
         data_coord_raw = open_data_coordinate(coord_file)
         coord_name = coord_file.split('/')[-1].split('.')[0]
@@ -1297,37 +1416,139 @@ def add_coordinates(coordinates_to_add, type_coordinates_to_add, output_dir, tim
             y_coord, _, _ = adjust_angle_data(y_coord, np.min(y_coord), np.max(y_coord), delta_y)
 
         # Discretize and append this coordinate to selected_coordinates.txt
-        discretize_coordinate(y_coord, delta_y, proba_cutoff=0.01, coordinate_type=type_coord,
+        discretize_coordinate(y_coord, delta_y, coordinate_type=type_coord,
                               times=times_to_compare, time_zero=time_zero, size_block=size_block,
                               coordinate_name=coord_name, output=output_dir + "selected_coordinates.txt",
                               output_dir=output_dir)
-        
+    print("New coordinates added and discretized.")
 
 
-###############################################################################################################
-        
-        
-        
+############################ Function to get the discretized array from saved coordinates ##########################
 def get_discretized_array(output_dir):
-    coordinates,X_cuts,Labels=load_data_discretization(output_dir+"selected_coordinates.txt")
-    data_zero=open_data_coordinate(output_dir+"coordinates_data/"+coordinates[0]+".dat")
-    times_to_compare=data_zero[:,0]
-    nframes=len(times_to_compare)
-    data_discretized=np.zeros((nframes,len(coordinates)),dtype=int)
-    print("Discretizing data...")
+    # Load coordinate names, discretization cutoffs, and corresponding labels
+    coordinates, X_cuts, Labels = load_data_discretization(output_dir + "selected_coordinates.txt")
+
+    # Load time information from the first coordinate file (assumes all coordinates share the same time points)
+    data_zero = open_data_coordinate(output_dir + "coordinates_data/" + coordinates[0] + ".dat")
+    times_to_compare = data_zero[:, 0]  # Extract time column
+    nframes = len(times_to_compare)    # Total number of frames (time points)
+
+    # Initialize output array to store discrete labels for each frame and coordinate
+    data_discretized = np.zeros((nframes, len(coordinates)), dtype=int)
+
+    print("\nDiscretizing data...")
+
+    # Loop over all selected coordinates
     for i in range(len(coordinates)):
-        plot_progress_bar(i,len(coordinates))
-        data_coord=open_data_coordinate(output_dir+"coordinates_data/"+coordinates[i]+".dat")
+        # Load data for current coordinate
+        data_coord = open_data_coordinate(output_dir + "coordinates_data/" + coordinates[i] + ".dat")
+
+        # Loop over all frames
         for f in range(nframes):
+            # Compare the current data value to discretization thresholds
             for c in range(len(X_cuts[i])):
-                if data_coord[f,1]<X_cuts[i][c]:
-                    data_discretized[f,i]=Labels[i][c]
-                    break
-                if c==len(X_cuts[i])-1:
-                    data_discretized[f,i]=Labels[i][-1]
-    plot_progress_bar(len(coordinates),len(coordinates))
-    print("\nDiscretization completed.")
-    np.save(output_dir+"discretized_array.npy",data_discretized)
+                # If the value is less than the current cutoff, assign the corresponding label
+                if data_coord[f, 1] < X_cuts[i][c]:
+                    data_discretized[f, i] = Labels[i][c]
+                    break  # Stop checking more bins once a match is found
+
+                # If value is larger than all cuts, assign the last label
+                if c == len(X_cuts[i]) - 1:
+                    data_discretized[f, i] = Labels[i][-1]
+
+    print("Discretization completed.")
+
+    # Save the resulting discretized data as a .npy file
+    np.save(output_dir + "discretized_array.npy", data_discretized)
+
+########################### Function to compute frequencies of single and double contacts ##########################
+def compute_frequencies(Discretized_Array):
+    """
+    Compute single and double frequencies from a discretized array of coordinates.
+    
+    Parameters:
+    - Discretized_Array (ndarray): shape (nframes, ncoord), with discretized values.
+    
+    Returns:
+    - single_frequencies (ndarray): shape (sum(multiplicities),), 1D frequencies.
+    - double_frequencies (ndarray): shape (sum(multiplicities), sum(multiplicities)), 2D joint frequencies.
+    """
+    nframes, ncoord = Discretized_Array.shape
+    multiplicities = get_multiplicities(Discretized_Array)
+    multiplicity_tot = multiplicities.sum()
+    
+    # Compute starting index for each coordinate in the flat frequency arrays
+    index_freq = np.zeros(ncoord, dtype=int)
+    np.cumsum(multiplicities[:-1], out=index_freq[1:])  # More efficient than loop
+
+    # Allocate frequency arrays
+    single_frequencies = np.zeros(multiplicity_tot, dtype=float)
+    double_frequencies = np.zeros((multiplicity_tot, multiplicity_tot), dtype=float)
+
+    print("\nComputing single frequencies...")
+    previous_progress = -1  # Initialize progress bar
+    for i in range(ncoord):
+        previous_progress=plot_progress_bar(i, ncoord,previous_progress) 
+        col = Discretized_Array[:, i]
+        offset = index_freq[i]
+        counts = np.bincount(col, minlength=multiplicities[i])
+        single_frequencies[offset:offset + multiplicities[i]] = counts / nframes
+    plot_progress_bar(ncoord, ncoord,previous_progress)  # Finalize progress bar    
+    print("\nSingle frequencies computed.")
+
+    print("\nComputing double frequencies...")
+    total_steps = (ncoord * (ncoord + 1)) // 2
+    previous_progress = -1  # Initialize progress bar
+    current_step=-1
+    for i in range(ncoord):
+        
+        col_i = Discretized_Array[:, i]
+        offset_i = index_freq[i]
+        mult_i = multiplicities[i]
+
+        for j in range(i, ncoord):
+            current_step+=1
+            previous_progress=plot_progress_bar(current_step, total_steps,previous_progress)
+            col_j = Discretized_Array[:, j]
+            offset_j = index_freq[j]
+            mult_j = multiplicities[j]
+
+            # Fast joint counting
+            joint_counts = np.zeros((mult_i, mult_j), dtype=int)
+            np.add.at(joint_counts, (col_i, col_j), 1)
+
+            # Normalize to get probabilities
+            joint_probs = joint_counts / nframes
+
+            # Store in output matrix
+            double_frequencies[offset_i:offset_i + mult_i, offset_j:offset_j + mult_j] = joint_probs
+            if i != j:
+                double_frequencies[offset_j:offset_j + mult_j, offset_i:offset_i + mult_i] = joint_probs.T
+
+    plot_progress_bar(total_steps, total_steps,previous_progress)  # Finalize progress bar
+    print("\nDouble frequencies computed.")
+
+    return single_frequencies, double_frequencies
+
+
+def get_frequencies(output_dir):
+    # Load the discretized array from a .npy file located in the specified output directory
+    Discretized_Array = np.load(output_dir + "discretized_array.npy")
+    
+    # Compute the single and double frequencies using a helper function 
+    single_frequencies, double_frequencies = compute_frequencies(Discretized_Array)
+    
+    # Save the computed single frequencies to a file in the 'frequencies' subdirectory
+    np.save(output_dir + 'frequencies/frequencies_single.npy', single_frequencies)
+    
+    # Save the computed double frequencies to a file in the 'frequencies' subdirectory
+    np.save(output_dir + 'frequencies/frequencies_double.npy', double_frequencies)
+
+
+
+
+
+
 
 
 def get_positions_baricenters(u_traj,output_dir,RESIDS_SELECTED,indices_aa,terminal_atoms,coordinates_to_add,barycenter_coordinates_to_add):
@@ -1420,12 +1641,7 @@ def get_avg_distances_barycenters(output_dir):
     print("\nAverage distances computed.")
     np.save(output_dir+"analysis/avg_distances_barycenters.npy",avg_distances)
 
-def get_multiplicities(Discretized_Array):
-    nframes,ncoord=np.shape(Discretized_Array)
-    multiplicities=np.zeros((ncoord),dtype=int)
-    for i in range(ncoord):
-        multiplicities[i]=len(np.unique(Discretized_Array[:,i]))
-    return multiplicities
+
 
 def mutual_information(Discretized_Array,multiplicities,single_frequencies,double_frequencies):
     nframes,ncoord=np.shape(Discretized_Array)
@@ -1447,80 +1663,7 @@ def mutual_information(Discretized_Array,multiplicities,single_frequencies,doubl
             index_freq_1+=1
     return MI
 
-def compute_frequencies(Discretized_Array):
-    nframes, ncoord = Discretized_Array.shape
-    multiplicities = get_multiplicities(Discretized_Array)
-    multiplicity_tot = np.sum(multiplicities)
-    
-    index_freq = np.zeros(ncoord, dtype=int)
-    index_freq[1:] = np.cumsum(multiplicities[:-1])
-    
-    # Preallocate output arrays
-    single_frequencies = np.zeros(multiplicity_tot, dtype=float)
-    double_frequencies = np.zeros((multiplicity_tot, multiplicity_tot), dtype=float)
-    print("\nComputing single frequencies...")
-    # Compute single frequencies
-    for i in range(ncoord):
-        plot_progress_bar(i, ncoord)
-        col = Discretized_Array[:, i]
-        offset = index_freq[i]
-        counts = np.bincount(col, minlength=multiplicities[i])
-        single_frequencies[offset:offset + multiplicities[i]] = counts / nframes
-    plot_progress_bar(ncoord, ncoord)
-    print("\nSingle frequencies computed.")
-    # Compute double frequencies
-    print("\nComputing double frequencies...")
-    for i in range(ncoord):
-        col_i = Discretized_Array[:, i]
-        offset_i = index_freq[i]
-        for j in range(i, ncoord):
-            plot_progress_bar(i * ncoord + j, ncoord * ncoord)
-            col_j = Discretized_Array[:, j]
-            offset_j = index_freq[j]
-            joint_counts = np.zeros((multiplicities[i], multiplicities[j]), dtype=int)
-            np.add.at(joint_counts, (col_i, col_j), 1)
-            joint_probs = joint_counts / nframes
-            double_frequencies[offset_i:offset_i + multiplicities[i], offset_j:offset_j + multiplicities[j]] = joint_probs
-            if i != j:
-                double_frequencies[offset_j:offset_j + multiplicities[j], offset_i:offset_i + multiplicities[i]] = joint_probs.T
-    plot_progress_bar(ncoord * ncoord, ncoord * ncoord)
-    print("\nDouble frequencies computed.")
-    return single_frequencies, double_frequencies
 
-def compute_frequencies_slow(Discretized_Array):
-    nframes, ncoord = Discretized_Array.shape
-    multiplicities = get_multiplicities(Discretized_Array)
-    multiplicity_tot = np.sum(multiplicities)
-
-    single_frequencies = np.zeros(multiplicity_tot, dtype=float)
-    double_frequencies = np.zeros((multiplicity_tot, multiplicity_tot), dtype=float)
-
-    print("Computing single frequencies...")
-    index_freq = np.cumsum([0] + list(multiplicities[:-1]))
-    for i in range(ncoord):
-        plot_progress_bar(i, ncoord)
-        unique, counts = np.unique(Discretized_Array[:, i], return_counts=True)
-        single_frequencies[index_freq[i] + unique] = counts / nframes
-    plot_progress_bar(ncoord, ncoord)
-    print("\nSingle frequencies computed.")
-
-    print("Computing double frequencies...")
-    for i in range(ncoord):
-        for j in range(i, ncoord):
-            plot_progress_bar(i * ncoord + j, ncoord * ncoord)
-            joint_counts = np.zeros((multiplicities[i], multiplicities[j]), dtype=int)
-            for f in range(nframes):
-                joint_counts[Discretized_Array[f, i], Discretized_Array[f, j]] += 1
-            joint_probs = joint_counts / nframes
-            idx_i = index_freq[i]
-            idx_j = index_freq[j]
-            double_frequencies[idx_i:idx_i + multiplicities[i], idx_j:idx_j + multiplicities[j]] = joint_probs
-            double_frequencies[idx_j:idx_j + multiplicities[j], idx_i:idx_i + multiplicities[i]] = joint_probs.T
-    plot_progress_bar(ncoord * ncoord, ncoord * ncoord)
-    print("\nDouble frequencies computed.")
-    
-
-    return single_frequencies, double_frequencies
 
             
 def plot_mutual_information(MI,output_dir,name_out):
@@ -1626,11 +1769,7 @@ def plot_runningavg_MI_vs_distance_clusters(MI, output_dir, avg_distances_baryce
     plt.close()
 
                 
-def get_frequencies(output_dir) :
-    Discretized_Array=np.load(output_dir+"discretized_array.npy")
-    single_frequencies, double_frequencies=compute_frequencies(Discretized_Array)
-    np.save(output_dir+'frequencies/frequencies_single.npy', single_frequencies)
-    np.save(output_dir+'frequencies/frequencies_double.npy', double_frequencies)
+
 
 def get_mutual_information(output_dir):
     print("Computing mutual information...")

@@ -88,9 +88,9 @@ for subdir in subdirs:
 
 
 ########################################
-#       PRINT CASIMODO LOGO            #
+#           PRINT HEADER               #
 ########################################
-print_casimodo_logo()
+print_header()
 
 
 #######################################
@@ -157,20 +157,22 @@ if step_to_perform in ['all', 'discretize_conformations']:
 #    ANALYSIS OF CONFORMATIONS        #
 #######################################
 
-if step_to_perform in ['all', 'get_distances_between_coordinates']:
+if step_to_perform in ['all', 'get_frequencies']:
+    get_frequencies(output_dir)
+
+if step_to_perform in [ 'get_distances_between_coordinates']:
     get_positions_baricenters(
         u_traj, output_dir, RESIDS_SELECTED, indices_aa,
         terminal_atoms, coordinates_to_add, barycenter_coordinates_to_add
     )
     get_avg_distances_barycenters(output_dir)
 
-if step_to_perform in ['all', 'get_frequencies']:
-    get_frequencies(output_dir)
 
-if step_to_perform in ['all', 'get_mutual_information']:
+
+if step_to_perform in [ 'get_mutual_information']:
     get_mutual_information(output_dir)
 
-if step_to_perform in ['all', 'get_entropy']:
+if step_to_perform in [ 'get_entropy']:
     get_entropy(output_dir)
 
 #######################################
