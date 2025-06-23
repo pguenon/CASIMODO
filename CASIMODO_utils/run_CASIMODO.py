@@ -160,6 +160,10 @@ if step_to_perform in ['all', 'discretize_conformations']:
 if step_to_perform in ['all', 'get_frequencies']:
     get_frequencies(output_dir)
 
+
+if step_to_perform in ['all', 'run_sbm']:
+    compute_couplings_with_SBM(output_dir)    
+
 if step_to_perform in [ 'get_distances_between_coordinates']:
     get_positions_baricenters(
         u_traj, output_dir, RESIDS_SELECTED, indices_aa,

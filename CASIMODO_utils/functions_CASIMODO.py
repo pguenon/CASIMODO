@@ -10,7 +10,9 @@ import matplotlib.pyplot as plt
 from scipy.stats import t
 from math import exp,log
 from scipy.signal import find_peaks
+
 import yacare
+
 from scipy.ndimage import uniform_filter1d
 from scipy.spatial.distance import pdist, squareform
 from sklearn.mixture import GaussianMixture,BayesianGaussianMixture
@@ -19,6 +21,9 @@ from statsmodels.nonparametric.kde import KDEUnivariate
 from sklearn.neighbors import KernelDensity
 from scipy.interpolate import interp1d
 
+import CASIMODO_utils.functions_SBM_casimodo as sbm  
+
+print(dir(sbm))
 
 ###################### PRINT LOGO #####################
 def print_header():
@@ -143,7 +148,7 @@ def get_multiplicities(Discretized_Array):
     nframes, ncoord = np.shape(Discretized_Array)
     
     # Initialize an array to hold the multiplicity (number of unique values) for each column
-    multiplicities = np.zeros((ncoord), dtype=int)
+    multiplicities = np.zeros((ncoord), dtype=np.int32)
     
     # Loop over each column (coordinate/feature)
     for i in range(ncoord):
@@ -1475,11 +1480,9 @@ def compute_frequencies(Discretized_Array):
     """
     nframes, ncoord = Discretized_Array.shape
     multiplicities = get_multiplicities(Discretized_Array)
-    multiplicity_tot = multiplicities.sum()
-    
-    # Compute starting index for each coordinate in the flat frequency arrays
-    index_freq = np.zeros(ncoord, dtype=int)
-    np.cumsum(multiplicities[:-1], out=index_freq[1:])  # More efficient than loop
+    max_multiplicity = np.max(multiplicities)
+    multiplicity_tot=max_multiplicity * ncoord
+
 
     # Allocate frequency arrays
     single_frequencies = np.zeros(multiplicity_tot, dtype=float)
@@ -1490,7 +1493,7 @@ def compute_frequencies(Discretized_Array):
     for i in range(ncoord):
         previous_progress=plot_progress_bar(i, ncoord,previous_progress) 
         col = Discretized_Array[:, i]
-        offset = index_freq[i]
+        offset=i*max_multiplicity  # Offset for current coordinate in single frequencies
         counts = np.bincount(col, minlength=multiplicities[i])
         single_frequencies[offset:offset + multiplicities[i]] = counts / nframes
     plot_progress_bar(ncoord, ncoord,previous_progress)  # Finalize progress bar    
@@ -1503,14 +1506,14 @@ def compute_frequencies(Discretized_Array):
     for i in range(ncoord):
         
         col_i = Discretized_Array[:, i]
-        offset_i = index_freq[i]
+        offset_i = i * max_multiplicity  # Offset for current coordinate in double frequencies
         mult_i = multiplicities[i]
 
-        for j in range(i, ncoord):
+        for j in range(i+1, ncoord):
             current_step+=1
             previous_progress=plot_progress_bar(current_step, total_steps,previous_progress)
             col_j = Discretized_Array[:, j]
-            offset_j = index_freq[j]
+            offset_j = j * max_multiplicity  # Offset for current coordinate in double frequencies
             mult_j = multiplicities[j]
 
             # Fast joint counting
@@ -1543,6 +1546,64 @@ def get_frequencies(output_dir):
     
     # Save the computed double frequencies to a file in the 'frequencies' subdirectory
     np.save(output_dir + 'frequencies/frequencies_double.npy', double_frequencies)
+
+
+
+def compute_couplings_with_SBM(output_dir):
+    Discretized_Array = np.load(output_dir + "discretized_array.npy")
+    single_frequencies = np.load(output_dir + "frequencies/frequencies_single.npy")
+    double_frequencies = np.load(output_dir + "frequencies/frequencies_double.npy")
+    multiplicities = get_multiplicities(Discretized_Array)
+    ncoord = Discretized_Array.shape[1]
+
+    #print (np.average(single_frequencies), np.average(double_frequencies))
+
+    # Create a toy dataset containing only the first 5 coordinates
+    toy_data = Discretized_Array[:, :50]
+
+
+    single_frequencies, double_frequencies = compute_frequencies(toy_data)
+
+    multiplicities = get_multiplicities(toy_data)
+    #print(np.shape(multiplicities))
+    ncoord = toy_data.shape[1]
+
+    max_iterations = 20 #iterations for the training
+    cutoff_loss = 1e-5
+    learning_rate = 0.001
+    nsteps = 5000000 #length MC
+   
+    print("\nComputing couplings with SBM...")
+    H,J,loss=sbm.train_coupled_MC (multiplicities,ncoord,max_iterations,cutoff_loss,single_frequencies,double_frequencies,learning_rate,nsteps)
+    print("Couplings computed.")
+    
+    plt.plot(loss)
+    plt.show()
+    plt.close()
+    
+
+    #np.save(output_dir + "frequencies/H_sbm.npy", H)
+    #np.save(output_dir + "frequencies/J_sbm.npy", J)
+    
+    #H= np.load(output_dir + "frequencies/H_sbm.npy")
+    #J= np.load(output_dir + "frequencies/J_sbm.npy")
+                
+    print("\nTesting SBM couplings with Monte Carlo simulation...")
+    starting_coords=sbm.get_starting_coords(multiplicities,ncoord,len(H),np.max(multiplicities))
+    Traj_MC = sbm.monte_carlo(starting_coords, H, J, nsteps, len(H),np.max(multiplicities), ncoord,multiplicities)
+    single_mc = np.zeros(len(H), dtype=np.float64)
+    double_mc = np.zeros((len(H), len(H)), dtype=np.float64)
+    compute_frequencies(Traj_MC, nsteps, len(H), multiplicities, ncoord, np.max(multiplicities), single_mc, double_mc)
+
+    delta_frequencies_single = single_frequencies - single_MC
+    delta_frequencies_double = double_frequencies - double_MC
+
+    print("Single frequencies from SBM:", single_frequencies)
+    print("Single frequencies from Monte Carlo:", single_MC)
+    print("Double frequencies from SBM:", double_frequencies)
+    print("Double frequencies from Monte Carlo:", double_MC)
+
+
 
 
 
