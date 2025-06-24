@@ -11,7 +11,6 @@ from cpython.mem cimport PyMem_Malloc, PyMem_Free
 from cython.parallel import prange
 from libc.string cimport memcpy
 from libc.math cimport isfinite
-from libc.math cimport fabs
 
 ctypedef cnp.float64_t DTYPE_t
 ctypedef cnp.int32_t ITYPE_t
@@ -29,6 +28,17 @@ def plot_progress_bar(int current, int total, int previous_percent, int bar_leng
         return percent
     return previous_percent
 
+@cdivision(True)
+cdef double compute_energy(int[:] state, double[:] H, double[:, :] J, int max_mult, int ncoord) nogil:
+    cdef int i, j, idx_i, idx_j
+    cdef double E = 0.0
+    for i in range(ncoord):
+        idx_i = i * max_mult + state[i]
+        E += H[idx_i]
+        for j in range(i + 1, ncoord):
+            idx_j = j * max_mult + state[j]
+            E += J[idx_i, idx_j]
+    return E
 
 
 def initiate_H_and_J(int[:] multiplicities, int ncoord):
@@ -76,7 +86,9 @@ cpdef int monte_carlo(
     int ncoord,
     int[:] multiplicities,
     DTYPE_t[:] single_frequencies,
-    DTYPE_t[:, :] double_frequencies
+    DTYPE_t[:, :] double_frequencies,
+    int[:, :] saved_states, 
+    double[:] saved_energies
 ):
     # copy while GIL is held
     cdef int[:] current_state = np.copy(starting_state)
@@ -84,7 +96,7 @@ cpdef int monte_carlo(
     # call inner worker with nogil
     return monte_carlo_worker(
         current_state, H, J, nsteps, tot_mult, max_mult,
-        ncoord, multiplicities, single_frequencies, double_frequencies
+        ncoord, multiplicities, single_frequencies, double_frequencies,saved_states,saved_energies
     )
 
 cdef int monte_carlo_worker(
@@ -97,7 +109,9 @@ cdef int monte_carlo_worker(
     int ncoord,
     int[:] multiplicities,
     DTYPE_t[:] single_frequencies,
-    DTYPE_t[:, :] double_frequencies
+    DTYPE_t[:, :] double_frequencies,
+    int[:, :] saved_states, 
+    double[:] saved_energies
 ) nogil:
     cdef int step, spin, old_val, new_val
     cdef int i, j, idx_old, idx_new, idx_k
@@ -157,6 +171,9 @@ cdef int monte_carlo_worker(
                     idx_j = j * max_mult + s_j
                     double_frequencies[idx_i, idx_j] += 1.0
                     double_frequencies[idx_j, idx_i] += 1.0
+            for i in range(ncoord):
+                saved_states[n_accepts - 1, i] = current_state[i]
+            saved_energies[n_accepts - 1] = compute_energy(current_state, H, J, max_mult, ncoord)
 
         if n_accepts >= nsteps:
             break
@@ -190,10 +207,9 @@ cpdef tuple get_gradient_coupled_MC(
     int tot_mult,
     int max_mult,
     int nsteps,
-    DTYPE_t lambda1_H,
-    DTYPE_t lambda1_J,
-    DTYPE_t lambda2_H,
-    DTYPE_t lambda2_J
+    int[:, :] saved_states, 
+    double[:] saved_energies,
+    tuple runMC
 ):
     cdef:
         cnp.ndarray[DTYPE_t, ndim=1] grad_H = np.zeros_like(H)
@@ -201,64 +217,71 @@ cpdef tuple get_gradient_coupled_MC(
         DTYPE_t[:] single_mc = np.zeros(tot_mult, dtype=np.float64)
         DTYPE_t[:, :] double_mc = np.zeros((tot_mult, tot_mult), dtype=np.float64)
         int i, j, n_effective
-        DTYPE_t norm
+        DTYPE_t norm, lambda_H = 0.1, lambda_J = 0.1
         int[:] start_tmp = get_starting_coords(multiplicities, ncoord)
-        DTYPE_t loss_data, loss_L1, loss_L2, loss
+        double[:] new_energies = np.empty(n_effective, dtype=np.float64)
+        double[:] weights = np.empty(n_effective, dtype=np.float64)
+        double max_weight = -1e100  
+        double weight_sum = 0.0      
 
 
-    # Run MC sampling
-    n_effective = monte_carlo(start_tmp, H, J, nsteps, tot_mult, max_mult, ncoord,
-                               multiplicities, single_mc, double_mc)
+    if runMC:
+        # Run MC sampling
+        n_effective = monte_carlo(start_tmp, H, J, nsteps, tot_mult, max_mult, ncoord,
+                                multiplicities, single_mc, double_mc,saved_states,saved_energies)
 
-    # Early exit if nothing was accepted
-    if n_effective == 0:
-        return grad_H, grad_J
+        # Early exit if nothing was accepted
+        if n_effective == 0:
+            return grad_H, grad_J
 
-    norm = 1.0 / n_effective
+        norm = 1.0 / n_effective
 
-    # Normalize sampled frequencies
+        # Normalize sampled frequencies
+        for i in range(tot_mult):
+            single_mc[i] *= norm
+
+        for i in range(tot_mult):
+            for j in range(tot_mult):
+                double_mc[i, j] *= norm
+
+        
+    else :
+        n_effective = saved_states.shape[0]
+        for i in range(n_effective):
+            new_energies[i] = compute_energy(saved_states[i], H, J, max_mult, ncoord)
+            weights[i] = - (new_energies[i] - saved_energies[i])
+            if weights[i] > max_weight:
+                max_weight = weights[i]
+            for i in range(n_effective):
+                weights[i] = exp(weights[i] - max_weight)
+                weight_sum += weights[i]
+
+        for i in range(n_effective):
+            w = weights[i] / weight_sum
+            for a in range(ncoord):
+                idx = a * max_mult + saved_states[i, a]
+                single_mc[idx] += w
+            for a in range(ncoord):
+                idx_a = a * max_mult + saved_states[i, a]
+                for b in range(a + 1, ncoord):
+                    idx_b = b * max_mult + saved_states[i, b]
+                    double_mc[idx_a, idx_b] += w
+                    double_mc[idx_b, idx_a] += w
+
+    # Gradient of H with L2 regularization, skipping invalid
     for i in range(tot_mult):
-        single_mc[i] *= norm
+        if isfinite(H[i]) :
+            grad_H[i] = single_freq[i] - single_mc[i] + 2.0 * lambda_H * H[i]
 
+    # Gradient of J with L2 regularization, skipping invalid
     for i in range(tot_mult):
         for j in range(tot_mult):
-            double_mc[i, j] *= norm
+            if isfinite(J[i, j]) :
+                grad_J[i, j] = double_freq[i, j] - double_mc[i, j] + 2.0 * lambda_J * J[i, j]
 
-    # Gradient of H with L1/L2 regularization
-    for i in range(tot_mult):
-        if not np.isinf(H[i]):
-            grad_H[i] = single_freq[i] - single_mc[i]
-            grad_H[i] += 2.0 * lambda2_H * H[i]
+    return grad_H, grad_J
 
-            if H[i] != 0.0:
-                grad_H[i] += lambda1_H * (H[i] / fabs(H[i]))
-
-            loss_data += (single_freq[i] - single_mc[i])**2
-            loss_L2 += lambda2_H * H[i]**2
-            loss_L1 += lambda1_H * fabs(H[i])
-        else:
-            grad_H[i] = 0.0
-
-    # Gradient of J with L1/L2 regularization
-    for i in range(tot_mult):
-        for j in range(tot_mult):
-            if not np.isinf(J[i, j]):
-                grad_J[i, j] = double_freq[i, j] - double_mc[i, j]
-                grad_J[i, j] += 2.0 * lambda2_J * J[i, j]
-
-                if J[i, j] != 0.0:
-                    grad_J[i, j] += lambda1_J * (J[i, j] / fabs(J[i, j]))
-
-                loss_data += (double_freq[i, j] - double_mc[i, j])**2
-                loss_L2 += lambda2_J * J[i, j]**2
-                loss_L1 += lambda1_J * fabs(J[i, j])
-            else:
-                grad_J[i, j] = 0.0
-    
-    loss = loss_data + loss_L2 + loss_L1
-
-
-    return grad_H, grad_J, loss, loss_data,loss_L1, loss_L2
+            
 
 
 @boundscheck(False)
@@ -293,36 +316,33 @@ def train_coupled_MC(int[:] multiplicities,
                      float cutoff_loss,
                      cnp.ndarray[DTYPE_t, ndim=1] single_freq,
                      cnp.ndarray[DTYPE_t, ndim=2] double_freq,
-                     float lr, int nsteps,
-                     float lambda1_H, float lambda1_J, 
-                     float lambda2_H,float lambda2_J):
+                     float lr, int nsteps):
     cdef cnp.ndarray[DTYPE_t, ndim=1] H
     cdef cnp.ndarray[DTYPE_t, ndim=2] J
     cdef int tot_mult, max_mult, i, prev = -1
-    cdef float loss, loss_data, loss_L1, loss_L2
+    cdef float loss
     cdef list loss_list = []
-    cdef list loss_data_list = []
-    cdef list loss_L1_list = []
-    cdef list loss_L2_list =[]
     cdef float learning_rate = 0.1
-   
+    cdef int[:, :] saved_states = np.empty((nsteps, ncoord), dtype=np.int32)
+    cdef double[:] saved_energies = np.empty(nsteps, dtype=np.float64)
+    cdef tuple runMC=True
 
     H, J = initiate_H_and_J(multiplicities, ncoord)
     tot_mult = H.shape[0]
     max_mult = int(np.max(multiplicities))
 
     for i in range(max_iters):
+        if i%10==0 : 
+            runMC=True
+        else:
+            runMC=False
         prev = plot_progress_bar(i, max_iters, prev)
-        grad_H, grad_J, loss, loss_data, loss_L1, loss_L2 = get_gradient_coupled_MC(H, J, ncoord, multiplicities,
+        grad_H, grad_J = get_gradient_coupled_MC(H, J, ncoord, multiplicities,
                                                  single_freq, double_freq,
-                                                 tot_mult, max_mult, nsteps,lambda1_H,lambda1_J,lambda2_H,lambda2_J)
+                                                 tot_mult, max_mult, nsteps,saved_states,saved_energies,runMC)
         update_field_coupling(H, J, grad_H, grad_J, learning_rate)
-        
+        loss = np.sum(np.abs(grad_H)) + np.sum(np.abs(grad_J))
         loss_list.append(loss)
-        loss_data_list.append(loss_data)
-        loss_L1_list.append(loss_L1)
-        loss_L2_list.append(loss_L2)
-
         if loss < cutoff_loss:
             prev = plot_progress_bar(max_iters, max_iters, prev)
             print(f"\nConvergence reached at iteration {i+1} with loss {loss:.6f}")
@@ -332,4 +352,4 @@ def train_coupled_MC(int[:] multiplicities,
         print(f"\nWarning: Max iterations reached. Final loss: {loss:.6f}")
 
 
-    return H, J, loss_list,loss_data_list,loss_L1_list,loss_L2_list
+    return H, J, loss_list

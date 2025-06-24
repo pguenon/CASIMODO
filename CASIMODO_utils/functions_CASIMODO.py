@@ -1559,7 +1559,7 @@ def compute_couplings_with_SBM(output_dir):
     #print (np.average(single_frequencies), np.average(double_frequencies))
 
     # Create a toy dataset containing only the first 5 coordinates
-    toy_data = Discretized_Array[:, :50]
+    toy_data = Discretized_Array[:, :100]
 
 
     single_frequencies, double_frequencies = compute_frequencies(toy_data)
@@ -1568,32 +1568,50 @@ def compute_couplings_with_SBM(output_dir):
     #print(np.shape(multiplicities))
     ncoord = toy_data.shape[1]
 
-    max_iterations = 20 #iterations for the training
-    cutoff_loss = 1e-5
+    max_iterations = 150 #iterations for the training
+    cutoff_loss =0 #0.0226*ncoord**2 - 0.3249*ncoord + 2.9049
     learning_rate = 0.001
-    nsteps = 5000000 #length MC
+    nsteps = 20000 #length MC
+
+    lambda1_H = 0.000005*ncoord**2
+    lambda1_J = 0.000005*ncoord**2
+    lambda2_H = 0.00002*ncoord**2
+    lambda2_J = 0.00002*ncoord**2
    
     print("\nComputing couplings with SBM...")
-    H,J,loss=sbm.train_coupled_MC (multiplicities,ncoord,max_iterations,cutoff_loss,single_frequencies,double_frequencies,learning_rate,nsteps)
+    H,J,loss,loss_data,loss_L1, loss_L2=sbm.train_coupled_MC (multiplicities,ncoord,max_iterations,cutoff_loss,single_frequencies,double_frequencies,learning_rate,nsteps,lambda1_H,lambda1_J,lambda2_H,lambda2_J)
     print("Couplings computed.")
     
     plt.plot(loss)
-    plt.show()
+    plt.title("Loss during training, ncoord = " + str(ncoord))
+    plt.savefig("loss_training.png")
     plt.close()
+
+    plt.plot(loss_data,label='Loss data')
+    plt.plot(loss_L1,label='L1 loss')
+    plt.plot(loss_L2,label='L2 loss')
+    plt.title("Losses during training, ncoord = " + str(ncoord))
+    plt.xlabel("Iterations")
+    plt.ylabel("Loss value")
+    plt.legend()
+    plt.savefig("losses_separated_training.png")
+    plt.close()
+    
     
 
     #np.save(output_dir + "frequencies/H_sbm.npy", H)
     #np.save(output_dir + "frequencies/J_sbm.npy", J)
     
-    #H= np.load(output_dir + "frequencies/H_sbm.npy")
+    #H= np.load(output_dir + "frequencies/H_sbm.npy") 
     #J= np.load(output_dir + "frequencies/J_sbm.npy")
                 
     print("\nTesting SBM couplings with Monte Carlo simulation...")
-    starting_coords=sbm.get_starting_coords(multiplicities,ncoord,len(H),np.max(multiplicities))
-    Traj_MC = sbm.monte_carlo(starting_coords, H, J, nsteps, len(H),np.max(multiplicities), ncoord,multiplicities)
-    single_mc = np.zeros(len(H), dtype=np.float64)
-    double_mc = np.zeros((len(H), len(H)), dtype=np.float64)
-    compute_frequencies(Traj_MC, nsteps, len(H), multiplicities, ncoord, np.max(multiplicities), single_mc, double_mc)
+    starting_coords=sbm.get_starting_coords(multiplicities,ncoord)
+    single_MC = np.zeros(len(H), dtype=np.float64)
+    double_MC = np.zeros((len(H), len(H)), dtype=np.float64)
+    n_effective = sbm.monte_carlo(starting_coords, H, J, nsteps*10, len(H),np.max(multiplicities), ncoord,multiplicities,single_MC,double_MC)
+    single_MC = single_MC / n_effective
+    double_MC = double_MC / n_effective
 
     delta_frequencies_single = single_frequencies - single_MC
     delta_frequencies_double = double_frequencies - double_MC

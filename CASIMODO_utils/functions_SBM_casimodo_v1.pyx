@@ -11,7 +11,6 @@ from cpython.mem cimport PyMem_Malloc, PyMem_Free
 from cython.parallel import prange
 from libc.string cimport memcpy
 from libc.math cimport isfinite
-from libc.math cimport fabs
 
 ctypedef cnp.float64_t DTYPE_t
 ctypedef cnp.int32_t ITYPE_t
@@ -189,11 +188,7 @@ cpdef tuple get_gradient_coupled_MC(
     DTYPE_t[:, :] double_freq,
     int tot_mult,
     int max_mult,
-    int nsteps,
-    DTYPE_t lambda1_H,
-    DTYPE_t lambda1_J,
-    DTYPE_t lambda2_H,
-    DTYPE_t lambda2_J
+    int nsteps
 ):
     cdef:
         cnp.ndarray[DTYPE_t, ndim=1] grad_H = np.zeros_like(H)
@@ -201,9 +196,8 @@ cpdef tuple get_gradient_coupled_MC(
         DTYPE_t[:] single_mc = np.zeros(tot_mult, dtype=np.float64)
         DTYPE_t[:, :] double_mc = np.zeros((tot_mult, tot_mult), dtype=np.float64)
         int i, j, n_effective
-        DTYPE_t norm
+        DTYPE_t norm, lambda_H = 0.1, lambda_J = 0.1
         int[:] start_tmp = get_starting_coords(multiplicities, ncoord)
-        DTYPE_t loss_data, loss_L1, loss_L2, loss
 
 
     # Run MC sampling
@@ -224,41 +218,18 @@ cpdef tuple get_gradient_coupled_MC(
         for j in range(tot_mult):
             double_mc[i, j] *= norm
 
-    # Gradient of H with L1/L2 regularization
+    # Gradient of H with L2 regularization, skipping invalid
     for i in range(tot_mult):
-        if not np.isinf(H[i]):
-            grad_H[i] = single_freq[i] - single_mc[i]
-            grad_H[i] += 2.0 * lambda2_H * H[i]
+        if isfinite(H[i]) :
+            grad_H[i] = single_freq[i] - single_mc[i] + 2.0 * lambda_H * H[i]
 
-            if H[i] != 0.0:
-                grad_H[i] += lambda1_H * (H[i] / fabs(H[i]))
-
-            loss_data += (single_freq[i] - single_mc[i])**2
-            loss_L2 += lambda2_H * H[i]**2
-            loss_L1 += lambda1_H * fabs(H[i])
-        else:
-            grad_H[i] = 0.0
-
-    # Gradient of J with L1/L2 regularization
+    # Gradient of J with L2 regularization, skipping invalid
     for i in range(tot_mult):
         for j in range(tot_mult):
-            if not np.isinf(J[i, j]):
-                grad_J[i, j] = double_freq[i, j] - double_mc[i, j]
-                grad_J[i, j] += 2.0 * lambda2_J * J[i, j]
+            if isfinite(J[i, j]) :
+                grad_J[i, j] = double_freq[i, j] - double_mc[i, j] + 2.0 * lambda_J * J[i, j]
 
-                if J[i, j] != 0.0:
-                    grad_J[i, j] += lambda1_J * (J[i, j] / fabs(J[i, j]))
-
-                loss_data += (double_freq[i, j] - double_mc[i, j])**2
-                loss_L2 += lambda2_J * J[i, j]**2
-                loss_L1 += lambda1_J * fabs(J[i, j])
-            else:
-                grad_J[i, j] = 0.0
-    
-    loss = loss_data + loss_L2 + loss_L1
-
-
-    return grad_H, grad_J, loss, loss_data,loss_L1, loss_L2
+    return grad_H, grad_J
 
 
 @boundscheck(False)
@@ -293,36 +264,28 @@ def train_coupled_MC(int[:] multiplicities,
                      float cutoff_loss,
                      cnp.ndarray[DTYPE_t, ndim=1] single_freq,
                      cnp.ndarray[DTYPE_t, ndim=2] double_freq,
-                     float lr, int nsteps,
-                     float lambda1_H, float lambda1_J, 
-                     float lambda2_H,float lambda2_J):
+                     float lr, int nsteps):
     cdef cnp.ndarray[DTYPE_t, ndim=1] H
     cdef cnp.ndarray[DTYPE_t, ndim=2] J
     cdef int tot_mult, max_mult, i, prev = -1
-    cdef float loss, loss_data, loss_L1, loss_L2
+    cdef float loss
     cdef list loss_list = []
-    cdef list loss_data_list = []
-    cdef list loss_L1_list = []
-    cdef list loss_L2_list =[]
     cdef float learning_rate = 0.1
-   
 
     H, J = initiate_H_and_J(multiplicities, ncoord)
     tot_mult = H.shape[0]
     max_mult = int(np.max(multiplicities))
 
     for i in range(max_iters):
+        #if i%10==0 : 
+        #    learning_rate/=10
         prev = plot_progress_bar(i, max_iters, prev)
-        grad_H, grad_J, loss, loss_data, loss_L1, loss_L2 = get_gradient_coupled_MC(H, J, ncoord, multiplicities,
+        grad_H, grad_J = get_gradient_coupled_MC(H, J, ncoord, multiplicities,
                                                  single_freq, double_freq,
-                                                 tot_mult, max_mult, nsteps,lambda1_H,lambda1_J,lambda2_H,lambda2_J)
+                                                 tot_mult, max_mult, nsteps)
         update_field_coupling(H, J, grad_H, grad_J, learning_rate)
-        
+        loss = np.sum(np.abs(grad_H)) + np.sum(np.abs(grad_J))
         loss_list.append(loss)
-        loss_data_list.append(loss_data)
-        loss_L1_list.append(loss_L1)
-        loss_L2_list.append(loss_L2)
-
         if loss < cutoff_loss:
             prev = plot_progress_bar(max_iters, max_iters, prev)
             print(f"\nConvergence reached at iteration {i+1} with loss {loss:.6f}")
@@ -332,4 +295,4 @@ def train_coupled_MC(int[:] multiplicities,
         print(f"\nWarning: Max iterations reached. Final loss: {loss:.6f}")
 
 
-    return H, J, loss_list,loss_data_list,loss_L1_list,loss_L2_list
+    return H, J, loss_list
