@@ -162,7 +162,8 @@ if step_to_perform in ['all', 'get_frequencies']:
 
 
 if step_to_perform in ['all', 'run_sbm']:
-    compute_couplings_with_SBM(output_dir)    
+    #compute_couplings_with_SBM(output_dir)  
+    extract_couplings_between_residues(output_dir)  
 
 if step_to_perform in [ 'get_distances_between_coordinates']:
     get_positions_baricenters(

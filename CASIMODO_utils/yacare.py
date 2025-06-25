@@ -543,7 +543,7 @@ def perform_first_reordering(variables, percentage_moving_square, vmax=-1):
     plt.title('Reordered distance matrix', size=20)
     if variables.save_images == True:
         plt.savefig(variables.project_name + "_Yacare_1-Matrix-FirstReordering.png", bbox_inches='tight', pad_inches=0.1, dpi=150)
-    plt.show()
+    ##plt.show()
     plt.close()
 
     # Plot delta_D.
@@ -558,7 +558,7 @@ def perform_first_reordering(variables, percentage_moving_square, vmax=-1):
     plt.yticks(fontsize=14)
     if variables.save_images == True:
         plt.savefig(variables.project_name + "_Yacare_2-DeltaD.png", bbox_inches='tight', pad_inches=0.1, dpi=150)
-    plt.show()
+    #plt.show()
     plt.close()
 
 ###########################################################
@@ -739,7 +739,7 @@ def choose_if_we_reorder_again(variables, indices=[], vmax=-1):
     plt.title('Best reordered distance matrix', size=20)
     if variables.save_images == True:
         plt.savefig(variables.project_name + "_Yacare_3-Matrix-BestReordered.png", bbox_inches='tight', pad_inches=0.1, dpi=150)
-    plt.show()
+    #plt.show()
     plt.close()
 
     # Plot delta_D.
@@ -754,7 +754,7 @@ def choose_if_we_reorder_again(variables, indices=[], vmax=-1):
     plt.yticks(fontsize=14)
     if variables.save_images == True:
         plt.savefig(variables.project_name + "_Yacare_4-DeltaD-BestReordered.png", bbox_inches='tight', pad_inches=0.1, dpi=150)
-    plt.show()
+    #plt.show()
     plt.close()
 
     # Close the output file.
@@ -847,7 +847,7 @@ def find_optimal_cutoff(variables, minimal_size_cluster, use_all_cutoff=True, fu
     plt.yticks(fontsize=14)
     if variables.save_images == True:
         plt.savefig(variables.project_name + "_Yacare_5-BestRatios.png", bbox_inches='tight', pad_inches=0.1, dpi=150)
-    plt.show()
+    #plt.show()
     plt.close()
 
     # Plot delta_D with cutoff.
@@ -869,7 +869,7 @@ def find_optimal_cutoff(variables, minimal_size_cluster, use_all_cutoff=True, fu
     plt.yticks(fontsize=14)
     if variables.save_images == True:
         plt.savefig(variables.project_name + "_Yacare_6-DeltaD-WithClusters.png", bbox_inches='tight', pad_inches=0.1, dpi=150)
-    plt.show()
+    #plt.show()
     plt.close()
 
 ###########################################################
@@ -937,7 +937,7 @@ def change_proposed_cutoff(variables):
     plt.yticks(fontsize=14)
     if variables.save_images == True:
         plt.savefig(variables.project_name + "_Yacare_6-DeltaD-WithClusters-ManuallyChanged.png", bbox_inches='tight', pad_inches=0.1, dpi=150)
-    plt.show()
+    #plt.show()
     plt.close()
 
     # Close the output file.
@@ -1080,7 +1080,7 @@ def find_final_clusters(variables, vmax=-1):
     plt.title('Reordered distance matrix with clusters', size=20)
     if variables.save_images == True:
         plt.savefig(variables.project_name + "_Yacare_7-Matrix-ReorderedWithClusters.png", bbox_inches='tight', pad_inches=0.1, dpi=150)
-    plt.show()
+    #plt.show()
     plt.close()
 
     print(f'At the cut-off {round(variables.selected_cutoff, 3)}, clusters include {round(float((100*np.sum(variables.size_clusters)/variables.num_elements)), 1)}% of the trajectory.')
@@ -1211,7 +1211,7 @@ def compare_clusters(variables, display_stddev = False, display_mean_distances =
     colorbar.ax.tick_params(labelsize=16)
     if variables.save_images == True:
         plt.savefig(variables.project_name + "_Yacare_8-CompareClusters.png", bbox_inches='tight', pad_inches=0.1, dpi=150)
-    plt.show()
+    #plt.show()
     plt.close()
     
     average_mu_clusters = 0
@@ -1333,7 +1333,7 @@ def propose_list_for_concatenating_clusters(variables, threshold_variable, choic
     plt.title('Decision matrix to merge clusters', size=20)
     if variables.save_images == True:
         plt.savefig(variables.project_name + "_Yacare_9-DecisionMatrixToMergeClusters.png", bbox_inches='tight', pad_inches=0.1, dpi=150)
-    plt.show()
+    #plt.show()
     plt.close()
 
     # Look into the decision_matrix for each line, check when there are 1's without looking at already found clusters. Then remove empty lists.
@@ -1572,7 +1572,7 @@ def concatenate_clusters(variables, vmax=-1):
     plt.title('Reordered distance matrix with merged clusters', size=20)
     if variables.save_images == True:
         plt.savefig(variables.project_name + "_Yacare_10-Matrix-MergedClusters.png", bbox_inches='tight', pad_inches=0.1, dpi=150)
-    plt.show()
+    #plt.show()
     plt.close()
 
 ###########################################################
@@ -1759,7 +1759,7 @@ def expand_clusters(variables, amount_of_noise, keep_no_noise=False, vmax=-1):
     plt.title('Reordered distance matrix with data from noise', size=20)
     if variables.save_images == True:
         plt.savefig(variables.project_name + "_Yacare_11-Matrix-WithNoise.png", bbox_inches='tight', pad_inches=0.1, dpi=150)
-    plt.show()
+    #plt.show()
     plt.close()
 
     # Plot delta_D with cutoff.
@@ -1779,7 +1779,7 @@ def expand_clusters(variables, amount_of_noise, keep_no_noise=False, vmax=-1):
     plt.yticks(fontsize=14)
     if variables.save_images == True:
         plt.savefig(variables.project_name + "_Yacare_12-DeltaD-WithNoise.png", bbox_inches='tight', pad_inches=0.1, dpi=150)
-    plt.show()
+    #plt.show()
     plt.close()
 
     # Print new status.
@@ -1920,7 +1920,7 @@ def compare_final_clusters(variables, display_stddev = False, display_mean_dista
     colorbar.ax.tick_params(labelsize=16)
     if variables.save_images == True:
         plt.savefig(variables.project_name + "_Yacare_13-CompareLastClusters.png", bbox_inches='tight', pad_inches=0.1, dpi=150)
-    plt.show()
+    #plt.show()
     plt.close()
     
     average_mu_clusters = 0
@@ -2160,7 +2160,7 @@ def plot_confusion_matrix(variables, labels_true, transformation = {}, auto_reor
     #plt.title('Confusion matrix', size=20)
     if variables.save_images == True:
         plt.savefig(variables.project_name + "_Yacare_14-ConfusionMatrix.png", bbox_inches='tight', pad_inches=0.1, dpi=150)
-    plt.show()
+    #plt.show()
     plt.close()   
 
     # Count the number of pure and uncut clusters. First condition is for the case with no noise, second condition is for the other case.
@@ -2305,7 +2305,7 @@ def plot_confusion_matrix_HDBSCAN(variables, labels_true, transformation = {}, a
     plt.title('Confusion matrix from HDBSCAN', size=20)
     if variables.save_images == True:
         plt.savefig(variables.project_name + "_HDBSCAN_ConfusionMatrix.png", bbox_inches='tight', pad_inches=0.1, dpi=300)
-    plt.show()
+    #plt.show()
     plt.close()   
 
     # Count the number of pure and uncut clusters. First condition is for the case with no noise, second condition is for the other case.
@@ -2446,7 +2446,7 @@ def plot_confusion_matrix_OPTICS(variables, labels_true, transformation = {}, au
     plt.title('Confusion matrix from OPTICS', size=20)
     if variables.save_images == True:
         plt.savefig(variables.project_name + "_OPTICS_ConfusionMatrix.png", bbox_inches='tight', pad_inches=0.1, dpi=300)
-    plt.show()
+    #plt.show()
     plt.close()
     
     # Count the number of pure and uncut clusters. First condition is for the case with no noise, second condition is for the other case.
@@ -2565,7 +2565,7 @@ def plot_confusion_matrix_kmeans(variables, labels_true, transformation = {}, au
     plt.title('Confusion matrix from k-Means', size=20)
     if variables.save_images == True:
         plt.savefig(variables.project_name + "_kMeans_ConfusionMatrix.png", bbox_inches='tight', pad_inches=0.1, dpi=300)
-    plt.show()
+    #plt.show()
     plt.close()
     
     # Count the number of pure clusters. 
@@ -2728,7 +2728,7 @@ def plot_confusion_matrix_density_peaks_decision_graph(variables, percent=0.5):
     plt.ylabel(r'$\delta$', fontsize=16)
     if variables.save_images == True:
         plt.savefig(variables.project_name + "_DensityPeaks_DecisionGraph.png", bbox_inches='tight', pad_inches=0.1,  dpi=300)
-    plt.show()
+    #plt.show()
     plt.close()
 
 ###########################################################
@@ -2852,7 +2852,7 @@ def plot_confusion_matrix_density_peaks(variables, labels_true, rhomin, deltamin
     plt.title('Confusion matrix from density peaks', size=20)
     if variables.save_images == True:
         plt.savefig(variables.project_name + "_DensityPeaks_ConfusionMatrix.png", bbox_inches='tight', pad_inches=0.1, dpi=300)
-    plt.show()
+    #plt.show()
     plt.close()
 
     # Count the number of pure and uncut clusters. First condition is for the case with no noise, second condition is for the other case.
@@ -3281,7 +3281,7 @@ def expand_clusters_TEMP(variables, amount_of_noise, keep_no_noise=False, use_an
     plt.title('Reordered distance matrix with data from noise', size=20)
     if variables.save_images == True:
         plt.savefig(variables.project_name + "_Yacare_11-Matrix-WithNoise.png", bbox_inches='tight', pad_inches=0.1, dpi=150)
-    plt.show()
+    #plt.show()
     plt.close()
 
     # Plot delta_D with cutoff.
@@ -3301,7 +3301,7 @@ def expand_clusters_TEMP(variables, amount_of_noise, keep_no_noise=False, use_an
     plt.yticks(fontsize=14)
     if variables.save_images == True:
         plt.savefig(variables.project_name + "_Yacare_12-DeltaD-WithNoise.png", bbox_inches='tight', pad_inches=0.1, dpi=150)
-    plt.show()
+    #plt.show()
     plt.close()
 
     # Print new status.

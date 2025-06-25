@@ -1549,6 +1549,7 @@ def get_frequencies(output_dir):
 
 
 
+############################## Functions to compute couplings with SBM ##########################
 def compute_couplings_with_SBM(output_dir):
     Discretized_Array = np.load(output_dir + "discretized_array.npy")
     single_frequencies = np.load(output_dir + "frequencies/frequencies_single.npy")
@@ -1559,7 +1560,7 @@ def compute_couplings_with_SBM(output_dir):
     #print (np.average(single_frequencies), np.average(double_frequencies))
 
     # Create a toy dataset containing only the first 5 coordinates
-    toy_data = Discretized_Array[:, :100]
+    toy_data = Discretized_Array[:, :]
 
 
     single_frequencies, double_frequencies = compute_frequencies(toy_data)
@@ -1568,13 +1569,13 @@ def compute_couplings_with_SBM(output_dir):
     #print(np.shape(multiplicities))
     ncoord = toy_data.shape[1]
 
-    max_iterations = 150 #iterations for the training
-    cutoff_loss =0 #0.0226*ncoord**2 - 0.3249*ncoord + 2.9049
+    max_iterations = 20 #iterations for the training
+    cutoff_loss = 0 # 0.0804*ncoord**2 - 1.4198*ncoord
     learning_rate = 0.001
-    nsteps = 20000 #length MC
+    nsteps = 100*ncoord #length MC
 
-    lambda1_H = 0.000005*ncoord**2
-    lambda1_J = 0.000005*ncoord**2
+    lambda1_H = 0#  0.0000005*ncoord**2
+    lambda1_J = 0# 0.0000005*ncoord**2
     lambda2_H = 0.00002*ncoord**2
     lambda2_J = 0.00002*ncoord**2
    
@@ -1584,7 +1585,7 @@ def compute_couplings_with_SBM(output_dir):
     
     plt.plot(loss)
     plt.title("Loss during training, ncoord = " + str(ncoord))
-    plt.savefig("loss_training.png")
+    plt.savefig(output_dir+"loss_training.png")
     plt.close()
 
     plt.plot(loss_data,label='Loss data')
@@ -1594,13 +1595,13 @@ def compute_couplings_with_SBM(output_dir):
     plt.xlabel("Iterations")
     plt.ylabel("Loss value")
     plt.legend()
-    plt.savefig("losses_separated_training.png")
+    plt.savefig(output_dir+"losses_separated_training.png")
     plt.close()
     
     
 
-    #np.save(output_dir + "frequencies/H_sbm.npy", H)
-    #np.save(output_dir + "frequencies/J_sbm.npy", J)
+    np.save(output_dir + "frequencies/H_sbm.npy", H)
+    np.save(output_dir + "frequencies/J_sbm.npy", J)
     
     #H= np.load(output_dir + "frequencies/H_sbm.npy") 
     #J= np.load(output_dir + "frequencies/J_sbm.npy")
@@ -1622,13 +1623,39 @@ def compute_couplings_with_SBM(output_dir):
     print("Double frequencies from Monte Carlo:", double_MC)
 
 
+def extract_couplings_between_residues(output_dir):
+
+    Discretized_Array = np.load(output_dir + "discretized_array.npy")
+    multiplicities = get_multiplicities(Discretized_Array)
+    ncoord = Discretized_Array.shape[1]
+
+    
+    J = np.load(output_dir + "frequencies/J_sbm.npy")
+    
+    Couplings_between_residues=np.zeros((ncoord, ncoord), dtype=float)
+    print("\nComputing couplings between residues...")
+    for i in range(ncoord):
+        for j in range(i + 1, ncoord):
+            sum_coupling=0
+            frobenius_norm = 0
+            for k in range (multiplicities[i]):
+                for l in range(multiplicities[j]):
+                    coupling_value = ( J[i * np.max(multiplicities) + k, j * np.max(multiplicities) + l])
+                    print(f"Coupling between {i} and {j} with multiplicities {k} and {l}: {coupling_value}")
+                    sum_coupling += np.square(coupling_value)
+            
+            frobenius_norm = np.sqrt(sum_coupling)
+            Couplings_between_residues[i, j] = frobenius_norm
+            Couplings_between_residues[j, i] = frobenius_norm  
+    # Save the couplings between residues to a file
+    
+    np.save(output_dir + "frequencies/Couplings_between_residues.npy", Couplings_between_residues)
+    print("Couplings between residues computed.")
 
 
 
 
-
-
-
+#############################
 
 def get_positions_baricenters(u_traj,output_dir,RESIDS_SELECTED,indices_aa,terminal_atoms,coordinates_to_add,barycenter_coordinates_to_add):
     times_indices=np.load(output_dir+'times_indices.npy')
@@ -1652,8 +1679,9 @@ def get_positions_baricenters(u_traj,output_dir,RESIDS_SELECTED,indices_aa,termi
     atoms_coord_to_add=[barycenter.split('_')[1] for barycenter in barycenter_coordinates_to_add]
 
     print("Computing barycenters...")
+    previous_progress = -1  # Initialize progress bar
     for i in range(len(coordinates)):
-        plot_progress_bar(i,len(coordinates))
+        previous_progress=plot_progress_bar(i,len(coordinates),previous_progress)
         coord=coordinates[i]
 
         if coord[:3]=='phi':
@@ -1668,7 +1696,7 @@ def get_positions_baricenters(u_traj,output_dir,RESIDS_SELECTED,indices_aa,termi
             index_coord=name_coord_to_add.index(coord)
             atom_selection= u_traj.select_atoms(f"resid {resids_coord_to_add[index_coord]} and name {atoms_coord_to_add[index_coord]}")
             for k, frame in enumerate(times_indices):
-                plot_progress_bar(k, len(times_indices))
+                
                 u_traj.trajectory[frame]
                 Positions_barycenters[i, k, :] = atom_selection.positions
         else :
@@ -1702,7 +1730,7 @@ def get_positions_baricenters(u_traj,output_dir,RESIDS_SELECTED,indices_aa,termi
                 Positions_barycenters[i]=(Positions_terminal_atoms[index_term1,:,:]+Positions_atoms_CA[index_CA2,:,:])/2
             elif index_CA1 != -1 and index_CA2 != -1:
                 Positions_barycenters[i]=(Positions_atoms_CA[index_CA1,:,:]+Positions_atoms_CA[index_CA2,:,:])/2
-    plot_progress_bar(len(coordinates),len(coordinates))
+    plot_progress_bar(len(coordinates),len(coordinates),previous_progress)
     print("\nBarycenters computed.")
     np.save(output_dir+"Positions_npy/Positions_barycenters.npy",Positions_barycenters)
 
@@ -1711,12 +1739,13 @@ def get_avg_distances_barycenters(output_dir):
     ncoord,nframes,dim=Positions_barycenters.shape
     avg_distances=np.zeros((ncoord,ncoord))
     print("Computing average distances...")
+    previous_progress = -1  # Initialize progress bar
     for i in range(ncoord):
         for j in range(i+1,ncoord):
-            plot_progress_bar(i*ncoord+j,ncoord*ncoord)
+            previous_progress=plot_progress_bar(i*ncoord+j,ncoord*ncoord,previous_progress)
             avg_distances[i,j]=np.mean(np.linalg.norm(Positions_barycenters[i,:,:]-Positions_barycenters[j,:,:],axis=1))
             avg_distances[j,i]=avg_distances[i,j]
-    plot_progress_bar(ncoord*ncoord,ncoord*ncoord)
+    plot_progress_bar(ncoord*ncoord,ncoord*ncoord,previous_progress)
     print("\nAverage distances computed.")
     np.save(output_dir+"analysis/avg_distances_barycenters.npy",avg_distances)
 
@@ -2141,7 +2170,7 @@ def clusterize_MI(output_dir,coordinates_to_add,barycenter_coordinates_to_add,st
     times_indices=np.load(output_dir+"times_indices.npy")
     name_coordinates_to_add=[coord.split('/')[-1].split('.')[0] for coord in coordinates_to_add]
     avg_distances_barycenters=np.load(output_dir+"analysis/avg_distances_barycenters.npy")
-    MI=np.load(output_dir+'analysis/MI.npy')
+    MI=np.load(output_dir+'frequencies/Couplings_between_residues.npy') #'analysis/MI.npy')
     MI_no_diag=np.copy(MI)
     for i in range (len(MI_no_diag)):
         MI_no_diag[i,i]=0
