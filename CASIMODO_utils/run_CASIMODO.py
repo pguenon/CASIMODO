@@ -31,6 +31,17 @@ def parse_arguments():
     
     parser.add_argument('--step_to_perform', type=str, default='all', help='Step to perform in the pipeline')
     parser.add_argument('--number_of_states_to_show', type=int, default=10, help='Number of states to show after clustering')
+
+    parser.add_argument('--n_iterations', type=int, default=1000, help='Number of iterations for BM')
+    parser.add_argument('--lr_init', type=float, default=0.1, help='Initial learning rate for BM')
+    parser.add_argument('--decay_rate', type=float, default=0.5, help='Decay rate for learning rate in BM')
+    parser.add_argument('--lambda1_H', type=float, default=0., help='Lambda1 for H in BM')
+    parser.add_argument('--lambda1_J', type=float, default=0., help='Lambda1 for J in BM')
+    parser.add_argument('--lambda2_H', type=float, default=0., help='Lambda2 for H in BM')
+    parser.add_argument('--lambda2_J', type=float, default=0., help='Lambda2 for J in BM')
+    parser.add_argument('--n_samples', type=int, default=-1, help='Number of samples for BM')
+    parser.add_argument('--k_burn', type=int, default=-1, help='Burn-in period for BM')
+    parser.add_argument('--k_sample', type=int, default=-1, help='Sampling period for BM')
     
     return parser.parse_args()
 
@@ -60,6 +71,16 @@ barycenter_coordinates_to_add = args.barycenter_coordinates_to_add
 step_to_perform = args.step_to_perform
 number_of_states_to_show = args.number_of_states_to_show
 
+n_iterations = args.n_iterations
+lr_init = args.lr_init
+decay_rate = args.decay_rate
+lambda1_H = args.lambda1_H
+lambda1_J = args.lambda1_J
+lambda2_H = args.lambda2_H
+lambda2_J = args.lambda2_J
+n_samples = args.n_samples
+k_burn = args.k_burn
+k_sample = args.k_sample
 
 #######################################
 #     CHECK INPUT FILE EXISTENCE      #
@@ -79,7 +100,7 @@ subdirs = [
     'coordinates_plots',
     'Positions_npy',
     'analysis',
-    'MI_plots',
+    'couplings_plots',
     'frequencies'
 ]
 
@@ -161,9 +182,29 @@ if step_to_perform in ['all', 'get_frequencies']:
     get_frequencies(output_dir)
 
 
-if step_to_perform in ['all', 'run_sbm']:
-    #compute_couplings_with_SBM(output_dir)  
-    extract_couplings_between_residues(output_dir)  
+if step_to_perform in ['all', 'run_bm']:
+    compute_couplings_with_BM(output_dir,n_iterations,lr_init, decay_rate,lambda1_H, lambda1_J, lambda2_H, lambda2_J, n_samples, k_burn, k_sample)
+      
+#######################################
+#           CLUSTERING STEP           #
+#######################################
+
+if step_to_perform in ['all', 'clusterize_couplings']:
+    for f in ['Clusters_of_coordinate.txt', 'resids_in_cluster.txt']:
+        f_path = os.path.join(output_dir, f)
+        if os.path.exists(f_path):
+            os.remove(f_path)
+    
+    clusterize_couplings(
+        output_dir,
+        coordinates_to_add,
+        barycenter_coordinates_to_add,
+        step_to_perform,
+        number_of_states_to_show
+    )
+
+
+
 
 if step_to_perform in [ 'get_distances_between_coordinates']:
     get_positions_baricenters(
@@ -185,11 +226,12 @@ if step_to_perform in [ 'get_entropy']:
 #######################################
 
 if step_to_perform == 'clusterize_MI':
+
     for f in ['Clusters_of_coordinate_from_MI.txt', 'resids_in_cluster_from_MI.txt']:
         f_path = os.path.join(output_dir, f)
         if os.path.exists(f_path):
             os.remove(f_path)
-
+    extract_couplings_between_residues(output_dir,APC=True)
     clusterize_MI(
         output_dir,
         coordinates_to_add,

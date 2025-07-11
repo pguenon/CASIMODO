@@ -21,9 +21,9 @@ from statsmodels.nonparametric.kde import KDEUnivariate
 from sklearn.neighbors import KernelDensity
 from scipy.interpolate import interp1d
 
-import CASIMODO_utils.functions_SBM_casimodo as sbm  
+import CASIMODO_utils.functions_BM_casimodo as bm  
 
-print(dir(sbm))
+print(dir(bm))
 
 ###################### PRINT LOGO #####################
 def print_header():
@@ -1549,113 +1549,676 @@ def get_frequencies(output_dir):
 
 
 
-############################## Functions to compute couplings with SBM ##########################
-def compute_couplings_with_SBM(output_dir):
+############################## Functions to compute couplings with bm ##########################
+def compute_couplings_with_BM(output_dir, n_iterations, lr_init, decay_rate,
+                                lambda1_H, lambda1_J, lambda2_H, lambda2_J,
+                                n_samples, k_burn, k_sample):
+    # Load input data
     Discretized_Array = np.load(output_dir + "discretized_array.npy")
-    single_frequencies = np.load(output_dir + "frequencies/frequencies_single.npy")
-    double_frequencies = np.load(output_dir + "frequencies/frequencies_double.npy")
-    multiplicities = get_multiplicities(Discretized_Array)
-    ncoord = Discretized_Array.shape[1]
+    number_of_unique_states = np.unique(Discretized_Array, axis=0).shape[0]
+    print(f"Number of unique states: {number_of_unique_states}")
 
-    #print (np.average(single_frequencies), np.average(double_frequencies))
+    # Split the Discretized_Array randomly into two parts
+    indices = np.arange(len(Discretized_Array))
+    np.random.shuffle(indices)
+    split_index = len(indices) // 2
+    Discretized_Array_Training = Discretized_Array[indices[:split_index]]
+    Discretized_Array_Test = Discretized_Array[indices[split_index:]]
 
-    # Create a toy dataset containing only the first 5 coordinates
-    toy_data = Discretized_Array[:, :]
+    single_frequencies_training,double_frequencies_training = compute_frequencies(Discretized_Array_Training)
+    single_frequencies_test,double_frequencies_test = compute_frequencies(Discretized_Array_Test)
 
+    # Compute multiplicities (number of discrete values per coordinate)
+    multiplicities = get_multiplicities(Discretized_Array_Training)
+    ncoord = Discretized_Array_Training.shape[1]  # number of coordinates (positions)
+    tot_mult = np.sum(multiplicities)    # total number of states
 
-    single_frequencies, double_frequencies = compute_frequencies(toy_data)
+    # Set defaults if special values were passed
+    if n_samples == -1:
+        n_samples = tot_mult * 2
+    if k_burn == -1:
+        k_burn = 100 * tot_mult
+    if k_sample == -1:
+        k_sample = tot_mult 
 
-    multiplicities = get_multiplicities(toy_data)
-    #print(np.shape(multiplicities))
-    ncoord = toy_data.shape[1]
+    # Print training parameters
+    print("\nParameters for bm training:")
+    print("ncoord:", ncoord)
+    print("n_iterations:", n_iterations)
+    print("lr_init:", lr_init)
+    print("decay_rate:", decay_rate)
+    print("n_samples:", n_samples)
+    print("k_burn:", k_burn)
+    print("k_sample:", k_sample)
+    print("lambda1_H:", lambda1_H)
+    print("lambda1_J:", lambda1_J)
+    print("lambda2_H:", lambda2_H)
+    print("lambda2_J:", lambda2_J)
 
-    max_iterations = 20 #iterations for the training
-    cutoff_loss = 0 # 0.0804*ncoord**2 - 1.4198*ncoord
-    learning_rate = 0.001
-    nsteps = 100*ncoord #length MC
-
-    lambda1_H = 0#  0.0000005*ncoord**2
-    lambda1_J = 0# 0.0000005*ncoord**2
-    lambda2_H = 0.00002*ncoord**2
-    lambda2_J = 0.00002*ncoord**2
-   
-    print("\nComputing couplings with SBM...")
-    H,J,loss,loss_data,loss_L1, loss_L2=sbm.train_coupled_MC (multiplicities,ncoord,max_iterations,cutoff_loss,single_frequencies,double_frequencies,learning_rate,nsteps,lambda1_H,lambda1_J,lambda2_H,lambda2_J)
-    print("Couplings computed.")
     
-    plt.plot(loss)
+    # Train bm model using Monte Carlo optimization
+    print("\nComputing couplings with bm...")
+    H, J, loss, loss_data, loss_L1, loss_L2, lr_list = bm.train_coupled_MC(
+        single_frequencies_training, double_frequencies_training, multiplicities, ncoord,
+        n_iterations, lr_init, decay_rate, n_samples, k_burn, k_sample,
+        lambda1_H, lambda1_J, lambda2_H, lambda2_J)
+    print("\nCouplings computed.")
+
+    # Save results
+    np.save(output_dir + "frequencies/H_bm.npy", H)
+    np.save(output_dir + "frequencies/J_bm.npy", J)
+    
+    H= np.load(output_dir + "frequencies/H_bm.npy")
+    J= np.load(output_dir + "frequencies/J_bm.npy")
+
+    # Plot training loss and diagnostics
+    plot_losses(output_dir, ncoord, loss, loss_data, loss_L1, loss_L2, lr_list)
+
+    # Test the fitted bm by comparing generated and empirical frequencies
+    testing_bm_MC(multiplicities, ncoord, output_dir, H, J,
+                   single_frequencies_training, double_frequencies_training,
+                   single_frequencies_test, double_frequencies_test,
+                   n_samples, k_burn, k_sample)
+
+    # Extract per-residue interaction strengths
+    extract_couplings_between_residues(output_dir, APC=False)
+    
+def plot_losses(output_dir, ncoord, loss, loss_data, loss_L1, loss_L2, lr_list):
+    print("\nPlotting losses...")
+
+    # Plot total loss over iterations
+    plt.plot(loss, label='Loss')
     plt.title("Loss during training, ncoord = " + str(ncoord))
-    plt.savefig(output_dir+"loss_training.png")
+    plt.savefig(output_dir + "frequencies/loss_training.png")
     plt.close()
 
-    plt.plot(loss_data,label='Loss data')
-    plt.plot(loss_L1,label='L1 loss')
-    plt.plot(loss_L2,label='L2 loss')
+    # Plot individual components of the loss
+    plt.plot(loss_data, label='Loss data')
+    plt.plot(loss_L1, label='L1 loss')
+    plt.plot(loss_L2, label='L2 loss')
     plt.title("Losses during training, ncoord = " + str(ncoord))
     plt.xlabel("Iterations")
     plt.ylabel("Loss value")
     plt.legend()
-    plt.savefig(output_dir+"losses_separated_training.png")
+    plt.savefig(output_dir + "frequencies/losses_separated_training.png")
     plt.close()
-    
-    
 
-    np.save(output_dir + "frequencies/H_sbm.npy", H)
-    np.save(output_dir + "frequencies/J_sbm.npy", J)
-    
-    #H= np.load(output_dir + "frequencies/H_sbm.npy") 
-    #J= np.load(output_dir + "frequencies/J_sbm.npy")
-                
-    print("\nTesting SBM couplings with Monte Carlo simulation...")
-    starting_coords=sbm.get_starting_coords(multiplicities,ncoord)
+    # Plot only the data-fitting part of the loss
+    plt.plot(loss_data, label='Loss data')
+    plt.title("Loss data during training, ncoord = " + str(ncoord))
+    plt.xlabel("Iterations")
+    plt.ylabel("Loss value")
+    plt.legend()
+    plt.savefig(output_dir + "frequencies/loss_data_training.png")
+    plt.close()
+
+    # Plot learning rate schedule
+    plt.plot(lr_list, label='Learning rate')
+    plt.title("Learning rate during training, ncoord = " + str(ncoord))
+    plt.yscale('log')
+    plt.savefig(output_dir + "frequencies/learning_rate_training.png")
+    plt.close()
+
+    print("Losses plotted and saved.")
+
+def testing_bm_MC(multiplicities, ncoord, output_dir, H, J,
+                   single_frequencies_training, double_frequencies_training,
+                   single_frequencies_test, double_frequencies_test,
+                   n_samples, k_burn, k_sample):
+
+    print("\nTesting bm couplings with Monte Carlo simulation...")
+
+    # Get initial state for MC sampling
+    starting_coords = bm.get_starting_coords(multiplicities, ncoord)
+
+    # Allocate arrays to store sampled frequencies
     single_MC = np.zeros(len(H), dtype=np.float64)
     double_MC = np.zeros((len(H), len(H)), dtype=np.float64)
-    n_effective = sbm.monte_carlo(starting_coords, H, J, nsteps*10, len(H),np.max(multiplicities), ncoord,multiplicities,single_MC,double_MC)
-    single_MC = single_MC / n_effective
-    double_MC = double_MC / n_effective
 
-    delta_frequencies_single = single_frequencies - single_MC
-    delta_frequencies_double = double_frequencies - double_MC
+    # Run Monte Carlo simulation to generate samples from bm
+    bm.monte_carlo(starting_coords, H, J, n_samples*10, k_burn, k_sample, len(H),
+                    np.max(multiplicities), ncoord, multiplicities,
+                    single_MC, double_MC)
 
-    print("Single frequencies from SBM:", single_frequencies)
-    print("Single frequencies from Monte Carlo:", single_MC)
-    print("Double frequencies from SBM:", double_frequencies)
-    print("Double frequencies from Monte Carlo:", double_MC)
+    # Compare single frequencies (sampled vs empirical)
+    total_mult = np.sum(multiplicities)
+    delta_frequencies_single = np.zeros(total_mult, dtype=np.float64)
+    count = 0
+    for i in range(ncoord):
+        for k in range(multiplicities[i]):
+            idx = i * np.max(multiplicities) + k
+            delta_frequencies_single[count] = abs(single_MC[idx] - single_frequencies_test[idx])
+            count += 1
 
+    # Compare double frequencies (sampled vs empirical)
+    delta_frequencies_double = np.zeros((total_mult, total_mult), dtype=np.float64)
+    count1 = 0
+    for i in range(ncoord):
+        for k in range(multiplicities[i]):
+            count2 = 0
+            for j in range(ncoord):
+                for l in range(multiplicities[j]):
+                    idx_i = i * np.max(multiplicities) + k
+                    idx_j = j * np.max(multiplicities) + l
+                    diff = abs(double_MC[idx_i, idx_j] - double_frequencies_test[idx_i, idx_j])
+                    delta_frequencies_double[count1, count2] = diff
+                    delta_frequencies_double[count2, count1] = diff  # Symmetric
+                    count2 += 1
+            count1 += 1
 
-def extract_couplings_between_residues(output_dir):
+    # Plot difference in single frequencies
+    plt.plot(delta_frequencies_single, label='Single frequencies difference')
+    plt.title("Absolute differences between single frequencies \n from data and from bm, ncoord = " + str(ncoord))
+    plt.xlabel("Index of single frequency")
+    plt.ylabel("Absolute difference")
+    plt.savefig(output_dir + "frequencies/delta_frequencies_single.png")
+    plt.close()
 
+    # Plot heatmap of differences in double frequencies
+    plt.imshow(delta_frequencies_double, cmap='hot', interpolation='nearest')
+    plt.colorbar()
+    plt.title("Absolute differences between double frequencies \n from data and from bm, ncoord = " + str(ncoord))
+    plt.xlabel("Index of double frequency (j)")
+    plt.ylabel("Index of double frequency (i)")
+    plt.savefig(output_dir + "frequencies/delta_frequencies_double.png")
+    plt.close()
+
+    double_frequencies_test = double_frequencies_test.flatten()
+    double_frequencies_MC = double_MC.flatten()
+    MAE_double = np.mean(np.abs(double_frequencies_test - double_frequencies_MC))
+    STD_MAE_double = np.std(np.abs(double_frequencies_test - double_frequencies_MC))
+    error_bar_MAE_double = compute_error_bars(STD_MAE_double, len(double_frequencies_test), confidence_level=0.95)
+    print("MAE for double frequencies:", MAE_double, "±", error_bar_MAE_double)
+
+    linear_fit = np.polyfit(double_frequencies_test, double_frequencies_MC, 1)
+    print("Linear fit coefficients:", linear_fit)
+
+    # Plot comparison of all frequencies
+    plt.plot(double_frequencies_test, double_frequencies_MC, 'o', markersize=1 , alpha=0.5, color='mediumorchid')
+    plt.plot([0, np.max(double_frequencies_test)], [0, np.max(double_frequencies_MC)], '--', color='black', linewidth=2)
+    #Plot linear_fit
+    plt.plot(double_frequencies_test, linear_fit[0] * double_frequencies_test + linear_fit[1], color='orange', linewidth=2, label='Linear fit')
+    plt.xlim(1e-6, max(np.max(double_frequencies_test), np.max(double_frequencies_MC)))
+    plt.ylim(1e-6, max(np.max(double_frequencies_test), np.max(double_frequencies_MC)))
+    plt.title("Comparison of double frequencies \n from data and from bm, ncoord = " + str(ncoord)+"\n MAE = " + "%.6f"%(MAE_double)+"±"+"%.6f"%(error_bar_MAE_double), fontsize=10)
+    plt.xlabel("Frequencies from data")
+    plt.ylabel("Frequencies from bm")
+    plt.savefig(output_dir + "frequencies/comparison_double_frequencies_test_bm.png")
+    plt.close()
+
+    single_frequencies_test = single_frequencies_test.flatten()
+    single_frequencies_MC = single_MC.flatten()
+    MAE_single = np.mean(np.abs(single_frequencies_test - single_frequencies_MC))
+    STD_MAE_single = np.std(np.abs(single_frequencies_test - single_frequencies_MC))
+    
+    error_bar_MAE_single = compute_error_bars(STD_MAE_single, len(single_frequencies_test), confidence_level=0.95)
+    print("MAE for single frequencies:", MAE_single, "±", error_bar_MAE_single)
+
+    linear_fit_single = np.polyfit(single_frequencies_test, single_frequencies_MC, 1)
+    print("Linear fit coefficients for single frequencies:", linear_fit_single)
+    # Plot comparison of single frequencies
+    plt.plot(single_frequencies_test, single_frequencies_MC, 'o', markersize=2 , alpha=0.5, color='green')
+    plt.plot([0, np.max(single_frequencies_test)], [0, np.max(single_frequencies_MC)], '--', color='black', linewidth=2)
+    # Plot linear_fit_single
+    plt.plot(single_frequencies_test, linear_fit_single[0] * single_frequencies_test + linear_fit_single[1], color='red', linewidth=2, label='Linear fit')
+    plt.xlim(1e-6, max(np.max(single_frequencies_test), np.max(single_frequencies_MC)))
+    plt.ylim(1e-6, max(np.max(single_frequencies_test), np.max(single_frequencies_MC)))
+    plt.title("Comparison of single frequencies \n from data and from bm, ncoord = " + str(ncoord) + "\n MAE = " + "%.6f"%(MAE_single)+"±"+"%.6f"%(error_bar_MAE_single), fontsize=10)
+    plt.xlabel("Frequencies from data")
+    plt.ylabel("Frequencies from bm")
+    plt.savefig(output_dir + "frequencies/comparison_single_frequencies_test_bm.png")
+    plt.close()
+
+    print("Testing of bm couplings completed and results saved.")
+
+  
+
+    # Compare single frequencies
+    plt.figure(figsize=(8, 6))
+    plt.plot(single_frequencies_training, single_frequencies_test, 'o', markersize=2, alpha=0.5, color='yellowgreen')
+    plt.plot([0, max(single_frequencies_training.max(), single_frequencies_test.max())], 
+            [0, max(single_frequencies_training.max(), single_frequencies_test.max())], 
+            '--', color='black', linewidth=2)
+    plt.title("Comparison of Single Frequencies: Training vs Test")
+    plt.xlabel("Training Frequencies")
+    plt.ylabel("Test Frequencies")
+    plt.savefig(output_dir + "frequencies/comparison_single_frequencies_training_test.png", dpi=150)
+    plt.close()
+
+    # Compare double frequencies
+    plt.figure(figsize=(8, 6))
+    plt.plot(double_frequencies_training.flatten(), double_frequencies_test.flatten(), 
+            'o', markersize=2, alpha=0.5, color='orchid')
+    plt.plot([0, max(double_frequencies_training.max(), double_frequencies_test.max())], 
+            [0, max(double_frequencies_training.max(), double_frequencies_test.max())], 
+            '--', color='black', linewidth=2)
+    plt.title("Comparison of Double Frequencies: Training vs Test")
+    plt.xlabel("Training Frequencies")
+    plt.ylabel("Test Frequencies")
+    plt.savefig(output_dir + "frequencies/comparison_double_frequencies_training_test.png", dpi=150)
+    plt.close()
+
+    print("Comparison of test and training frequencies completed and saved.")
+
+def extract_couplings_between_residues(output_dir, APC=False):
+    # Load discretized data and compute multiplicities
     Discretized_Array = np.load(output_dir + "discretized_array.npy")
-    multiplicities = get_multiplicities(Discretized_Array)
-    ncoord = Discretized_Array.shape[1]
+    toy_data = Discretized_Array[:, :]
+    multiplicities = get_multiplicities(toy_data)
+    ncoord = toy_data.shape[1]
 
-    
-    J = np.load(output_dir + "frequencies/J_sbm.npy")
-    
-    Couplings_between_residues=np.zeros((ncoord, ncoord), dtype=float)
+    # Load the pairwise coupling matrix J
+    J = np.load(output_dir + "frequencies/J_bm.npy")
+
+    # Compute Frobenius norm of coupling blocks between residue pairs
+    Couplings_between_residues = np.zeros((ncoord, ncoord), dtype=float)
     print("\nComputing couplings between residues...")
     for i in range(ncoord):
         for j in range(i + 1, ncoord):
-            sum_coupling=0
-            frobenius_norm = 0
-            for k in range (multiplicities[i]):
+            sum_coupling = 0
+            count_couplings = 0
+            for k in range(multiplicities[i]):
                 for l in range(multiplicities[j]):
-                    coupling_value = ( J[i * np.max(multiplicities) + k, j * np.max(multiplicities) + l])
-                    print(f"Coupling between {i} and {j} with multiplicities {k} and {l}: {coupling_value}")
+                    idx_i = i * np.max(multiplicities) + k
+                    idx_j = j * np.max(multiplicities) + l
+                    coupling_value = J[idx_i, idx_j]
                     sum_coupling += np.square(coupling_value)
-            
+                    count_couplings += 1
             frobenius_norm = np.sqrt(sum_coupling)
             Couplings_between_residues[i, j] = frobenius_norm
-            Couplings_between_residues[j, i] = frobenius_norm  
-    # Save the couplings between residues to a file
-    
-    np.save(output_dir + "frequencies/Couplings_between_residues.npy", Couplings_between_residues)
+            Couplings_between_residues[j, i] = frobenius_norm  # Symmetric
+
+    Final_couplings_between_residues = Couplings_between_residues.copy()
+
+    # Apply Average Product Correction (APC), if requested
+    if APC:
+        for i in range(ncoord):
+            for j in range(i + 1, ncoord):
+                double_sum = np.sum(Couplings_between_residues[i, :]) * np.sum(Couplings_between_residues[:, j])
+                simple_sum = np.sum(Couplings_between_residues[:, :])
+                correction = double_sum / simple_sum
+                Final_couplings_between_residues[i, j] -= correction
+                Final_couplings_between_residues[j, i] = Final_couplings_between_residues[i, j]
+
+    # Save result
+    np.save(output_dir + "frequencies/Couplings_between_residues.npy", Final_couplings_between_residues)
     print("Couplings between residues computed.")
 
 
 
 
-#############################
+############################# Functions to clusterize the couplings ##########################
+
+def yacare_clusterization(output_dir, name_cluster_dir, step_to_perform, number_of_coords,
+                          distance_matrix, min_size_cluster, function_for_ratio,
+                          threshold_variable, amount_of_noise, percentage_moving_square):
+    """
+    Executes the full clustering pipeline using the Yacare clustering framework.
+
+    Parameters
+    ----------
+    output_dir : str
+        Directory where the clustering results will be saved.
+    name_cluster_dir : str
+        Name of the clustering project (used as a prefix for output files).
+    step_to_perform : str
+        Defines the mode of execution. If set to something other than 'all', some steps are skipped or modified.
+    number_of_coords : int
+        Total number of coordinates (data points) to cluster.
+    distance_matrix : np.ndarray
+        A square matrix representing distances between each pair of coordinates.
+    min_size_cluster : float
+        Minimum allowed size for a cluster.
+    function_for_ratio : int
+        Determines which function is used to optimize the clustering cutoff.
+    threshold_variable : float
+        Threshold used when deciding whether to merge similar clusters.
+    amount_of_noise : float
+        Controls the proportion of noise points included during cluster expansion.
+    percentage_moving_square : float
+        Percentage used in the initial reordering step to improve clustering stability.
+
+    Description
+    -----------
+    This function performs a series of steps defined by the Yacare clustering library:
+
+    1. Initializes a Yacare `Variables` object and assigns the input parameters.
+    2. Performs an initial reordering of coordinates to improve cluster separation.
+    3. Finds the optimal cutoff value based on the input ratio function and minimum cluster size.
+    4. Depending on `step_to_perform`, either reorders again on the full set or a subset of coordinates.
+    5. Finds the final clusters using the current cutoff.
+    6. If more than one cluster is detected:
+       - Compares clusters using their standard deviations.
+       - Proposes a merge plan based on similarity threshold.
+       - Merges selected clusters.
+    7. Expands clusters to include noise points based on the `amount_of_noise`.
+    8. Writes cluster indices to output files.
+    9. Moves all relevant output files to the designated output directory for organization.
+
+    Note
+    ----
+    This function relies on Yacare’s internal methods and assumes all relevant modules are imported and configured.
+    """
+    variables=yacare.Variables()
+    variables.project_name = name_cluster_dir
+    variables.save_images = True
+    variables.distance_matrix=distance_matrix
+    yacare.perform_first_reordering(variables, percentage_moving_square = percentage_moving_square)
+    yacare.find_optimal_cutoff(variables, minimal_size_cluster = min_size_cluster,function_for_ratio=function_for_ratio)
+    if step_to_perform != 'all' :
+        yacare.choose_if_we_reorder_again(variables)
+        yacare.change_proposed_cutoff(variables)
+    else :
+        yacare.choose_if_we_reorder_again(variables,indices=np.arange(0,number_of_coords))
+    yacare.find_final_clusters(variables)
+    print("Number of clusters before merging: "+str(variables.number_clusters))
+    if variables.number_clusters>1 :
+        yacare.compare_clusters(variables, display_stddev = True)
+        yacare.propose_list_for_concatenating_clusters(variables, threshold_variable = threshold_variable, choice_merging_clusters=3)
+        yacare.concatenate_clusters(variables)
+    yacare.expand_clusters(variables, amount_of_noise = amount_of_noise)
+    yacare.write_indices(variables)
+
+    os.system('mkdir -p '+output_dir+variables.project_name)
+    os.system('mv '+variables.project_name+'* '+output_dir+variables.project_name)
+
+def get_cluster_indexes_from_yacare(output_dir, cluster_dir):
+    """
+    Parses and extracts cluster indexes from the output file generated by Yacare.
+
+    Parameters
+    ----------
+    output_dir : str
+        Path to the directory where the Yacare output files are stored.
+    cluster_dir : str
+        Name of the specific clustering project directory within the output directory.
+
+    Returns
+    -------
+    clusters_ndx : list of list of int
+        A list of clusters, where each cluster is a list of coordinate indices (0-based)
+        that belong to that cluster.
+
+    Description
+    -----------
+    This function reads the `.ndx` file generated by Yacare, which stores the clustering
+    assignments in GROMACS-style index file format. It does the following:
+
+    1. Opens the `.ndx` file using `open_file` and retrieves the raw data lines.
+    2. Iterates through each line:
+       - When encountering a line starting with `[`, it treats it as the beginning of a new cluster.
+       - Lines that contain indices are converted from 1-based to 0-based indexing and stored.
+    3. Appends the final cluster if any remaining points are stored after the last group.
+    4. Sorts the index list of each cluster for consistency.
+    5. Returns the full list of clusters.
+    """
+    print("Extracting cluster indexes from Yacare output...")
+    data_yacare, lines_yacare = open_file(output_dir + cluster_dir + '/' + cluster_dir + '_Clustering_Clusters.ndx')
+    clusters_ndx = []
+    cluster_i = []
+
+    for l in range(len(lines_yacare)):
+        line = lines_yacare[l]
+        if line[0] == '[':
+            if len(cluster_i) >= 1:
+                clusters_ndx.append(cluster_i)
+            cluster_i = []
+            continue
+        else:
+            for i in range(len(data_yacare[l])):
+                index_coord = int(data_yacare[l][i]) - 1
+                cluster_i.append(index_coord)
+
+    if len(cluster_i) >= 1:
+        clusters_ndx.append(cluster_i)
+
+    print("Cluster indexes extracted.")
+    for i in range(len(clusters_ndx)):
+        clusters_ndx[i] = sorted(clusters_ndx[i])
+    return clusters_ndx
+
+def write_clusters_to_file(clusters_ndx, coordinates, output_dir, name_output_cluster):
+    """
+    Writes clustered coordinate information to a text file in a structured format.
+
+    Parameters
+    ----------
+    clusters_ndx : list of list of int
+        A list of clusters, where each cluster is represented by a list of indices
+        referring to the coordinates in the `coordinates` list.
+    coordinates : list of str
+        A list of coordinate labels (e.g., torsion names or residue identifiers),
+        from which the actual entries corresponding to indices will be written.
+    output_dir : str
+        Path to the directory where the output file should be written.
+    name_output_cluster : str
+        Name of the output file to which the cluster data will be saved.
+
+    Description
+    -----------
+    For each cluster, this function writes the corresponding coordinates to the file.
+    Each cluster is labeled as `[ ClusterX ]`, where `X` is the cluster number, except
+    for the last cluster, which is labeled as `[ Noise ]`.
+
+    The output format is similar to a GROMACS-style index file, making it compatible
+    with tools or scripts that expect this structure.
+    
+    Example Output:
+        [ Cluster0 ]
+        coordA
+        coordB
+        
+        [ Cluster1 ]
+        coordC
+        ...
+        
+        [ Noise ]
+        coordZ
+
+    Note
+    ----
+    The function assumes the last cluster in `clusters_ndx` corresponds to noise
+    or unassigned points.
+    """
+    print("Writing clusters to file...")
+    with open(output_dir + name_output_cluster, 'w') as file_out:
+        for i, cluster_i in enumerate(clusters_ndx):
+            file_out.write('\n\n')
+            if i != len(clusters_ndx) - 1:
+                file_out.write(f'[ Cluster{i} ]\n')
+            else:
+                file_out.write(f'[ Noise ]\n')
+            for index_coord in cluster_i:
+                file_out.write(f'{coordinates[index_coord]} \n')
+
+    print("Clusters written to file.")
+
+def convert_clusters_yacare_to_real_coordinates(output, output_dir, cluster_dir, name_output_cluster):
+    """
+    Converts Yacare cluster results (index-based) into real coordinate labels and writes them to a file.
+
+    Parameters
+    ----------
+    output : str
+        Path to the file or directory containing the discretized data used for clustering.
+        This is passed to `load_data_discretization()` to retrieve coordinate labels.
+    output_dir : str
+        Directory where the clustering result files are stored and where the output file will be written.
+    cluster_dir : str
+        Name of the directory where Yacare has saved its clustering output (e.g., 'Clusterize_couplings').
+    name_output_cluster : str
+        Filename for the output file that will contain the labeled coordinates grouped by cluster.
+
+    Returns
+    -------
+    clusters_ndx : list of list of int
+        The list of cluster indices, each corresponding to indices of coordinates in the original dataset.
+    coordinates : list of str
+        The full list of real coordinate names or labels, loaded from the discretized data.
+
+    Description
+    -----------
+    This function reads the cluster assignment file generated by Yacare (usually in `.ndx` format),
+    converts index-based clusters into meaningful coordinate labels using the discretization metadata,
+    and writes the labeled clusters to a file in a GROMACS-style format.
+    """
+    print("Converting clusters to real coordinates...")
+    coordinates,X_cuts,Labels=load_data_discretization(output)
+    
+    clusters_ndx=get_cluster_indexes_from_yacare(output_dir,cluster_dir)
+    write_clusters_to_file(clusters_ndx, coordinates, output_dir, name_output_cluster)
+    return clusters_ndx,coordinates
+
+def get_resids_in_clusters(clusters_ndx, coordinates, name_coordinates_to_add, barycenter_coordinates_to_add, name_output, output_dir):
+    """
+    Extracts residue indices corresponding to clustered coordinates and writes them to a file.
+
+    Parameters
+    ----------
+    clusters_ndx : list of list of int
+        Clustered indices referring to entries in the `coordinates` list.
+    coordinates : list of str
+        List of coordinate labels (e.g., dihedral names, atom names).
+    name_coordinates_to_add : list of str
+        Names of selected coordinates for which the residue ID is inferred via `barycenter_coordinates_to_add`.
+    barycenter_coordinates_to_add : list of str
+        List of coordinate labels (e.g., "23_CA") from which residue IDs can be extracted (first token before underscore).
+    name_output : str
+        Name of the output file that will contain residue indices grouped by cluster.
+    output_dir : str
+        Directory where the output file will be written.
+
+    Returns
+    -------
+    None
+
+    Description
+    -----------
+    For each cluster in `clusters_ndx`, the function identifies which residues are associated with the
+    coordinates in that cluster. The residue IDs are extracted based on known naming patterns:
+    - From barycenter labels if the coordinate is in `name_coordinates_to_add`.
+    - From dihedral names like "phi25" or "psi30".
+    - From other coordinate names using underscore-based parsing (first and third token).
+
+    The result is written in a GROMACS `.ndx`-like format to a file, with each group of residues labeled
+    as [ ClusterX ] or [ Noise ] (for the last entry).
+    """
+    print("Getting resids in clusters...")
+    file_out=open(output_dir+name_output,'w')
+    for i in range (len(clusters_ndx)):
+        cluster_i=clusters_ndx[i]
+        file_out.write('\n\n')
+        if i!=len(clusters_ndx)-1:
+            file_out.write(f'[ Cluster{i} ]\n')
+        else:
+            file_out.write(f'[ Noise ]\n')
+        resids_in_cluster_i=[]
+        for j in range(len(cluster_i)):
+            index_coord=cluster_i[j]
+            coord=coordinates[index_coord]
+            if coord in name_coordinates_to_add:
+                index_coord_to_add=name_coordinates_to_add.index(coord)
+                name_atom_to_add=barycenter_coordinates_to_add[index_coord_to_add]
+                name_resid_to_add=int(name_atom_to_add.split('_')[0])
+                if name_resid_to_add not in resids_in_cluster_i:
+                    resids_in_cluster_i.append(name_resid_to_add)
+                    
+            elif coord[:3]=='phi' or coord[:3]=='psi':
+                name_resid_to_add=int(coord[3:])
+                if name_resid_to_add not in resids_in_cluster_i:    
+                    resids_in_cluster_i.append(name_resid_to_add)
+                    
+            else:
+                name_resid_to_add=int(coord.split('_')[0])
+                if name_resid_to_add not in resids_in_cluster_i:
+                    resids_in_cluster_i.append(name_resid_to_add)
+                    
+                
+                name_resid_to_add=int(coord.split('_')[2])
+                if name_resid_to_add not in resids_in_cluster_i:
+                    resids_in_cluster_i.append(name_resid_to_add)
+        resids_in_cluster_i.sort()
+        for j in range(len(resids_in_cluster_i)):
+            file_out.write(f'{resids_in_cluster_i[j]} ')
+        
+    print("Getting resids in clusters completed.")
+    file_out.close()
+
+def clusterize_couplings(output_dir, coordinates_to_add, barycenter_coordinates_to_add, step_to_perform, number_of_states_to_show):
+    """
+    Performs clustering of residue-residue couplings and extracts associated residue indices per cluster.
+
+    Parameters
+    ----------
+    output_dir : str
+        Directory where input and output files are stored.
+    coordinates_to_add : list of str
+        Paths to selected coordinate files, used to extract coordinate names.
+    barycenter_coordinates_to_add : list of str
+        List of coordinate labels representing barycenters, used for residue ID extraction.
+    step_to_perform : str
+        Indicates whether to perform all Yacare clustering steps or skip some (e.g., 'all', 'skip-reorder').
+    number_of_states_to_show : int
+        Unused in this function but may be part of an extended interface (placeholder parameter).
+
+    Returns
+    -------
+    None
+
+    Description
+    -----------
+    This function performs the following pipeline to cluster residue-residue coupling data:
+
+    1. **Load Data:**
+       - Loads `times_indices` (used elsewhere in pipeline) and the matrix of residue-residue couplings.
+       - Sets diagonal elements of the coupling matrix to zero to ignore self-coupling.
+
+    2. **Convert Couplings to Distances:**
+       - Builds a distance matrix by inverting coupling strengths so that strong couplings become short distances.
+         The transformation used is: `distance = -coupling + max_coupling`.
+
+    3. **Clustering via Yacare:**
+       - Uses the Yacare clustering algorithm to cluster the coordinates based on the generated distance matrix.
+       - The clustering parameters are hardcoded:
+         - `min_size_cluster = 0.0001`
+         - `function_for_ratio = 2`
+         - `threshold_variable = 1.0`
+         - `amount_of_noise = 0.3`
+         - `percentage_moving_square = 1`
+
+    4. **Convert Clustered Coordinates to Real Labels:**
+       - Translates clustered coordinate indices back to their string representations using the discretized data.
+       - Writes cluster assignments to a text file.
+
+    5. **Export and Organize Output:**
+       - Copies the matrix plot image and moves the distance CSV to the appropriate directory.
+
+    6. **Extract Residue IDs per Cluster:**
+       - Maps clustered coordinates back to residue indices using naming conventions.
+       - Outputs the residue assignments per cluster in GROMACS-style index format.
+    """
+    times_indices=np.load(output_dir+"times_indices.npy")
+    name_coordinates_to_add=[coord.split('/')[-1].split('.')[0] for coord in coordinates_to_add]
+    couplings=np.load(output_dir+'frequencies/Couplings_between_residues.npy')
+    couplings_no_diag=np.copy(couplings)
+    for i in range (len(couplings_no_diag)):
+        couplings_no_diag[i,i]=0
+    ncoord=len(couplings)
+    max_couplings=np.max(couplings_no_diag)
+    distance_couplings=np.zeros((len(couplings),len(couplings)),dtype=float)
+    for i in range(len(couplings)):
+        for j in range(len(couplings)):
+            distance_couplings[i,j]=-couplings_no_diag[i,j]+max_couplings
+        distance_couplings[i,i]=0
+
+    min_size_cluster,function_for_ratio,threshold_variable,amount_of_noise,percentage_moving_square=0.0001,2,1.0,0.3,1
+    yacare_clusterization(output_dir,'Clusterize_couplings',step_to_perform,ncoord,distance_couplings, min_size_cluster,function_for_ratio,threshold_variable,amount_of_noise,percentage_moving_square)
+    clusters_ndx,coordinates=convert_clusters_yacare_to_real_coordinates(output_dir+"selected_coordinates.txt",output_dir,'Clusterize_couplings','Clusters_of_coordinates_from_couplings.txt')
+    os.system(f'cp {output_dir}Clusterize_couplings/Clusterize_couplings_Yacare_11-Matrix-WithNoise.png {output_dir}couplings_plots/')
+    os.system(f'mv {output_dir}distance_couplings.csv {output_dir}Clusterize_couplings/')
+    get_resids_in_clusters(clusters_ndx,coordinates,name_coordinates_to_add,barycenter_coordinates_to_add,'resids_in_clusters_from_couplings.txt',output_dir)
+
+"""
 
 def get_positions_baricenters(u_traj,output_dir,RESIDS_SELECTED,indices_aa,terminal_atoms,coordinates_to_add,barycenter_coordinates_to_add):
     times_indices=np.load(output_dir+'times_indices.npy')
@@ -1942,9 +2505,6 @@ def yacare_clusterization(output_dir,name_cluster_dir,step_to_perform,number_of_
     os.system('mv '+variables.project_name+'* '+output_dir+variables.project_name)
 
 def get_cluster_indexes_from_yacare(output_dir, cluster_dir):
-    """
-    Extracts cluster indexes from Yacare output.
-    """
     print("Extracting cluster indexes from Yacare output...")
     data_yacare, lines_yacare = open_file(output_dir + cluster_dir + '/' + cluster_dir + '_Clustering_Clusters.ndx')
     clusters_ndx = []
@@ -1971,9 +2531,7 @@ def get_cluster_indexes_from_yacare(output_dir, cluster_dir):
     return clusters_ndx
 
 def get_representative_structure_from_yacare(output_dir, cluster_dir):
-    """
-    Extracts cluster indexes from Yacare output.
-    """
+
     print("Extracting cluster indexes from Yacare output...")
     data_yacare, lines_yacare = open_file(output_dir + cluster_dir + '/' + cluster_dir + '_Clustering_RepresentativeStructures.ndx')
     Representative_structures= []
@@ -1987,9 +2545,7 @@ def get_representative_structure_from_yacare(output_dir, cluster_dir):
 
 
 def write_clusters_to_file(clusters_ndx, coordinates, output_dir, name_output_cluster):
-    """
-    Writes cluster information to a file.
-    """
+
     print("Writing clusters to file...")
     with open(output_dir + name_output_cluster, 'w') as file_out:
         for i, cluster_i in enumerate(clusters_ndx):
@@ -2195,10 +2751,7 @@ def clusterize_MI(output_dir,coordinates_to_add,barycenter_coordinates_to_add,st
     get_states_from_clusters(clusters_ndx,output_dir,times_indices,number_of_states_to_show)
 
 def get_euclidian_distance_between_conformations(array_cluster):
-    """
-    Computes the Euclidean distance matrix between conformations in the array_cluster.
-    Uses scipy's pdist and squareform for efficiency.
-    """
+
 
     print("Computing Euclidean distance matrix...")
     distance_matrix = squareform(pdist(array_cluster, metric='euclidean'))
@@ -2206,9 +2759,7 @@ def get_euclidian_distance_between_conformations(array_cluster):
     return distance_matrix
 
 def get_representative_frames(unique_states, representative_structures, times_indices, array_cluster):
-    """
-    Get representative frames for each conformation.
-    """
+
     frames_representative_structures = []
     for i in range(len(representative_structures)):
         frame_index = np.where((array_cluster == unique_states[representative_structures[i]]).all(axis=1))[0][0]
@@ -2216,9 +2767,7 @@ def get_representative_frames(unique_states, representative_structures, times_in
     return frames_representative_structures
 
 def calculate_conformation_probabilities(clusters_ndx, probabilities):
-    """
-    Calculate probabilities for each conformation in a cluster.
-    """
+
     conformation_probabilities = []
     for cluster in clusters_ndx:
         probability = sum(probabilities[ind - 1] for ind in cluster)
@@ -2226,9 +2775,7 @@ def calculate_conformation_probabilities(clusters_ndx, probabilities):
     return conformation_probabilities
 
 def write_conformation_to_file(file_out, conformation_index, representative_structure, frame, probability, coordinates, cluster_coordinates):
-    """
-    Write details of a conformation to the output file.
-    """
+
     file_out.write(f"Conformation {conformation_index}:\n")
     file_out.write(f"Representative structure: {', '.join(representative_structure)}\n")
     file_out.write(f"Representative structure frame: {frame}\n")
@@ -2239,9 +2786,7 @@ def write_conformation_to_file(file_out, conformation_index, representative_stru
     file_out.write("\n")
 
 def get_frames_in_conformation(unique_states, clusters_ndx, times_indices, array_cluster,output_dir,ind_cluster):
-    """
-    Get frames in each conformation.
-    """
+
     frames_in_conformation = []
     print(len(clusters_ndx))
     for i in range(len(clusters_ndx)):
@@ -2269,9 +2814,7 @@ def get_frames_in_conformation(unique_states, clusters_ndx, times_indices, array
     
 
 def get_proba_conformation(unique_states, probabilities, output_dir, cluster_dir, ind_cluster, clusters_coordinates_ndx, coordinates, times_indices, array_cluster):
-    """
-    Main function to process conformations and write results to file.
-    """
+
     clusters_ndx = get_cluster_indexes_from_yacare(output_dir, cluster_dir)
     representative_structures = get_representative_structure_from_yacare(output_dir, cluster_dir)
     frames_representative_structures = get_representative_frames(unique_states, representative_structures, times_indices, array_cluster)
@@ -2334,6 +2877,6 @@ def cluster_states(output_dir):
             file_out.close()
     file_out.close()
 
-    
+"""
 
 
