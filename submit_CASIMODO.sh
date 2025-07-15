@@ -115,14 +115,14 @@ python CASIMODO_utils/run_CASIMODO.py \
   --cutoff_distance "${cutoff_distance}" \
   --delta_resid "${delta_residue}" \
   --proba_cutoff "${proba_cutoff}" \
-  --coordinates_to_add "${coordinates_to_add[@]}" \
-  --type_coordinates_to_add "${type_coordinates_to_add[@]}" \
   --min_cluster_size_coordinates "${min_cluster_size_coordinates}" \
   --min_samples_coordinates "${min_samples_coordinates}" \
   --cluster_selection_epsilon_coordinates "${cluster_selection_epsilon_coordinates}"\
   --min_cluster_size_conformations "${min_cluster_size_conformations}" \
   --min_samples_conformations "${min_samples_conformations}" \
   --cluster_selection_epsilon_conformations "${cluster_selection_epsilon_conformations}" \
-  ${split_trajectory_flag}
+  ${split_trajectory_flag} \
+  --coordinates_to_add "${coordinates_to_add[@]}" \
+  --type_coordinates_to_add "${type_coordinates_to_add[@]}" \
   
 
