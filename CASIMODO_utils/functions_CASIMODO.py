@@ -20,17 +20,136 @@ from sklearn.neighbors import KernelDensity
 from statsmodels.nonparametric.kde import KDEUnivariate
 from sklearn.neighbors import KernelDensity
 from scipy.interpolate import interp1d
+from matplotlib.patches import Rectangle
 
-import CASIMODO_utils.functions_BM_casimodo as bm  
+from datetime import datetime
 
-print(dir(bm))
+import hdbscan
+
+import logging
+
+
+###################### INITIATE LOGGING #####################
+def initiate_logging(output_dir,step_to_perform):
+    """
+    Initializes logging to a file in the specified output directory.
+
+    Parameters:
+    - output_dir (str): The directory where the log file will be created.
+    - step_to_perform (str): The step being performed, used for logging context.
+    Returns:
+    - None
+    """
+    now= datetime.now()
+    log_file = os.path.join(output_dir, 'casimodo.log')
+    if step_to_perform == 'all':
+        logging.basicConfig(
+            filename=log_file,
+            level=logging.INFO,
+            format='%(message)s',     
+            filemode='w' 
+        )
+        logging.info("Logging initiated. Log file created at: %s", log_file)
+        logging.info("Start time: %s", now.strftime("%Y-%m-%d %H:%M:%S"))
+    else:
+        logging.basicConfig(
+            filename=log_file,
+            level=logging.INFO,
+            format='%(message)s',     
+            filemode='a' 
+        )
+        logging.info("\n\n\n\n\n\n\n\n\n")
+        logging.info("Logging initiated for step: %s. Log file updated at: %s", step_to_perform, log_file)
+        logging.info("Start time: %s", now.strftime("%Y-%m-%d %H:%M:%S"))
+
 
 ###################### PRINT LOGO #####################
 def print_header():
     with open("CASIMODO_utils/header_casimodo.txt", encoding="utf-8") as f:
         header = f.read()
-    print(header)
+    logging.info(header)
 
+
+####################### PRINT INPUTS #####################
+def print_inputs(
+    output_dir, 
+    step_to_perform, 
+    strucfile, trajfile, dic,
+    time_zero, delta_time, size_block,
+    cutoff_distance, delta_resid, proba_cutoff,
+    min_cluster_size_coordinates, min_samples_coordinates, cluster_selection_epsilon_coordinates,
+    min_cluster_size_conformations, min_samples_conformations, cluster_selection_epsilon_conformations,
+    split_trajectory,
+    coordinates_to_add, type_coordinates_to_add):
+    """
+    Prints the input parameters to the log file.
+
+    Parameters:
+    - output_dir (str): The directory where the log file is located.
+    - step_to_perform (str): The step being performed, used for logging context.
+    - strucfile (str): Path to the position file (e.g., .psf, .gro, or .pdb).
+    - trajfile (str): Path to the trajectory file (e.g., .dcd, .xtc).
+    - dic (str): Path to the dictionary file containing important atoms.
+    - time_zero (float): Minimum time threshold for filtering frames.
+    - delta_time (float): Time step interval for selecting frames.
+    - size_block (float): Size of each time block for analysis.
+    - cutoff_distance (float): Cutoff distance for contacts.
+    - delta_resid (int): Delta residue for contact calculations.
+    - proba_cutoff (float): Probability cutoff for contacts.
+    - min_cluster_size_coordinates (int): Minimum size of clusters for coordinate analysis.
+    - min_samples_coordinates (int): Minimum samples for coordinate clustering.
+    - cluster_selection_epsilon_coordinates (float): Epsilon for cluster selection in coordinate clustering.
+    - min_cluster_size_conformations (int): Minimum size of clusters for conformation extraction.
+    - min_samples_conformations (int): Minimum samples for conformation clustering.
+    - cluster_selection_epsilon_conformations (float): Epsilon for cluster selection in conformation clustering.
+    - split_trajectory (bool): Whether to split the trajectory into blocks.
+    - coordinates_to_add (list): List of additional coordinate files to include.
+    - type_coordinates_to_add (list): List of types for the additional coordinates.
+
+    Returns:
+    - None
+    """
+    logging.info("\n\n")
+    logging.info("Inputs:")
+    logging.info("Step to perform: %s", step_to_perform)
+    logging.info("Output directory: %s", output_dir)
+    logging.info("Position file: %s", strucfile)
+    logging.info("Trajectory file: %s", trajfile)
+    logging.info("Dictionary file: %s", dic)
+    logging.info("Time zero: %.2f ps", time_zero)
+    logging.info("Delta time: %.2f ps", delta_time)
+    logging.info("Size block: %.2f ps", size_block)
+    logging.info("Cutoff distance: %.2f Angstroms", cutoff_distance)
+    logging.info("Delta residue: %d", delta_resid)
+    logging.info("Probability cutoff: %.5f", proba_cutoff)
+    logging.info("Minimum cluster size for coordinates: %d", min_cluster_size_coordinates)
+    logging.info("Minimum samples for coordinates: %d", min_samples_coordinates)
+    logging.info("Cluster selection epsilon for coordinates: %.2f", cluster_selection_epsilon_coordinates)
+    logging.info("Minimum cluster size for conformations: %d", min_cluster_size_conformations)
+    logging.info("Minimum samples for conformations: %d", min_samples_conformations)
+    logging.info("Cluster selection epsilon for conformations: %.2f", cluster_selection_epsilon_conformations)
+    logging.info("Split trajectory: %s", split_trajectory)
+    logging.info("Additional coordinates to add: %s", coordinates_to_add)
+    logging.info("Types of additional coordinates: %s", type_coordinates_to_add)
+
+
+####################### PRINT ENDING MESSAGE #####################
+def print_ending_message(output_dir, step_to_perform):
+    """
+    Prints a message indicating the completion of the analysis.
+
+    Parameters:
+    - output_dir (str): The directory where the results are saved.
+    - step_to_perform (str): The step that was performed, used for logging context.
+
+    Returns:
+    - None
+    """
+    now= datetime.now()
+    logging.info("\n\n")
+    logging.info("Analysis complete at %s", now.strftime("%Y-%m-%d %H:%M:%S"))
+    logging.info("Results are saved in: %s", output_dir)
+    logging.info("Step performed: %s", step_to_perform)
 
 ###################### GENERAL FUNCTIONS #####################
 def plot_progress_bar(current, total, previous_progress, bar_length=40):
@@ -56,8 +175,11 @@ def plot_progress_bar(current, total, previous_progress, bar_length=40):
     block = int(round(bar_length * progress))
     
     if previous_progress == -1 or progress == 1 or progress - previous_progress >= 0.05:
-        text = f"\rProgress: [{'#' * block + '-' * (bar_length - block)}] {progress * 100:.0f}%"
-        print(text, end='')
+        #text = f"\rProgress: [{'#' * block + '-' * (bar_length - block)}] {progress * 100:.0f}%"
+
+        now = datetime.now()
+        text = f"Progress: [{'#' * block + '-' * (bar_length - block)}] {progress * 100:.0f}%  {now.strftime('%Y-%m-%d %H:%M:%S')}"
+        logging.info(text) #, end='')
         return progress 
     else:
         return previous_progress   
@@ -82,8 +204,6 @@ def open_file(namefile):
     for row in lines_file:
         data.append([x for x in row.split()])
     return data, lines_file
-
-
 
 def open_data_coordinate(namefile):
     """
@@ -142,10 +262,9 @@ def load_data_discretization(output_selected_coordinates):
 
     return coordinates, X_cuts, Labels
 
-
-def get_multiplicities(Discretized_Array):
+def get_multiplicities(discretized_array):
     # Get the shape of the input array: number of rows (frames) and columns (coordinates/features)
-    nframes, ncoord = np.shape(Discretized_Array)
+    nframes, ncoord = np.shape(discretized_array)
     
     # Initialize an array to hold the multiplicity (number of unique values) for each column
     multiplicities = np.zeros((ncoord), dtype=np.int32)
@@ -153,27 +272,27 @@ def get_multiplicities(Discretized_Array):
     # Loop over each column (coordinate/feature)
     for i in range(ncoord):
         # Count the number of unique values in column i and store it in the multiplicities array
-        multiplicities[i] = len(np.unique(Discretized_Array[:, i]))
+        multiplicities[i] = len(np.unique(discretized_array[:, i]))
     
     # Return the array of multiplicities
     return multiplicities
 
+
 ##################### OPENING TRAJECTORY #####################
-def open_trajectory(posfile, trajfile):
+def open_trajectory(strucfile, trajfile):
     """
     Opens a molecular dynamics trajectory using MDAnalysis.
 
     Parameters:
-    - posfile (str): The topology file (e.g., .psf, .gro, or .pdb) that describes the molecular structure.
+    - strucfile (str): The topology file (e.g., .psf, .gro, or .pdb) that describes the molecular structure.
     - trajfile (str): The trajectory file (e.g., .dcd, .xtc) containing atomic coordinates over time.
 
     Returns:
     - u_traj (MDAnalysis.Universe): An MDAnalysis Universe object representing the system and trajectory,
       which can be used for further analysis (e.g., atom selections, RMSD calculations, etc.).
     """
-    u_traj = mda.Universe(posfile, trajfile)
+    u_traj = mda.Universe(strucfile, trajfile)
     return u_traj
-
 
 
 ########################## FILTERING TIMES AND INDICES ##################
@@ -198,7 +317,7 @@ def filter_times_and_indices(u_traj, time_zero, delta_time, output_dir):
       and where the time is a multiple of `delta_time`.
     - Saves the selected times and their frame indices as `.npy` files in the specified output directory.
     """
-    print("\nFiltering times and indices...")
+    logging.info("\nFiltering times and indices...")
     times = []
     times_indices = []
     previous_progress = -1
@@ -218,30 +337,31 @@ def filter_times_and_indices(u_traj, time_zero, delta_time, output_dir):
     # Convert to NumPy arrays and save
     times = np.array(times)
     times_indices = np.array(times_indices)
-    np.save(output_dir + 'times.npy', times)
-    np.save(output_dir + 'times_indices.npy', times_indices)
+    np.save(output_dir + 'arrays_npy/times.npy', times)
+    np.save(output_dir + 'arrays_npy/times_indices.npy', times_indices)
 
-    print("\nTimes and indices filtered.")
+    logging.info("Times and indices filtered.")
     return times, times_indices
 
-####################### GET TERMINAL ATOMS #######################
+
+####################### GET IMPORTANT ATOMS #######################
 def read_dictionary(dic):
     """
-    Reads a dictionary file containing terminal atom definitions.
+    Reads a dictionary file containing definitions of important atoms.
 
     Parameters:
     - dic (str): Path to the dictionary text file.
 
     Returns:
-    - terminal_atoms_dic (dict): A dictionary where each key is a residue name (e.g., amino acid),
-      and each value is a list of terminal atom names for that residue.
+    - important_atoms_dic (dict): A dictionary where each key is a residue name (e.g., amino acid),
+      and each value is a list of names for important atoms in that residue.
     - amino_acids (list): A list of residue names marked as amino acids using the '@amino_acid' tag.
 
     Notes:
     - Lines ending with '@amino_acid' are treated specially to distinguish amino acids from other residues.
     - Lines with insufficient data (length <= 1) are skipped and reported.
     """
-    terminal_atoms_dic = {}
+    important_atoms_dic = {}
     amino_acids = []
     with open(dic, 'r') as f:
         lines = f.readlines()
@@ -249,117 +369,123 @@ def read_dictionary(dic):
             line = line.strip().split()
             if len(line) > 1:
                 if line[-1] == "@amino_acid":
-                    terminal_atoms_dic[line[0]] = line[1:-1]
+                    important_atoms_dic[line[0]] = line[1:-1]
                     amino_acids.append(line[0])
                 else:
-                    terminal_atoms_dic[line[0]] = line[1:]
+                    important_atoms_dic[line[0]] = line[1:]
             else:
-                print(f"Skipping line: {line}")
-    return terminal_atoms_dic, amino_acids
+                logging.info(f"Skipping line: {line}")
+    return important_atoms_dic, amino_acids
 
-def get_terminal_atoms_MDA(u_traj, terminal_atoms_dic):
+def get_important_atoms_MDA(u_traj, important_atoms_dic):
     """
-    Extracts terminal atom definitions from an MDAnalysis Universe.
+    Extracts definitions of important atoms from an MDAnalysis Universe.
 
     Parameters:
     - u_traj (MDAnalysis.Universe): The trajectory object containing residues and atoms.
-    - terminal_atoms_dic (str): Path to the terminal atom dictionary file.
+    - important_atoms_dic (str): Path to the important atom dictionary file.
 
     Returns:
-    - terminal_atoms (list): List of terminal atom names (per residue).
-    - RESIDS_SELECTED (list): List of residue IDs corresponding to the terminal atoms.
-    - RESNAMES_SELECTED (list): List of residue names corresponding to the terminal atoms.
+    - important_atoms (list): List of important atom names (per residue).
+    - selected_resids (list): List of residue IDs corresponding to the important atoms.
+    - selected_resnames (list): List of residue names corresponding to the important atoms.
     - indices_aa (list): List of residue IDs that are amino acids (based on the dictionary).
     
     Notes:
     - Residues not found in the dictionary are reported once.
     """
-    print("\nGetting terminal atoms...")
-    atoms_dic, amino_acids = read_dictionary(terminal_atoms_dic)
-    terminal_atoms = []
-    RESIDS_SELECTED = []
-    RESNAMES_SELECTED = []
+    logging.info("\nGetting important atoms...")
+    atoms_dic, amino_acids = read_dictionary(important_atoms_dic)
+    important_atoms = []
+    selected_resids = []
+    selected_resnames = []
     indices_aa = []
-    RES_NOT_FOUND = []
-    CHAINS_SELECTED = []
+    res_not_found = []
 
     for residue in u_traj.residues:
         resname = residue.resname
         resid = residue.resid
         if resname in atoms_dic:
-            terminal_atoms.append(atoms_dic[resname])
-            RESIDS_SELECTED.append(resid)
-            RESNAMES_SELECTED.append(resname)
+            important_atoms.append(atoms_dic[resname])
+            selected_resids.append(resid)
+            selected_resnames.append(resname)
             if resname in amino_acids:
                 indices_aa.append(resid)
-        elif resname not in RES_NOT_FOUND:
-            print(f"Residue {resname} not found in terminal_atoms_dic")
-            RES_NOT_FOUND.append(resname)
-    return terminal_atoms, RESIDS_SELECTED, RESNAMES_SELECTED, indices_aa
+        elif resname not in res_not_found:
+            logging.info(f"Residue {resname} not found in {important_atoms_dic}. Skipping it.")
+            res_not_found.append(resname)
+    
+    logging.info("\nSelected residues:")
+    for resid, resname in zip(selected_resids, selected_resnames):
+        if resid not in indices_aa:
+            logging.info(f" {resname} - {resid} ")
+        else:
+            logging.info(f" {resname} - {resid} (AA) ")
 
-def save_terminal_atoms(terminal_atoms, RESIDS_SELECTED, RESNAMES_SELECTED, output_dir):
+    return important_atoms, selected_resids, selected_resnames, indices_aa
+
+def save_important_atoms(important_atoms, selected_resids, selected_resnames, output_dir):
     """
-    Saves terminal atom information to a text file.
+    Saves important atoms information to a text file.
 
     Parameters:
-    - terminal_atoms (list): List of terminal atom names per residue.
-    - RESIDS_SELECTED (list): List of corresponding residue IDs.
-    - RESNAMES_SELECTED (list): List of corresponding residue names.
+    - important_atoms (list): List of important atom names per residue.
+    - selected_resids (list): List of corresponding residue IDs.
+    - selected_resnames (list): List of corresponding residue names.
     - output_dir (str): Directory path where the output file will be saved.
 
     Output:
-    - A text file named 'terminal_atoms.txt' containing:
+    - A text file named 'important_atoms.txt' containing:
       <resid>   <resname>   <atom_names>
     """
-    print("\nSaving terminal atoms to file...")
-    with open(output_dir + 'terminal_atoms.txt', 'w') as f:
-        for k in range(len(terminal_atoms)):
-            atom = terminal_atoms[k]
-            resid = RESIDS_SELECTED[k]
-            type_aa = RESNAMES_SELECTED[k]
+    logging.info("\nSaving important atoms to file...")
+    with open(output_dir + 'important_atoms.txt', 'w') as f:
+        for k in range(len(important_atoms)):
+            atom = important_atoms[k]
+            resid = selected_resids[k]
+            type_aa = selected_resnames[k]
             f.write(f'{resid}   {type_aa}   {atom}\n')
         f.close()
-    print("Terminal atoms saved to file.")
+    logging.info("Important atoms saved to file.")
 
 
 ############################## PRECOMPUTE POSITIONS OF ATOMS ##################
-def precompute_terminals(u_traj, terminal_atoms, RESIDS_SELECTED, times, times_indices):
+def precompute_terminals(u_traj, important_atoms, selected_resids, times_indices):
     """
-    Precomputes the 3D positions of terminal atoms 
+    Precomputes the 3D positions of important atoms 
     for a selected set of residues across specified frames in a trajectory.
 
     Parameters:
     - u_traj (MDAnalysis.Universe): The MDAnalysis universe object containing the trajectory.
-    - terminal_atoms (list of lists): A list of terminal atom names for each selected residue.
-    - RESIDS_SELECTED (list): Residue IDs corresponding to the residues with terminal atoms.
-    - times (np.ndarray): Time values for the selected frames (not directly used here but useful contextually).
+    - important_atoms (list of lists): A list of important atom names for each selected residue.
+    - selected_resids (list): Residue IDs corresponding to the residues with important atoms.
     - times_indices (np.ndarray): Indices of the frames in the trajectory to process.
 
     Returns:
-    - Positions_terminal_atoms (np.ndarray): A NumPy array of shape (num_atoms, num_frames, 3),
-      storing the x, y, z coordinates of each terminal atom across selected frames.
+    - positions_important_atoms (np.ndarray): A NumPy array of shape (num_atoms, num_frames, 3),
+      storing the x, y, z coordinates of each important atom across selected frames.
 
     Behavior:
-    - Preselects terminal atoms for all residues to avoid repetitive selection in each frame.
-    - Iterates over selected trajectory frames and stores the positions of each terminal atom.
+    - Preselects important atoms for all residues to avoid repetitive selection in each frame.
+    - Iterates over selected trajectory frames and stores the positions of each important atom.
     - Displays a progress bar during processing.
     """
-    print("\nPrecomputing terminal atoms positions...")
+    logging.info("\nPrecomputing positions of important atoms...")
 
-    num_residues = len(RESIDS_SELECTED)  # Total number of residues with terminal atoms
-    num_atoms = np.sum([len(terminal_atoms[i]) for i in range(num_residues)])  # Total number of terminal atoms
+    num_residues = len(selected_resids)  # Total number of residues with important atoms
+    num_atoms = np.sum([len(important_atoms[i]) for i in range(num_residues)])  # Total number of important atoms
 
-    # Pre-select atom groups for each terminal atom in each residue to avoid repeated selections
+    # Pre-select atom groups for each important atom in each residue to avoid repeated selections
     terminal_atom_selections = []
     for i in range(num_residues):
         terminal_atom_selections.append([
-            u_traj.select_atoms(f"resid {RESIDS_SELECTED[i]} and name {terminal_atoms[i][j]}")
-            for j in range(len(terminal_atoms[i]))
+            u_traj.select_atoms(f"resid {selected_resids[i]} and name {important_atoms[i][j]}")
+            for j in range(len(important_atoms[i]))
         ])
 
-    # Initialize array to store terminal atom positions:
-    # Shape: (total terminal atoms, number of selected frames, 3 coordinates)
-    Positions_terminal_atoms = np.zeros((num_atoms, len(times_indices), 3))
+    # Initialize array to store important atom positions:
+    # Shape: (total important atoms, number of selected frames, 3 coordinates)
+    positions_important_atoms = np.zeros((num_atoms, len(times_indices), 3))
 
     # Iterate through selected frames and record positions
     previous_progress = -1
@@ -368,25 +494,24 @@ def precompute_terminals(u_traj, terminal_atoms, RESIDS_SELECTED, times, times_i
         previous_progress = plot_progress_bar(k, len(times_indices), previous_progress)
         count_step = 0  # Index for placing atoms in the output array
         for i in range(num_residues):
-            for j in range(len(terminal_atoms[i])):
-                Positions_terminal_atoms[count_step, k, :] = terminal_atom_selections[i][j].positions
+            for j in range(len(important_atoms[i])):
+                positions_important_atoms[count_step, k, :] = terminal_atom_selections[i][j].positions
                 count_step += 1
 
     # Complete the progress bar
     plot_progress_bar(len(times_indices), len(times_indices), previous_progress)
-    print("\nTerminal atoms positions precomputed.")
+    logging.info("Positions of important atoms precomputed.")
 
-    return Positions_terminal_atoms
+    return positions_important_atoms
 
-def precompute_backbone(u_traj, RESIDS_SELECTED, times, times_indices):
+def precompute_backbone_protein(u_traj, selected_resids, times_indices):
     """
     Precomputes the 3D positions of backbone atoms (C, N, and CA) for each selected residue
     across specified trajectory frames.
 
     Parameters:
     - u_traj (MDAnalysis.Universe): The MDAnalysis universe object containing the trajectory.
-    - RESIDS_SELECTED (list): List of residue IDs for which backbone atoms are to be tracked.
-    - times (np.ndarray): Array of time values for selected frames (not directly used here).
+    - selected_resids (list): List of residue IDs for which backbone atoms are to be tracked.
     - times_indices (np.ndarray): Indices of the trajectory frames to be processed.
 
     Returns:
@@ -402,23 +527,23 @@ def precompute_backbone(u_traj, RESIDS_SELECTED, times, times_indices):
     - Iterates through specified trajectory frames and stores atom positions for each frame.
     - Shows progress using a progress bar.
     """
-    print("\nPrecomputing backbone positions...")
+    logging.info("\nPrecomputing positions of protein backbone atoms...")
 
-    num_residues = len(RESIDS_SELECTED)
+    num_residues = len(selected_resids)
 
     # Preselect atom groups for each backbone atom type
     atom_C_selections = [
-        u_traj.select_atoms(f"resid {RESIDS_SELECTED[i]} and name C")
+        u_traj.select_atoms(f"resid {selected_resids[i]} and name C")
         for i in range(num_residues)
     ]
 
     atom_N_selections = [
-        u_traj.select_atoms(f"resid {RESIDS_SELECTED[i]} and name N")
+        u_traj.select_atoms(f"resid {selected_resids[i]} and name N")
         for i in range(num_residues)
     ]
 
     atom_CA_selections = [
-        u_traj.select_atoms(f"resid {RESIDS_SELECTED[i]} and name CA")
+        u_traj.select_atoms(f"resid {selected_resids[i]} and name CA")
         for i in range(num_residues)
     ]
 
@@ -440,7 +565,7 @@ def precompute_backbone(u_traj, RESIDS_SELECTED, times, times_indices):
 
     # Complete progress bar
     plot_progress_bar(len(times_indices), len(times_indices), previous_progress)
-    print("\nBackbone positions precomputed.")
+    logging.info("Positions of protein backbone atoms precomputed.")
 
     return Positions_atoms_C, Positions_atoms_N, Positions_atoms_CA
 
@@ -451,8 +576,6 @@ def save_positions(Positions, outname):
     Saves precomputed positions
     """
     np.save(outname, Positions)
-
-
 
 
 ############################ Functions for computing average histograms and error bars ########################
@@ -473,7 +596,6 @@ def compute_histogram(data, y_min, y_max, delta_y):
     bins = np.arange(y_min, y_max + delta_y, delta_y)
     hist, bin_edges = np.histogram(data, bins=bins, density=True)
     return hist, bin_edges
-
 
 def compute_hist_tot(times, data, num_blocks, y_min, y_max, delta_y, time_zero_ps, size_block_ps):
     """
@@ -516,7 +638,6 @@ def compute_hist_tot(times, data, num_blocks, y_min, y_max, delta_y, time_zero_p
 
     return HIST_TOT, x, AVG, STD
 
-
 def compute_error_bars(STD, num_blocks, confidence_level=0.95):
     """
     Computes error bars using the t-distribution for a given confidence level.
@@ -532,7 +653,6 @@ def compute_error_bars(STD, num_blocks, confidence_level=0.95):
     degrees_freedom = num_blocks - 1
     t_value = t.ppf((1 + confidence_level) / 2, degrees_freedom)
     return t_value * (STD / np.sqrt(num_blocks))
-
 
 def get_avg_histogram(times, data, time_zero_ps, size_block_ps, coord_type):
     """
@@ -579,7 +699,6 @@ def get_avg_histogram(times, data, time_zero_ps, size_block_ps, coord_type):
     error_bars = compute_error_bars(STD, num_blocks)
 
     return data, data, x, AVG, error_bars, delta_y, coord_type, xlabel
-
 
 
 ######################## Functions for discretizing coordinates ########################
@@ -845,7 +964,7 @@ def save_coordinate_results(times, distance_to_save, coordinate, output_dir):
     # Save to file with two decimal places, separated by three spaces
     np.savetxt(output_file, Time_evolution, fmt="%.2f   %.2f")
 
-def plot_histogram(x, AVG, error_bars, x_smooth, y_smooth, delta_y, coord_type, xlabel, coordinate_name, minima, output_dir):
+def plot_histogram(x, AVG, error_bars, x_smooth, y_smooth, xlabel, coordinate_name, minima, output_dir):
     """
     Plots the histogram of coordinate data with error bars, KDE curve, and vertical lines at selected minima.
 
@@ -855,8 +974,6 @@ def plot_histogram(x, AVG, error_bars, x_smooth, y_smooth, delta_y, coord_type, 
     - error_bars: Error estimates for each bin (e.g., standard error).
     - y_smooth: Smoothed density estimation from Kernel Density Estimation (KDE).
     - x_smooth: x-values corresponding to the KDE curve.
-    - delta_y: Bin width or resolution (not directly used here but may be useful for labeling).
-    - coord_type: Type of coordinate (unused here but kept for compatibility).
     - xlabel: Label string for the x-axis.
     - coordinate_name: Name of the coordinate (used for plot title and filename).
     - minima: List of x-values representing local minima to highlight on the plot.
@@ -895,7 +1012,7 @@ def plot_histogram(x, AVG, error_bars, x_smooth, y_smooth, delta_y, coord_type, 
     plt.close()
 
 def discretize_coordinate(y, delta_y, coordinate_type, times, time_zero, size_block,
-                          coordinate_name, output, output_dir):
+                          coordinate_name,proba_cutoff, output, output_dir):
     """
     Discretizes a continuous coordinate distribution into distinct regions based on local minima 
     identified in the smoothed probability density.
@@ -916,6 +1033,7 @@ def discretize_coordinate(y, delta_y, coordinate_type, times, time_zero, size_bl
     - time_zero (float): Starting time for analysis.
     - size_block (float): Block size for time-averaging histograms.
     - coordinate_name (str): Identifier used for saving files.
+    - proba_cutoff: Minimum probability threshold required to consider the region between minima as significant.
     - output (str or file-like): Path or handle to save minima/label information.
     - output_dir (str): Directory to save coordinate data and plots.
 
@@ -939,7 +1057,7 @@ def discretize_coordinate(y, delta_y, coordinate_type, times, time_zero, size_bl
         return
     
     selected_minima = filter_significant_minima(
-        x_smooth, y_smooth, minima, proba_cutoff=0.01
+        x_smooth, y_smooth, minima, proba_cutoff
     )
     if len(selected_minima) == 0:
         return
@@ -956,27 +1074,26 @@ def discretize_coordinate(y, delta_y, coordinate_type, times, time_zero, size_bl
     # Step 7: Plot the histogram with KDE and show detected minima
     plot_histogram(
         x, AVG, error_bars,
-        x_smooth, y_smooth, delta_y,
-        coord_type, xlabel,
+        x_smooth, y_smooth, xlabel,
         coordinate_name, selected_minima,
         output_dir
     )
 
 
-############################### Compute minimum distance between terminal atoms ##################
-def compute_min_distances(Positions_terminal_atoms, i, j, terminal_atoms, RESIDS_SELECTED):
+############################### Compute minimum distance between important atoms ##################
+def compute_min_distances(positions_important_atoms, i, j, important_atoms):
     """
-    Computes the minimum distance between terminal atoms 
+    Computes the minimum distance between important atoms 
     of two residues across all frames in the trajectory.
 
     Parameters:
-    - Positions_terminal_atoms (np.ndarray): A 3D array of shape 
-      (total_terminal_atoms, num_frames, 3), storing positions of terminal atoms.
-    - i (int): Index of the first residue in RESIDS_SELECTED and terminal_atoms.
-    - j (int): Index of the second residue in RESIDS_SELECTED and terminal_atoms.
-    - terminal_atoms (list of lists): A list where each entry contains the names 
-      of terminal atoms for the corresponding residue.
-    - RESIDS_SELECTED (list): List of residue IDs corresponding to the atoms.
+    - positions_important_atoms (np.ndarray): A 3D array of shape 
+      (total_important_atoms, num_frames, 3), storing positions of important atoms.
+    - i (int): Index of the first residue in selected_resids and important_atoms.
+    - j (int): Index of the second residue in selected_resids and important_atoms.
+    - important_atoms (list of lists): A list where each entry contains the names 
+      of important atoms for the corresponding residue.
+
 
     Returns:
     - min_absolute_distance (float): The minimum distance between any pair of terminal 
@@ -987,27 +1104,27 @@ def compute_min_distances(Positions_terminal_atoms, i, j, terminal_atoms, RESIDS
     - atom_j_to_save (str): Name of the atom in residue j involved in the minimum distance.
 
     Description:
-    - Computes pairwise distances between all terminal atoms of residue i and residue j.
+    - Computes pairwise distances between all important atoms of residue i and residue j.
     - For each atom pair, the Euclidean distance is computed across all frames.
     - From all possible atom pair combinations, the one with the smallest minimum 
       distance (across all time steps) is selected and returned.
     """
 
-    # Get number of terminal atoms for each residue
-    num_term_i = len(terminal_atoms[i])
-    num_term_j = len(terminal_atoms[j])
+    # Get number of important atoms for each residue
+    num_term_i = len(important_atoms[i])
+    num_term_j = len(important_atoms[j])
 
-    # Calculate starting indices of terminal atoms for residues i and j
-    ind_term_0_i = sum([len(terminal_atoms[k]) for k in range(i)])
-    ind_term_0_j = sum([len(terminal_atoms[k]) for k in range(j)])
+    # Calculate starting indices of important atoms for residues i and j
+    ind_term_0_i = sum([len(important_atoms[k]) for k in range(i)])
+    ind_term_0_j = sum([len(important_atoms[k]) for k in range(j)])
 
-    # Extract positions for all terminal atoms of residue i and j
-    Positions_i = [Positions_terminal_atoms[ind_term_0_i + k, :, :] for k in range(num_term_i)]
-    Positions_j = [Positions_terminal_atoms[ind_term_0_j + k, :, :] for k in range(num_term_j)]
+    # Extract positions for all important atoms of residue i and j
+    Positions_i = [positions_important_atoms[ind_term_0_i + k, :, :] for k in range(num_term_i)]
+    Positions_j = [positions_important_atoms[ind_term_0_j + k, :, :] for k in range(num_term_j)]
 
-    # Copy the terminal atom names
-    atoms_i = terminal_atoms[i].copy()
-    atoms_j = terminal_atoms[j].copy()
+    # Copy the important atom names
+    atoms_i = important_atoms[i].copy()
+    atoms_j = important_atoms[j].copy()
 
     # Initialize distance matrix: shape (num_atoms_i, num_atoms_j, num_frames)
     distances = np.zeros((len(atoms_i), len(atoms_j), len(Positions_i[0])))
@@ -1036,46 +1153,69 @@ def compute_min_distances(Positions_terminal_atoms, i, j, terminal_atoms, RESIDS
 
 
 ############################# process distance pair #############################
-def process_distance_pair(i, j, Positions_terminal_atoms, terminal_atoms, RESIDS_SELECTED, times, time_zero, size_block, cutoff_distances, height_cutoff, output,output_dir):
+def process_distance_pair(i, j, positions_important_atoms, important_atoms, selected_resids, times, time_zero, size_block, cutoff_distance,proba_cutoff,output,output_dir):
     """
-    Processes a pair of residues to compute distances and analyze multimodality.
+    Processes a pair of selected residues by computing the minimal interatomic distance
+    between their important atoms, and discretizes the distance time series if the pair 
+    is close enough (below cutoff).
+
+    Parameters:
+    -----------
+    - i, j (int) :  Indices of the residues in selected_resids to process.
+    - positions_important_atoms (np.ndarray): 3D array of precomputed positions of important atoms.
+      Shape: (total_important_atoms, num_frames, 3).
+    - important_atoms (list of lists): Names of important atoms for each residue.
+    - selected_resids (list): List of selected residue IDs.
+    - times (np.ndarray): Array of times corresponding to selected frames.
+    - time_zero (float): Reference time used for distance analysis.
+    - size_block (int): Size of blocks used in post-processing (likely temporal).
+    - cutoff_distance (float): Distance threshold for further analysis.
+    - proba_cutoff (float): Minimum probability threshold for discretization.
+    - output (file-like or handle): Destination for saving results.
+    - output_dir (str): Directory where output files will be written.
     """
-    min_absolute_distance,distance_to_save,atom_i_to_save,atom_j_to_save = compute_min_distances(
-        Positions_terminal_atoms, i, j,terminal_atoms, RESIDS_SELECTED
+    
+    # Compute the minimal interatomic distance between important atoms of residues i and j
+    min_absolute_distance, distance_to_save, atom_i_to_save, atom_j_to_save = compute_min_distances(
+        positions_important_atoms, i, j, important_atoms
     )
 
-    if min_absolute_distance > cutoff_distances :
+    # Skip pairs that are too far apart
+    if min_absolute_distance > cutoff_distance:
         return
+
+    # Prepare coordinate for discretization
+    y = distance_to_save               # Distance time series
+    delta_y = 0.1                      # Bin width for discretization
+    coordinate_type = 'distance'      # Type of coordinate being discretized
+
+    # Construct a unique name for this distance coordinate
+    coordinate_name = f"{selected_resids[i]}_{atom_i_to_save}_{selected_resids[j]}_{atom_j_to_save}"
     
-    y= distance_to_save
-    delta_y=0.1
-    coordinate_type= 'distance'
-    coordinate_name = f"{RESIDS_SELECTED[i]}_{atom_i_to_save}_{RESIDS_SELECTED[j]}_{atom_j_to_save}"
-    
+    # Discretize the distance time series and update output data structures
     discretize_coordinate(
-        y, delta_y,coordinate_type,times, time_zero, size_block,coordinate_name,output,output_dir
+        y, delta_y, coordinate_type, times, time_zero, size_block,
+        coordinate_name, proba_cutoff, output, output_dir
     )
 
 
-####################### Function to compute distances between terminal atoms for all residue pairs ##########################
-def compute_all_distances(u_traj,terminal_atoms,RESIDS_SELECTED,Positions_terminal_atoms,times,time_zero,size_block,delta_resid,cutoff_distances,height_cutoff,output,output_dir):
+####################### Function to compute distances between important atoms for all residue pairs ##########################
+def compute_all_distances(important_atoms,selected_resids,positions_important_atoms,times,time_zero,size_block,delta_resid,cutoff_distance,proba_cutoff,output,output_dir):
     """
-    Computes pairwise distances between all valid residue pairs based on their terminal atoms,
+    Computes pairwise distances between all valid residue pairs based on their important atoms,
     and processes each pair using a custom distance analysis function.
 
     Parameters:
-    - u_traj (MDAnalysis.Universe): The MDAnalysis universe object containing the trajectory.
-      (Not directly used here but may be needed in `process_distance_pair`.)
-    - terminal_atoms (list of lists): Terminal atom names for each residue.
-    - RESIDS_SELECTED (list): List of selected residue IDs.
-    - Positions_terminal_atoms (np.ndarray): 3D array of precomputed positions of terminal atoms.
-      Shape: (total_terminal_atoms, num_frames, 3).
+    - important_atoms (list of lists): Names of important atoms for each residue.
+    - selected_resids (list): List of selected residue IDs.
+    - positions_important_atoms (np.ndarray): 3D array of precomputed positions of important atoms.
+      Shape: (total_important_atoms, num_frames, 3).
     - times (np.ndarray): Array of times corresponding to selected frames.
     - time_zero (float): Reference time used for distance analysis.
     - size_block (int): Size of blocks used in post-processing (likely temporal).
     - delta_resid (int): Minimum residue index separation; avoids comparing too-close residues.
-    - cutoff_distances (float): Distance threshold for further analysis.
-    - height_cutoff (float): Height threshold used in filtering results.
+    - cutoff_distance (float): Distance threshold for further analysis.
+    - proba_cutoff (float): Minimum probability threshold for discretization.
     - output (file-like or handle): Destination for saving results.
     - output_dir (str): Directory where output files will be written.
 
@@ -1088,11 +1228,11 @@ def compute_all_distances(u_traj,terminal_atoms,RESIDS_SELECTED,Positions_termin
     - A progress bar is shown during processing.
     """
 
-    num_residues = len(RESIDS_SELECTED)
+    num_residues = len(selected_resids)
     total_combinations = num_residues * (num_residues - delta_resid) / 2  # total number of pairs
     count_step = 0
 
-    print("\nComputing distances...")
+    logging.info("\nComputing distances...")
 
     # Iterate over all valid residue pairs
     previous_progress = -1  # Initialize progress bar
@@ -1104,37 +1244,35 @@ def compute_all_distances(u_traj,terminal_atoms,RESIDS_SELECTED,Positions_termin
 
             # Process this residue pair
             process_distance_pair(
-                i, j,Positions_terminal_atoms,terminal_atoms,RESIDS_SELECTED,times,time_zero,size_block,cutoff_distances,height_cutoff,output,output_dir
+                i, j,positions_important_atoms,important_atoms,selected_resids,times,time_zero,size_block,cutoff_distance,proba_cutoff,output,output_dir
             )
 
     # Finalize progress bar
     plot_progress_bar(total_combinations, total_combinations,previous_progress)
-    print("\nDistances computed and saved.")
+    logging.info("Distances computed and saved.")
 
 
 ########################## Function to get the multimodal contacts ################################
-def get_contacts(u_traj, terminal_atoms, RESIDS_SELECTED, time_zero, size_block, delta_time, cutoff_distances, delta_resid, height_cutoff, indices_aa, output_dir):
+def get_contacts(u_traj, important_atoms, selected_resids, time_zero, size_block, cutoff_distance, delta_resid, proba_cutoff, output_dir):
     """
-    Main function to compute and process distances (contacts) between terminal atoms
+    Main function to compute and process distances (contacts) between important atoms
     throughout a molecular dynamics trajectory.
 
     This function performs the following steps:
     1. Loads pre-filtered time points and frame indices from .npy files.
-    2. Precomputes the 3D positions of all terminal atoms across the selected frames.
+    2. Precomputes the 3D positions of all important atoms across the selected frames.
     3. Saves the computed positions to a file for later use.
     4. Computes distances between all valid residue pairs and processes the results.
 
     Parameters:
     - u_traj: MDAnalysis Universe object containing the trajectory.
-    - terminal_atoms: List of terminal atom names for each selected residue.
-    - RESIDS_SELECTED: List of residue IDs to analyze.
+    - important_atoms: List of important atom names for each selected residue.
+    - selected_resids: List of residue IDs to analyze.
     - time_zero: Time reference for analysis start.
     - size_block: Block size used for distance analysis (e.g., time window).
-    - delta_time: Time interval used to sample frames (used when loading times).
-    - cutoff_distances: Maximum distance threshold to consider a contact.
+    - cutoff_distance: Maximum distance threshold to consider a contact.
     - delta_resid: Minimum residue index separation to avoid local contacts.
-    - height_cutoff: Cutoff for additional filtering of distance results.
-    - indices_aa: List of indices corresponding to amino acid residues (not directly used here).
+    - proba_cutoff: Minimum probability threshold for discretization.
     - output_dir: Directory path to read inputs and save outputs.
 
     Returns:
@@ -1142,20 +1280,20 @@ def get_contacts(u_traj, terminal_atoms, RESIDS_SELECTED, time_zero, size_block,
     """
 
     # Load time points and frame indices previously filtered and saved
-    times = np.load(output_dir + 'times.npy')
-    times_indices = np.load(output_dir + 'times_indices.npy')
+    times = np.load(output_dir + 'arrays_npy/times.npy')
+    times_indices = np.load(output_dir + 'arrays_npy/times_indices.npy')
 
-    # Precompute terminal atom positions across trajectory
-    Positions_terminal_atoms = precompute_terminals(u_traj, terminal_atoms, RESIDS_SELECTED, times, times_indices)
+    # Precompute important atom positions across trajectory
+    positions_important_atoms = precompute_terminals(u_traj, important_atoms, selected_resids, times_indices)
 
     # Save precomputed positions to disk
-    save_positions(Positions_terminal_atoms, output_dir + "Positions_npy/Positions_terminal_atoms.npy")
+    save_positions(positions_important_atoms, output_dir + "arrays_npy/positions_important_atoms.npy")
 
     # Compute and process distances between all valid residue pairs
     compute_all_distances(
-        u_traj, terminal_atoms, RESIDS_SELECTED, Positions_terminal_atoms,
+        important_atoms, selected_resids, positions_important_atoms,
         times, time_zero, size_block, delta_resid,
-        cutoff_distances, height_cutoff,
+        cutoff_distance, proba_cutoff,
         output_dir + "selected_coordinates.txt", output_dir
     )
 
@@ -1205,9 +1343,8 @@ def adjust_angle_data(data, y_min, y_max, delta_y):
 
     return adjusted_data, new_y_max, new_y_min
 
-
-def process_dihedral_i(i, Positions_atoms_C, Positions_atoms_N, Positions_atoms_CA, RESIDS_SELECTED, 
-                       times, time_zero, size_block, height_cutoff, output, output_dir):
+def process_dihedral_i_protein(i, Positions_atoms_C, Positions_atoms_N, Positions_atoms_CA, selected_resids, 
+                       times, time_zero, size_block,proba_cutoff, output, output_dir):
     """
     Processes the i-th residue to compute phi and psi dihedral angles, adjust for angle wrapping,
     and discretize the angle distributions for further analysis.
@@ -1216,11 +1353,11 @@ def process_dihedral_i(i, Positions_atoms_C, Positions_atoms_N, Positions_atoms_
     - i: Index of the residue to process.
     - Positions_atoms_C, Positions_atoms_N, Positions_atoms_CA: 3D arrays of atomic positions
       with shape (num_residues, num_timepoints, 3).
-    - RESIDS_SELECTED: List or array of residue identifiers.
+    - selected_resids: List or array of residue identifiers.
     - times: 1D array of time points corresponding to frames.
     - time_zero: Start time for analysis.
     - size_block: Block size for time-averaging during discretization.
-    - height_cutoff: Threshold used in multimodality detection (not used here, but passed for consistency).
+    - proba_cutoff: Minimum probability threshold required to consider the region between minima as significant.
     - output: File handle or path for saving results.
     - output_dir: Directory path for saving outputs.
 
@@ -1243,7 +1380,7 @@ def process_dihedral_i(i, Positions_atoms_C, Positions_atoms_N, Positions_atoms_
     if i > 0:
         distance_C_N = np.linalg.norm(Positions_atoms_C[i - 1, 0, :] - Positions_atoms_N[i, 0, :])
         if distance_C_N < 1.6:
-            coordinate_name = f"phi{RESIDS_SELECTED[i]}"
+            coordinate_name = f"phi{selected_resids[i]}"
             # Calculate phi dihedral angles (radians) and convert to degrees
             phi_angle = np.rad2deg(mda.lib.distances.calc_dihedrals(Positions_atoms_C[i - 1, :, :],Positions_atoms_N[i, :, :],Positions_atoms_CA[i, :, :],Positions_atoms_C[i, :, :])            )
             # Adjust angles if range spans more than 180 degrees (unwrap circular data)
@@ -1251,15 +1388,15 @@ def process_dihedral_i(i, Positions_atoms_C, Positions_atoms_N, Positions_atoms_
                 phi_angle, _, _ = adjust_angle_data(phi_angle, np.min(phi_angle), np.max(phi_angle), delta_y)
             
             # Discretize the phi angle data for further analysis
-            discretize_coordinate(phi_angle, delta_y, coordinate_type=coordinate_type,
-                                  times=times, time_zero=time_zero, size_block=size_block,
-                                  coordinate_name=coordinate_name, output=output, output_dir=output_dir)
+            discretize_coordinate(phi_angle, delta_y, coordinate_type,
+                                  times, time_zero, size_block,
+                                  coordinate_name,proba_cutoff, output, output_dir)
 
     # Process psi dihedral if next residue exists and backbone geometry is valid
     if i < len(Positions_atoms_C) - 1:
         distance_N_C = np.linalg.norm(Positions_atoms_N[i + 1, 0, :] - Positions_atoms_C[i, 0, :])
         if distance_N_C < 1.6:
-            coordinate_name = f"psi{RESIDS_SELECTED[i]}"
+            coordinate_name = f"psi{selected_resids[i]}"
             # Calculate psi dihedral angles (radians) and convert to degrees
             psi_angle = np.rad2deg(mda.lib.distances.calc_dihedrals(Positions_atoms_N[i, :, :],Positions_atoms_CA[i, :, :],Positions_atoms_C[i, :, :],Positions_atoms_N[i + 1, :, :]))
             # Adjust angles if range spans more than 180 degrees (unwrap circular data)
@@ -1267,13 +1404,13 @@ def process_dihedral_i(i, Positions_atoms_C, Positions_atoms_N, Positions_atoms_
                 psi_angle, _, _ = adjust_angle_data(psi_angle, np.min(psi_angle), np.max(psi_angle), delta_y)
             
             # Discretize the psi angle data for further analysis
-            discretize_coordinate(psi_angle, delta_y, coordinate_type=coordinate_type,
-                                  times=times, time_zero=time_zero, size_block=size_block,
-                                  coordinate_name=coordinate_name, output=output, output_dir=output_dir)
+            discretize_coordinate(psi_angle, delta_y, coordinate_type,
+                                  times, time_zero, size_block,
+                                  coordinate_name,proba_cutoff, output, output_dir)
         
     
 ########################### Function to compute dihedrals for all residues ##########################
-def compute_all_dihedrals(u_traj, RESIDS_SELECTED, Positions_atoms_C, Positions_atoms_N, Positions_atoms_CA, times, time_zero, size_block, height_cutoff, output, output_dir):  
+def compute_all_dihedrals_protein(selected_resids, Positions_atoms_C, Positions_atoms_N, Positions_atoms_CA, times, time_zero, size_block, proba_cutoff, output, output_dir):  
     """
     Iterates over all selected residues and computes dihedral angles between them.
 
@@ -1282,14 +1419,14 @@ def compute_all_dihedrals(u_traj, RESIDS_SELECTED, Positions_atoms_C, Positions_
 
     Parameters:
     - u_traj: MDAnalysis Universe or trajectory object.
-    - RESIDS_SELECTED: List of residue indices for which to compute dihedrals.
+    - selected_resids: List of residue indices for which to compute dihedrals.
     - Positions_atoms_C: Precomputed C atom positions for each residue over time.
     - Positions_atoms_N: Precomputed N atom positions for each residue over time.
     - Positions_atoms_CA: Precomputed CA atom positions for each residue over time.
     - times: 1D array of time points (e.g., in ps).
     - time_zero: Time (in ps) to start analysis from.
     - size_block: Block size (in ps) for time-averaging.
-    - height_cutoff: Threshold for peak filtering or discretization (used later).
+    - proba_cutoff -- minimum probability threshold for filtering regions between minima
     - output: Path to output file where selected features/labels are written.
     - output_dir: Directory where output data (e.g., plots or processed values) is stored.
 
@@ -1297,21 +1434,20 @@ def compute_all_dihedrals(u_traj, RESIDS_SELECTED, Positions_atoms_C, Positions_
     - None. Outputs are saved directly to disk.
     """
 
-    num_residues = len(RESIDS_SELECTED)
+    num_residues = len(selected_resids)
 
-    print("\nComputing dihedrals...")
+    logging.info("\nComputing dihedrals in protein backbone...")
     previous_progress = -1  # Initialize progress bar
     for i in range(num_residues):
         previous_progress=plot_progress_bar(i, num_residues,previous_progress)
-        process_dihedral_i(i, Positions_atoms_C, Positions_atoms_N, Positions_atoms_CA, RESIDS_SELECTED, times, time_zero, size_block, height_cutoff, output, output_dir)
+        process_dihedral_i_protein(i, Positions_atoms_C, Positions_atoms_N, Positions_atoms_CA, selected_resids, times, time_zero, size_block, proba_cutoff,output, output_dir)
 
     plot_progress_bar(num_residues, num_residues,previous_progress)
-    print("\nDihedrals computed and saved.")
+    logging.info("Dihedrals computed and saved.")
 
 
 ########################## Function to get the multimodal dihedrals ################################
-def get_dihedrals(u_traj, indices_aa, time_zero, size_block, delta_time, 
-                  cutoff_distances, delta_resid, height_cutoff, output_dir):
+def get_dihedrals_protein(u_traj, indices_aa, time_zero, size_block, proba_cutoff,output_dir):
     """
     Computes and processes dihedral angles for selected amino acid residues in a trajectory.
 
@@ -1326,10 +1462,7 @@ def get_dihedrals(u_traj, indices_aa, time_zero, size_block, delta_time,
     - indices_aa: List of amino acid residue indices to analyze.
     - time_zero: Starting time for dihedral analysis.
     - size_block: Size of blocks used for averaging time intervals.
-    - delta_time: Temporal resolution (not used directly in this function).
-    - cutoff_distances: Distance cutoffs for residue pairing (not used here).
-    - delta_resid: Minimum sequence separation between residue pairs (not used here).
-    - height_cutoff: Threshold for dihedral peak detection or filtering.
+    - proba_cutoff: Minimum probability threshold for filtering regions between minima.
     - output_dir: Directory to save output files.
 
     Returns:
@@ -1337,42 +1470,42 @@ def get_dihedrals(u_traj, indices_aa, time_zero, size_block, delta_time,
     """
 
     # Load time values and their corresponding frame indices
-    times = np.load(output_dir + 'times.npy')
-    times_indices = np.load(output_dir + 'times_indices.npy')
+    times = np.load(output_dir + 'arrays_npy/times.npy')
+    times_indices = np.load(output_dir + 'arrays_npy/times_indices.npy')
 
     # Early exit if fewer than two residues are selected
     if len(indices_aa) < 2:
-        print("No amino acids selected for dihedral analysis.")
+        logging.info("No amino acids selected for dihedral analysis.")
         return
 
     # Step 1: Precompute backbone atom positions (N, C, and CA atoms)
-    Positions_atoms_C, Positions_atoms_N, Positions_atoms_CA = precompute_backbone(
-        u_traj, indices_aa, times, times_indices
+    Positions_atoms_C, Positions_atoms_N, Positions_atoms_CA = precompute_backbone_protein(
+        u_traj, indices_aa, times_indices
     )
 
     # Step 2: Save backbone atom positions to disk for future use
-    save_positions(Positions_atoms_C, output_dir + "Positions_npy/Positions_C_atoms.npy")
-    save_positions(Positions_atoms_N, output_dir + "Positions_npy/Positions_N_atoms.npy")
-    save_positions(Positions_atoms_CA, output_dir + "Positions_npy/Positions_CA_atoms.npy")
+    save_positions(Positions_atoms_C, output_dir + "arrays_npy/Positions_C_atoms.npy")
+    save_positions(Positions_atoms_N, output_dir + "arrays_npy/Positions_N_atoms.npy")
+    save_positions(Positions_atoms_CA, output_dir + "arrays_npy/Positions_CA_atoms.npy")
 
     # Step 3: Compute all dihedral angles and write selected features
-    compute_all_dihedrals(u_traj, indices_aa, Positions_atoms_C, Positions_atoms_N, Positions_atoms_CA, times, time_zero, size_block, height_cutoff, output_dir + "selected_coordinates.txt", output_dir)
+    compute_all_dihedrals_protein(indices_aa, Positions_atoms_C, Positions_atoms_N, Positions_atoms_CA, times, time_zero, size_block, proba_cutoff, output_dir + "selected_coordinates.txt", output_dir)
 
 
 ############################# Function to add new coordinates to the existing discretization ##########################
-def add_coordinates(coordinates_to_add, type_coordinates_to_add, output_dir, time_zero, size_block, height_cutoff):
+def add_coordinates(coordinates_to_add, type_coordinates_to_add,size_block,time_zero, proba_cutoff, output_dir ):
     """
     Adds new coordinates (distance or angle) to an existing discretization setup.
 
     Arguments:
     coordinates_to_add -- list of file paths to the new coordinate data (.dat files)
-    type_coordinates_to_add -- list indicating the type of each coordinate ('distance' or 'angle')
-    output_dir -- path to the directory where outputs are stored
-    time_zero -- starting time point for block analysis
     size_block -- block size for histogram averaging
-    height_cutoff -- threshold for multimodal analysis (not used in this function)
-
-    Notes:
+    time_zero -- starting time point for block analysis
+    type_coordinates_to_add -- list indicating the type of each coordinate ('distance' or 'angle')
+    proba_cutoff -- minimum probability threshold for filtering regions between minima
+    output_dir -- path to the directory where outputs are stored
+    
+     Notes:
     - Coordinate data must be 2-column files: [time, value]
     - Aligns new data to the reference timeline (from the first existing coordinate)
     - Discretizes the new coordinate and appends it to selected_coordinates.txt
@@ -1385,19 +1518,19 @@ def add_coordinates(coordinates_to_add, type_coordinates_to_add, output_dir, tim
     data_zero = open_data_coordinate(output_dir + "coordinates_data/" + coordinates[0] + ".dat")
     times_to_compare = data_zero[:, 0]
 
-    print("\nAdding new coordinates...")
+    logging.info("\nAdding new coordinates...")
     for i, coord_file in enumerate(coordinates_to_add):
         data_coord_raw = open_data_coordinate(coord_file)
-        coord_name = coord_file.split('/')[-1].split('.')[0]
-        type_coord = type_coordinates_to_add[i]
+        coordinate_name = coord_file.split('/')[-1].split('.')[0]
+        coordinate_type = type_coordinates_to_add[i]
 
         # Set histogram resolution based on coordinate type
-        if type_coord == 'distance':
+        if coordinate_type == 'distance':
             delta_y = 0.1
-        elif type_coord == 'angle':
+        elif coordinate_type == 'angle':
             delta_y = 2
         else:
-            print(f"Unknown coordinate type for {coord_file}, skipping.")
+            logging.info(f"Unknown coordinate type for {coord_file}, skipping.")
             continue
 
         # Filter values matching reference times
@@ -1413,19 +1546,19 @@ def add_coordinates(coordinates_to_add, type_coordinates_to_add, output_dir, tim
 
         # Check for mismatched time alignment
         if len(t_coord) != len(times_to_compare) or not np.allclose(t_coord, times_to_compare):
-            print(f"Warning: {coord_file} has different time steps than the reference file. Skipping.")
+            logging.info(f"Warning: {coord_file} has different time steps than the reference file. Skipping.")
             continue
 
         # Fix angle wrapping (e.g., from -180 to 180 or 0 to 360)
-        if type_coord == 'angle' and (np.max(y_coord) - np.min(y_coord) > 180):
+        if coordinate_type == 'angle' and (np.max(y_coord) - np.min(y_coord) > 180):
             y_coord, _, _ = adjust_angle_data(y_coord, np.min(y_coord), np.max(y_coord), delta_y)
 
         # Discretize and append this coordinate to selected_coordinates.txt
-        discretize_coordinate(y_coord, delta_y, coordinate_type=type_coord,
-                              times=times_to_compare, time_zero=time_zero, size_block=size_block,
-                              coordinate_name=coord_name, output=output_dir + "selected_coordinates.txt",
-                              output_dir=output_dir)
-    print("New coordinates added and discretized.")
+        discretize_coordinate(y_coord, delta_y, coordinate_type,
+                              times_to_compare, time_zero, size_block,
+                              coordinate_name, proba_cutoff,output_dir + "selected_coordinates.txt",
+                              output_dir)
+    logging.info("New coordinates added and discretized.")
 
 
 ############################ Function to get the discretized array from saved coordinates ##########################
@@ -1441,7 +1574,7 @@ def get_discretized_array(output_dir):
     # Initialize output array to store discrete labels for each frame and coordinate
     data_discretized = np.zeros((nframes, len(coordinates)), dtype=int)
 
-    print("\nDiscretizing data...")
+    logging.info("\nDiscretizing data...")
 
     # Loop over all selected coordinates
     for i in range(len(coordinates)):
@@ -1461,85 +1594,89 @@ def get_discretized_array(output_dir):
                 if c == len(X_cuts[i]) - 1:
                     data_discretized[f, i] = Labels[i][-1]
 
-    print("Discretization completed.")
+    logging.info("Discretization completed.")
 
     # Save the resulting discretized data as a .npy file
-    np.save(output_dir + "discretized_array.npy", data_discretized)
+    np.save(output_dir + "arrays_npy/discretized_array.npy", data_discretized)
+
 
 ########################### Function to compute frequencies of single and double contacts ##########################
-def compute_frequencies(Discretized_Array):
+def compute_frequencies(discretized_array):
     """
-    Compute single and double frequencies from a discretized array of coordinates.
-    
-    Parameters:
-    - Discretized_Array (ndarray): shape (nframes, ncoord), with discretized values.
-    
-    Returns:
-    - single_frequencies (ndarray): shape (sum(multiplicities),), 1D frequencies.
-    - double_frequencies (ndarray): shape (sum(multiplicities), sum(multiplicities)), 2D joint frequencies.
+    Compute marginal (single) and joint (double) frequencies for discretized coordinates.
+
+    Parameters
+    ----------
+    discretized_array : ndarray of shape (n_frames, n_coords)
+        The discretized representation of the coordinates.
+
+    Returns
+    -------
+    single_frequencies : ndarray of shape (sum(multiplicities),)
+        The marginal frequencies of each discrete state.
+
+    double_frequencies : ndarray of shape (sum(multiplicities), sum(multiplicities))
+        The joint frequencies between all pairs of discrete states.
     """
-    nframes, ncoord = Discretized_Array.shape
-    multiplicities = get_multiplicities(Discretized_Array)
-    max_multiplicity = np.max(multiplicities)
-    multiplicity_tot=max_multiplicity * ncoord
+    n_frames, n_coords = discretized_array.shape
+    multiplicities = get_multiplicities(discretized_array)
+    total_bins = sum(multiplicities)
 
+    # Precompute flat indices (offsets) for each coordinate
+    offsets = np.cumsum([0] + list(multiplicities[:-1]))
 
-    # Allocate frequency arrays
-    single_frequencies = np.zeros(multiplicity_tot, dtype=float)
-    double_frequencies = np.zeros((multiplicity_tot, multiplicity_tot), dtype=float)
+    # Allocate output arrays
+    single_frequencies = np.zeros(total_bins, dtype=float)
+    double_frequencies = np.zeros((total_bins, total_bins), dtype=float)
 
-    print("\nComputing single frequencies...")
-    previous_progress = -1  # Initialize progress bar
-    for i in range(ncoord):
-        previous_progress=plot_progress_bar(i, ncoord,previous_progress) 
-        col = Discretized_Array[:, i]
-        offset=i*max_multiplicity  # Offset for current coordinate in single frequencies
+    logging.info("Computing single frequencies...")
+    for i in range(n_coords):
+        col = discretized_array[:, i]
+        offset = offsets[i]
         counts = np.bincount(col, minlength=multiplicities[i])
-        single_frequencies[offset:offset + multiplicities[i]] = counts / nframes
-    plot_progress_bar(ncoord, ncoord,previous_progress)  # Finalize progress bar    
-    print("\nSingle frequencies computed.")
+        single_frequencies[offset:offset + multiplicities[i]] = counts / n_frames
+    logging.info("Single frequencies computed.")
 
-    print("\nComputing double frequencies...")
-    total_steps = (ncoord * (ncoord + 1)) // 2
-    previous_progress = -1  # Initialize progress bar
-    current_step=-1
-    for i in range(ncoord):
-        
-        col_i = Discretized_Array[:, i]
-        offset_i = i * max_multiplicity  # Offset for current coordinate in double frequencies
+    logging.info("Computing double frequencies...")
+    total_steps = (n_coords * (n_coords + 1)) // 2
+    step = 0
+    prev_progress = -1
+
+    for i in range(n_coords):
+        col_i = discretized_array[:, i]
+        offset_i = offsets[i]
         mult_i = multiplicities[i]
 
-        for j in range(i+1, ncoord):
-            current_step+=1
-            previous_progress=plot_progress_bar(current_step, total_steps,previous_progress)
-            col_j = Discretized_Array[:, j]
-            offset_j = j * max_multiplicity  # Offset for current coordinate in double frequencies
+        for j in range(i, n_coords):  # i ≤ j for symmetry
+            col_j = discretized_array[:, j]
+            offset_j = offsets[j]
             mult_j = multiplicities[j]
 
-            # Fast joint counting
+            # Count joint occurrences
             joint_counts = np.zeros((mult_i, mult_j), dtype=int)
             np.add.at(joint_counts, (col_i, col_j), 1)
 
-            # Normalize to get probabilities
-            joint_probs = joint_counts / nframes
+            joint_probs = joint_counts / n_frames
 
-            # Store in output matrix
-            double_frequencies[offset_i:offset_i + mult_i, offset_j:offset_j + mult_j] = joint_probs
+            # Fill both [i,j] and [j,i] blocks
+            double_frequencies[offset_i:offset_i+mult_i, offset_j:offset_j+mult_j] = joint_probs
             if i != j:
-                double_frequencies[offset_j:offset_j + mult_j, offset_i:offset_i + mult_i] = joint_probs.T
+                double_frequencies[offset_j:offset_j+mult_j, offset_i:offset_i+mult_i] = joint_probs.T
 
-    plot_progress_bar(total_steps, total_steps,previous_progress)  # Finalize progress bar
-    print("\nDouble frequencies computed.")
+            step += 1
+            prev_progress = plot_progress_bar(step, total_steps, prev_progress)
+
+    plot_progress_bar(total_steps, total_steps, prev_progress)
+    logging.info("Double frequencies computed.")
 
     return single_frequencies, double_frequencies
 
-
 def get_frequencies(output_dir):
     # Load the discretized array from a .npy file located in the specified output directory
-    Discretized_Array = np.load(output_dir + "discretized_array.npy")
+    discretized_array = np.load(output_dir + "arrays_npy/discretized_array.npy")
     
     # Compute the single and double frequencies using a helper function 
-    single_frequencies, double_frequencies = compute_frequencies(Discretized_Array)
+    single_frequencies, double_frequencies = compute_frequencies(discretized_array)
     
     # Save the computed single frequencies to a file in the 'frequencies' subdirectory
     np.save(output_dir + 'frequencies/frequencies_single.npy', single_frequencies)
@@ -1548,566 +1685,300 @@ def get_frequencies(output_dir):
     np.save(output_dir + 'frequencies/frequencies_double.npy', double_frequencies)
 
 
-
-############################## Functions to compute couplings with bm ##########################
-def compute_couplings_with_BM(output_dir, n_iterations, lr_init, decay_rate,
-                                lambda1_H, lambda1_J, lambda2_H, lambda2_J,
-                                n_samples, k_burn, k_sample):
-    # Load input data
-    Discretized_Array = np.load(output_dir + "discretized_array.npy")
-    number_of_unique_states = np.unique(Discretized_Array, axis=0).shape[0]
-    print(f"Number of unique states: {number_of_unique_states}")
-
-    # Split the Discretized_Array randomly into two parts
-    indices = np.arange(len(Discretized_Array))
-    np.random.shuffle(indices)
-    split_index = len(indices) // 2
-    Discretized_Array_Training = Discretized_Array[indices[:split_index]]
-    Discretized_Array_Test = Discretized_Array[indices[split_index:]]
-
-    single_frequencies_training,double_frequencies_training = compute_frequencies(Discretized_Array_Training)
-    single_frequencies_test,double_frequencies_test = compute_frequencies(Discretized_Array_Test)
-
-    # Compute multiplicities (number of discrete values per coordinate)
-    multiplicities = get_multiplicities(Discretized_Array_Training)
-    ncoord = Discretized_Array_Training.shape[1]  # number of coordinates (positions)
-    tot_mult = np.sum(multiplicities)    # total number of states
-
-    # Set defaults if special values were passed
-    if n_samples == -1:
-        n_samples = tot_mult * 2
-    if k_burn == -1:
-        k_burn = 100 * tot_mult
-    if k_sample == -1:
-        k_sample = tot_mult 
-
-    # Print training parameters
-    print("\nParameters for bm training:")
-    print("ncoord:", ncoord)
-    print("n_iterations:", n_iterations)
-    print("lr_init:", lr_init)
-    print("decay_rate:", decay_rate)
-    print("n_samples:", n_samples)
-    print("k_burn:", k_burn)
-    print("k_sample:", k_sample)
-    print("lambda1_H:", lambda1_H)
-    print("lambda1_J:", lambda1_J)
-    print("lambda2_H:", lambda2_H)
-    print("lambda2_J:", lambda2_J)
-
-    
-    # Train bm model using Monte Carlo optimization
-    print("\nComputing couplings with bm...")
-    H, J, loss, loss_data, loss_L1, loss_L2, lr_list = bm.train_coupled_MC(
-        single_frequencies_training, double_frequencies_training, multiplicities, ncoord,
-        n_iterations, lr_init, decay_rate, n_samples, k_burn, k_sample,
-        lambda1_H, lambda1_J, lambda2_H, lambda2_J)
-    print("\nCouplings computed.")
-
-    # Save results
-    np.save(output_dir + "frequencies/H_bm.npy", H)
-    np.save(output_dir + "frequencies/J_bm.npy", J)
-    
-    H= np.load(output_dir + "frequencies/H_bm.npy")
-    J= np.load(output_dir + "frequencies/J_bm.npy")
-
-    # Plot training loss and diagnostics
-    plot_losses(output_dir, ncoord, loss, loss_data, loss_L1, loss_L2, lr_list)
-
-    # Test the fitted bm by comparing generated and empirical frequencies
-    testing_bm_MC(multiplicities, ncoord, output_dir, H, J,
-                   single_frequencies_training, double_frequencies_training,
-                   single_frequencies_test, double_frequencies_test,
-                   n_samples, k_burn, k_sample)
-
-    # Extract per-residue interaction strengths
-    extract_couplings_between_residues(output_dir, APC=False)
-    
-def plot_losses(output_dir, ncoord, loss, loss_data, loss_L1, loss_L2, lr_list):
-    print("\nPlotting losses...")
-
-    # Plot total loss over iterations
-    plt.plot(loss, label='Loss')
-    plt.title("Loss during training, ncoord = " + str(ncoord))
-    plt.savefig(output_dir + "frequencies/loss_training.png")
-    plt.close()
-
-    # Plot individual components of the loss
-    plt.plot(loss_data, label='Loss data')
-    plt.plot(loss_L1, label='L1 loss')
-    plt.plot(loss_L2, label='L2 loss')
-    plt.title("Losses during training, ncoord = " + str(ncoord))
-    plt.xlabel("Iterations")
-    plt.ylabel("Loss value")
-    plt.legend()
-    plt.savefig(output_dir + "frequencies/losses_separated_training.png")
-    plt.close()
-
-    # Plot only the data-fitting part of the loss
-    plt.plot(loss_data, label='Loss data')
-    plt.title("Loss data during training, ncoord = " + str(ncoord))
-    plt.xlabel("Iterations")
-    plt.ylabel("Loss value")
-    plt.legend()
-    plt.savefig(output_dir + "frequencies/loss_data_training.png")
-    plt.close()
-
-    # Plot learning rate schedule
-    plt.plot(lr_list, label='Learning rate')
-    plt.title("Learning rate during training, ncoord = " + str(ncoord))
-    plt.yscale('log')
-    plt.savefig(output_dir + "frequencies/learning_rate_training.png")
-    plt.close()
-
-    print("Losses plotted and saved.")
-
-def testing_bm_MC(multiplicities, ncoord, output_dir, H, J,
-                   single_frequencies_training, double_frequencies_training,
-                   single_frequencies_test, double_frequencies_test,
-                   n_samples, k_burn, k_sample):
-
-    print("\nTesting bm couplings with Monte Carlo simulation...")
-
-    # Get initial state for MC sampling
-    starting_coords = bm.get_starting_coords(multiplicities, ncoord)
-
-    # Allocate arrays to store sampled frequencies
-    single_MC = np.zeros(len(H), dtype=np.float64)
-    double_MC = np.zeros((len(H), len(H)), dtype=np.float64)
-
-    # Run Monte Carlo simulation to generate samples from bm
-    bm.monte_carlo(starting_coords, H, J, n_samples*10, k_burn, k_sample, len(H),
-                    np.max(multiplicities), ncoord, multiplicities,
-                    single_MC, double_MC)
-
-    # Compare single frequencies (sampled vs empirical)
-    total_mult = np.sum(multiplicities)
-    delta_frequencies_single = np.zeros(total_mult, dtype=np.float64)
-    count = 0
-    for i in range(ncoord):
-        for k in range(multiplicities[i]):
-            idx = i * np.max(multiplicities) + k
-            delta_frequencies_single[count] = abs(single_MC[idx] - single_frequencies_test[idx])
-            count += 1
-
-    # Compare double frequencies (sampled vs empirical)
-    delta_frequencies_double = np.zeros((total_mult, total_mult), dtype=np.float64)
-    count1 = 0
-    for i in range(ncoord):
-        for k in range(multiplicities[i]):
-            count2 = 0
-            for j in range(ncoord):
-                for l in range(multiplicities[j]):
-                    idx_i = i * np.max(multiplicities) + k
-                    idx_j = j * np.max(multiplicities) + l
-                    diff = abs(double_MC[idx_i, idx_j] - double_frequencies_test[idx_i, idx_j])
-                    delta_frequencies_double[count1, count2] = diff
-                    delta_frequencies_double[count2, count1] = diff  # Symmetric
-                    count2 += 1
-            count1 += 1
-
-    # Plot difference in single frequencies
-    plt.plot(delta_frequencies_single, label='Single frequencies difference')
-    plt.title("Absolute differences between single frequencies \n from data and from bm, ncoord = " + str(ncoord))
-    plt.xlabel("Index of single frequency")
-    plt.ylabel("Absolute difference")
-    plt.savefig(output_dir + "frequencies/delta_frequencies_single.png")
-    plt.close()
-
-    # Plot heatmap of differences in double frequencies
-    plt.imshow(delta_frequencies_double, cmap='hot', interpolation='nearest')
-    plt.colorbar()
-    plt.title("Absolute differences between double frequencies \n from data and from bm, ncoord = " + str(ncoord))
-    plt.xlabel("Index of double frequency (j)")
-    plt.ylabel("Index of double frequency (i)")
-    plt.savefig(output_dir + "frequencies/delta_frequencies_double.png")
-    plt.close()
-
-    double_frequencies_test = double_frequencies_test.flatten()
-    double_frequencies_MC = double_MC.flatten()
-    MAE_double = np.mean(np.abs(double_frequencies_test - double_frequencies_MC))
-    STD_MAE_double = np.std(np.abs(double_frequencies_test - double_frequencies_MC))
-    error_bar_MAE_double = compute_error_bars(STD_MAE_double, len(double_frequencies_test), confidence_level=0.95)
-    print("MAE for double frequencies:", MAE_double, "±", error_bar_MAE_double)
-
-    linear_fit = np.polyfit(double_frequencies_test, double_frequencies_MC, 1)
-    print("Linear fit coefficients:", linear_fit)
-
-    # Plot comparison of all frequencies
-    plt.plot(double_frequencies_test, double_frequencies_MC, 'o', markersize=1 , alpha=0.5, color='mediumorchid')
-    plt.plot([0, np.max(double_frequencies_test)], [0, np.max(double_frequencies_MC)], '--', color='black', linewidth=2)
-    #Plot linear_fit
-    plt.plot(double_frequencies_test, linear_fit[0] * double_frequencies_test + linear_fit[1], color='orange', linewidth=2, label='Linear fit')
-    plt.xlim(1e-6, max(np.max(double_frequencies_test), np.max(double_frequencies_MC)))
-    plt.ylim(1e-6, max(np.max(double_frequencies_test), np.max(double_frequencies_MC)))
-    plt.title("Comparison of double frequencies \n from data and from bm, ncoord = " + str(ncoord)+"\n MAE = " + "%.6f"%(MAE_double)+"±"+"%.6f"%(error_bar_MAE_double), fontsize=10)
-    plt.xlabel("Frequencies from data")
-    plt.ylabel("Frequencies from bm")
-    plt.savefig(output_dir + "frequencies/comparison_double_frequencies_test_bm.png")
-    plt.close()
-
-    single_frequencies_test = single_frequencies_test.flatten()
-    single_frequencies_MC = single_MC.flatten()
-    MAE_single = np.mean(np.abs(single_frequencies_test - single_frequencies_MC))
-    STD_MAE_single = np.std(np.abs(single_frequencies_test - single_frequencies_MC))
-    
-    error_bar_MAE_single = compute_error_bars(STD_MAE_single, len(single_frequencies_test), confidence_level=0.95)
-    print("MAE for single frequencies:", MAE_single, "±", error_bar_MAE_single)
-
-    linear_fit_single = np.polyfit(single_frequencies_test, single_frequencies_MC, 1)
-    print("Linear fit coefficients for single frequencies:", linear_fit_single)
-    # Plot comparison of single frequencies
-    plt.plot(single_frequencies_test, single_frequencies_MC, 'o', markersize=2 , alpha=0.5, color='green')
-    plt.plot([0, np.max(single_frequencies_test)], [0, np.max(single_frequencies_MC)], '--', color='black', linewidth=2)
-    # Plot linear_fit_single
-    plt.plot(single_frequencies_test, linear_fit_single[0] * single_frequencies_test + linear_fit_single[1], color='red', linewidth=2, label='Linear fit')
-    plt.xlim(1e-6, max(np.max(single_frequencies_test), np.max(single_frequencies_MC)))
-    plt.ylim(1e-6, max(np.max(single_frequencies_test), np.max(single_frequencies_MC)))
-    plt.title("Comparison of single frequencies \n from data and from bm, ncoord = " + str(ncoord) + "\n MAE = " + "%.6f"%(MAE_single)+"±"+"%.6f"%(error_bar_MAE_single), fontsize=10)
-    plt.xlabel("Frequencies from data")
-    plt.ylabel("Frequencies from bm")
-    plt.savefig(output_dir + "frequencies/comparison_single_frequencies_test_bm.png")
-    plt.close()
-
-    print("Testing of bm couplings completed and results saved.")
-
-  
-
-    # Compare single frequencies
-    plt.figure(figsize=(8, 6))
-    plt.plot(single_frequencies_training, single_frequencies_test, 'o', markersize=2, alpha=0.5, color='yellowgreen')
-    plt.plot([0, max(single_frequencies_training.max(), single_frequencies_test.max())], 
-            [0, max(single_frequencies_training.max(), single_frequencies_test.max())], 
-            '--', color='black', linewidth=2)
-    plt.title("Comparison of Single Frequencies: Training vs Test")
-    plt.xlabel("Training Frequencies")
-    plt.ylabel("Test Frequencies")
-    plt.savefig(output_dir + "frequencies/comparison_single_frequencies_training_test.png", dpi=150)
-    plt.close()
-
-    # Compare double frequencies
-    plt.figure(figsize=(8, 6))
-    plt.plot(double_frequencies_training.flatten(), double_frequencies_test.flatten(), 
-            'o', markersize=2, alpha=0.5, color='orchid')
-    plt.plot([0, max(double_frequencies_training.max(), double_frequencies_test.max())], 
-            [0, max(double_frequencies_training.max(), double_frequencies_test.max())], 
-            '--', color='black', linewidth=2)
-    plt.title("Comparison of Double Frequencies: Training vs Test")
-    plt.xlabel("Training Frequencies")
-    plt.ylabel("Test Frequencies")
-    plt.savefig(output_dir + "frequencies/comparison_double_frequencies_training_test.png", dpi=150)
-    plt.close()
-
-    print("Comparison of test and training frequencies completed and saved.")
-
-def extract_couplings_between_residues(output_dir, APC=False):
-    # Load discretized data and compute multiplicities
-    Discretized_Array = np.load(output_dir + "discretized_array.npy")
-    toy_data = Discretized_Array[:, :]
-    multiplicities = get_multiplicities(toy_data)
-    ncoord = toy_data.shape[1]
-
-    # Load the pairwise coupling matrix J
-    J = np.load(output_dir + "frequencies/J_bm.npy")
-
-    # Compute Frobenius norm of coupling blocks between residue pairs
-    Couplings_between_residues = np.zeros((ncoord, ncoord), dtype=float)
-    print("\nComputing couplings between residues...")
-    for i in range(ncoord):
-        for j in range(i + 1, ncoord):
-            sum_coupling = 0
-            count_couplings = 0
-            for k in range(multiplicities[i]):
-                for l in range(multiplicities[j]):
-                    idx_i = i * np.max(multiplicities) + k
-                    idx_j = j * np.max(multiplicities) + l
-                    coupling_value = J[idx_i, idx_j]
-                    sum_coupling += np.square(coupling_value)
-                    count_couplings += 1
-            frobenius_norm = np.sqrt(sum_coupling)
-            Couplings_between_residues[i, j] = frobenius_norm
-            Couplings_between_residues[j, i] = frobenius_norm  # Symmetric
-
-    Final_couplings_between_residues = Couplings_between_residues.copy()
-
-    # Apply Average Product Correction (APC), if requested
-    if APC:
-        for i in range(ncoord):
-            for j in range(i + 1, ncoord):
-                double_sum = np.sum(Couplings_between_residues[i, :]) * np.sum(Couplings_between_residues[:, j])
-                simple_sum = np.sum(Couplings_between_residues[:, :])
-                correction = double_sum / simple_sum
-                Final_couplings_between_residues[i, j] -= correction
-                Final_couplings_between_residues[j, i] = Final_couplings_between_residues[i, j]
-
-    # Save result
-    np.save(output_dir + "frequencies/Couplings_between_residues.npy", Final_couplings_between_residues)
-    print("Couplings between residues computed.")
-
-
-
-
-############################# Functions to clusterize the couplings ##########################
-
-def yacare_clusterization(output_dir, name_cluster_dir, step_to_perform, number_of_coords,
-                          distance_matrix, min_size_cluster, function_for_ratio,
-                          threshold_variable, amount_of_noise, percentage_moving_square):
+########################### Function to plot mutual information matrix ##########################
+def plot_information(Information_matrix,output_dir,name_out,label_data=None):
     """
-    Executes the full clustering pipeline using the Yacare clustering framework.
+    Plots the mutual information matrix and saves it as an image.
+    Parameters:
+    - Information_matrix: information matrix (2D numpy array).
+    - output_dir: Directory where the plot will be saved.
+    - name_out: Name of the output file (without extension).
+    """
+    plt.figure(figsize=(10, 6))
+    plt.imshow(Information_matrix, cmap='magma', interpolation='nearest')
+    plt.colorbar(label=label_data)
+    plt.title(f'{label_data} Matrix')
+    plt.xlabel('Coordinate Index')
+    plt.ylabel('Coordinate Index')
+    plt.tight_layout()
+    plt.savefig(output_dir+name_out+'.png', dpi=200)
+    plt.close()
 
-    Parameters
-    ----------
-    output_dir : str
-        Directory where the clustering results will be saved.
-    name_cluster_dir : str
-        Name of the clustering project (used as a prefix for output files).
-    step_to_perform : str
-        Defines the mode of execution. If set to something other than 'all', some steps are skipped or modified.
-    number_of_coords : int
-        Total number of coordinates (data points) to cluster.
-    distance_matrix : np.ndarray
-        A square matrix representing distances between each pair of coordinates.
-    min_size_cluster : float
-        Minimum allowed size for a cluster.
-    function_for_ratio : int
-        Determines which function is used to optimize the clustering cutoff.
-    threshold_variable : float
-        Threshold used when deciding whether to merge similar clusters.
-    amount_of_noise : float
-        Controls the proportion of noise points included during cluster expansion.
-    percentage_moving_square : float
-        Percentage used in the initial reordering step to improve clustering stability.
+def plot_information_clustered(Information_matrix, reordered_labels, output_dir, name_out, label_data=None):
+    """
+    Plots the mutual information matrix with boxed cluster boundaries.
 
-    Description
+    Parameters:
+    - Information_matrix: 2D numpy array (mutual information matrix).
+    - reordered_labels: List or array of cluster labels (in reordered coordinate order).
+    - output_dir: Directory to save the plot.
+    - name_out: Output file name (without extension).
+    - label_data: Optional string for the colorbar label.
+    """
+    plt.figure(figsize=(10, 8))
+    ax = plt.gca()
+
+    # Plot the information matrix
+    im = ax.imshow(Information_matrix, cmap='magma', interpolation='nearest')
+    plt.colorbar(im, label=label_data)
+    plt.title(f'{label_data} Matrix with Cluster Boxes' if label_data else "Clustered Information Matrix")
+
+    # Find cluster boundaries
+    boundaries = []
+    last_label = reordered_labels[0]
+    start = 0
+    for i, label in enumerate(reordered_labels):
+        if label != last_label:
+            boundaries.append((start, i))
+            start = i
+            last_label = label
+    boundaries.append((start, len(reordered_labels)))  # Add the last block
+
+    # Draw rectangles for each cluster
+    for start, end in boundaries:
+        size = end - start
+        rect = Rectangle(
+            (start - 0.5, start - 0.5),  # (x, y) of bottom-left corner
+            size,                       # width
+            size,                       # height
+            linewidth=2,
+            edgecolor='white',
+            facecolor='none'
+        )
+        ax.add_patch(rect)
+
+    ax.set_xlabel('Coordinate Index')
+    ax.set_ylabel('Coordinate Index')
+    plt.tight_layout()
+    plt.savefig(f"{output_dir}/{name_out}.png", dpi=300)
+    plt.close()
+
+########################## Function to compute mutual information between coordinates ##########################
+def mutual_information(discretized_array, multiplicities, single_frequencies, double_frequencies):
+    """
+    Compute the pairwise mutual information (MI) matrix for discretized coordinates.
+
+    Parameters:
     -----------
-    This function performs a series of steps defined by the Yacare clustering library:
+    discretized_array : ndarray (n_frames, n_coords)
+        The discretized representation of the coordinates.
+    multiplicities : array-like of int, shape (n_coords,)
+        Number of discrete states (bins) for each coordinate.
+    single_frequencies : ndarray, shape (sum(multiplicities),)
+        Marginal probabilities for each discrete state across all coordinates.
+    double_frequencies : ndarray, shape (sum(multiplicities), sum(multiplicities))
+        Joint probabilities between all discrete state pairs.
 
-    1. Initializes a Yacare `Variables` object and assigns the input parameters.
-    2. Performs an initial reordering of coordinates to improve cluster separation.
-    3. Finds the optimal cutoff value based on the input ratio function and minimum cluster size.
-    4. Depending on `step_to_perform`, either reorders again on the full set or a subset of coordinates.
-    5. Finds the final clusters using the current cutoff.
-    6. If more than one cluster is detected:
-       - Compares clusters using their standard deviations.
-       - Proposes a merge plan based on similarity threshold.
-       - Merges selected clusters.
-    7. Expands clusters to include noise points based on the `amount_of_noise`.
-    8. Writes cluster indices to output files.
-    9. Moves all relevant output files to the designated output directory for organization.
-
-    Note
-    ----
-    This function relies on Yacare’s internal methods and assumes all relevant modules are imported and configured.
+    Returns:
+    --------
+    MI : ndarray, shape (n_coords, n_coords)
+        The mutual information matrix in bits.
     """
-    variables=yacare.Variables()
-    variables.project_name = name_cluster_dir
-    variables.save_images = True
-    variables.distance_matrix=distance_matrix
-    yacare.perform_first_reordering(variables, percentage_moving_square = percentage_moving_square)
-    yacare.find_optimal_cutoff(variables, minimal_size_cluster = min_size_cluster,function_for_ratio=function_for_ratio)
-    if step_to_perform != 'all' :
-        yacare.choose_if_we_reorder_again(variables)
-        yacare.change_proposed_cutoff(variables)
-    else :
-        yacare.choose_if_we_reorder_again(variables,indices=np.arange(0,number_of_coords))
-    yacare.find_final_clusters(variables)
-    print("Number of clusters before merging: "+str(variables.number_clusters))
-    if variables.number_clusters>1 :
-        yacare.compare_clusters(variables, display_stddev = True)
-        yacare.propose_list_for_concatenating_clusters(variables, threshold_variable = threshold_variable, choice_merging_clusters=3)
-        yacare.concatenate_clusters(variables)
-    yacare.expand_clusters(variables, amount_of_noise = amount_of_noise)
-    yacare.write_indices(variables)
+    n_frames, n_coords = discretized_array.shape
+    MI = np.zeros((n_coords, n_coords), dtype=float)
+    epsilon = 1e-12  # Small constant to prevent log(0)
 
-    os.system('mkdir -p '+output_dir+variables.project_name)
-    os.system('mv '+variables.project_name+'* '+output_dir+variables.project_name)
+    # Precompute offsets for flattened state indexing
+    offsets = np.cumsum([0] + list(multiplicities[:-1]))
 
-def get_cluster_indexes_from_yacare(output_dir, cluster_dir):
+    for i in range(n_coords):
+        for xi in range(multiplicities[i]):
+            idx_i = offsets[i] + xi
+            p_xi = single_frequencies[idx_i]
+
+            if p_xi < epsilon:
+                continue  # skip very low probability states
+
+            for j in range(n_coords):
+                for xj in range(multiplicities[j]):
+                    idx_j = offsets[j] + xj
+                    p_xj = single_frequencies[idx_j]
+                    p_xi_xj = double_frequencies[idx_i, idx_j]
+
+                    # Apply mutual information formula only if valid
+                    if p_xi_xj > epsilon and p_xj > epsilon:
+                        MI[i, j] += p_xi_xj * np.log2(p_xi_xj / (p_xi * p_xj))  # in bits
+
+    return MI
+
+def get_mutual_information(output_dir):
     """
-    Parses and extracts cluster indexes from the output file generated by Yacare.
+    Load discretized data and precomputed frequency tables from disk,
+    compute the mutual information (MI) matrix, and save the result.
 
-    Parameters
-    ----------
-    output_dir : str
-        Path to the directory where the Yacare output files are stored.
-    cluster_dir : str
-        Name of the specific clustering project directory within the output directory.
-
-    Returns
-    -------
-    clusters_ndx : list of list of int
-        A list of clusters, where each cluster is a list of coordinate indices (0-based)
-        that belong to that cluster.
-
-    Description
+    Parameters:
     -----------
-    This function reads the `.ndx` file generated by Yacare, which stores the clustering
-    assignments in GROMACS-style index file format. It does the following:
-
-    1. Opens the `.ndx` file using `open_file` and retrieves the raw data lines.
-    2. Iterates through each line:
-       - When encountering a line starting with `[`, it treats it as the beginning of a new cluster.
-       - Lines that contain indices are converted from 1-based to 0-based indexing and stored.
-    3. Appends the final cluster if any remaining points are stored after the last group.
-    4. Sorts the index list of each cluster for consistency.
-    5. Returns the full list of clusters.
+    output_dir : str
+        Path to the directory containing the results.
     """
-    print("Extracting cluster indexes from Yacare output...")
-    data_yacare, lines_yacare = open_file(output_dir + cluster_dir + '/' + cluster_dir + '_Clustering_Clusters.ndx')
-    clusters_ndx = []
-    cluster_i = []
+    logging.info("\nComputing mutual information...")
 
-    for l in range(len(lines_yacare)):
-        line = lines_yacare[l]
-        if line[0] == '[':
-            if len(cluster_i) >= 1:
-                clusters_ndx.append(cluster_i)
-            cluster_i = []
+    # Load discretized coordinate array
+    discretized_array = np.load(os.path.join(output_dir, "arrays_npy/discretized_array.npy"))
+
+    # Load marginal and joint frequencies
+    single_frequencies = np.load(os.path.join(output_dir, "frequencies", "frequencies_single.npy"))
+    double_frequencies = np.load(os.path.join(output_dir, "frequencies", "frequencies_double.npy"))
+
+    # Compute multiplicities: number of discrete bins for each coordinate
+    multiplicities = get_multiplicities(discretized_array)
+
+    # Compute mutual information matrix
+    MI = mutual_information(discretized_array, multiplicities, single_frequencies, double_frequencies)
+
+    # Save the result to output directory
+    output_path = os.path.join(output_dir, "analysis")
+    os.makedirs(output_path, exist_ok=True)  # Ensure output directory exists
+    np.save(os.path.join(output_path, "MI.npy"), MI)
+
+    logging.info("Mutual information computed.")
+    # Plot the mutual information matrix
+    plot_information(MI, output_dir + 'information_plots/', "MI_matrix", label_data="Mutual Information")
+
+
+########################## Function to compute entropy  ##########################
+def get_entropy(output_dir):
+    logging.info("\nComputing entropy...")
+    discretized_array=np.load(output_dir+"arrays_npy/discretized_array.npy")
+    single_frequencies=np.load(output_dir+'frequencies/frequencies_single.npy')
+    multiplicities=get_multiplicities(discretized_array)
+    ncoord=len(multiplicities)
+    entropy=np.zeros((ncoord),dtype=float)
+    count_index=0
+    for i in range(ncoord):
+        for xi in range(multiplicities[i]):
+            probab_xi=single_frequencies[count_index]
+            count_index+=1
+            if probab_xi>0:
+                entropy[i]-=probab_xi*np.log(probab_xi)
+
+    np.save(output_dir+'analysis/entropy.npy', entropy)
+    logging.info("Entropy computed.")
+
+    #plot the entropy values
+    plt.figure(figsize=(8, 4))
+    plt.bar(range(ncoord), entropy, color='blue', alpha=0.7)
+    plt.xlabel('Coordinate Index')
+    plt.ylabel('Entropy')
+    plt.title('Entropy of Coordinates')
+    plt.tight_layout()
+    plt.savefig(output_dir + 'information_plots/entropy_plot.png', dpi=200)
+    plt.close()
+    
+
+######################### Function to compute Variation Information ##########################
+def get_variation_information(output_dir):
+    """
+    Computes the Variation Information (VI) matrix from the mutual information (MI) matrix and the entropy.
+
+    The VI matrix is computed as:
+    VI(i, j) = H(i) + H(j) - 2 * MI(i, j)
+    where H(i) and H(j) are the entropies of coordinates i and j, respectively.
+
+    Parameters:
+    -----------
+    output_dir : str
+        Path to the directory containing the MI matrix and entropy values.
+    
+    Returns:
+    --------
+    None. The VI matrix is saved to disk.
+    """
+    
+    logging.info("\nComputing variation information...")
+
+    # Load the mutual information matrix and entropy values
+    MI = np.load(os.path.join(output_dir, "analysis", "MI.npy"))
+    entropy = np.load(os.path.join(output_dir, "analysis", "entropy.npy"))
+
+    # Compute the Variation Information matrix
+    ncoord = len(entropy)
+    VI = np.zeros((ncoord, ncoord), dtype=float)
+
+    for i in range(ncoord):
+        for j in range(ncoord):
+            VI[i, j] = entropy[i] + entropy[j] - 2 * MI[i, j]
+
+    # Save the VI matrix to a file
+    np.save(os.path.join(output_dir, "analysis", "VI.npy"), VI)
+
+    # Plot the VI matrix
+    plot_information(VI, output_dir + 'information_plots/', "VI_matrix", label_data="Variation Information")
+
+    logging.info("Variation information computed.")
+
+
+############# Function to plot hdbscan results ##########################
+def plot_hdbscan_results(dist_matrix,cluster_labels, output_dir, output_name, label_data=None):
+    """
+    Plots the results of HDBSCAN clustering on the mutual information distance matrix.
+
+    This function loads the cluster labels and distance matrix, then generates a scatter plot
+    of the coordinates colored by their cluster labels. It also saves the plot to a file.
+
+    Parameters:
+    -----------
+    output_dir : str
+        Path to the directory containing the analysis results.
+    
+    Returns:
+    --------
+    None. The plot is saved to disk.
+    """
+    
+    logging.info("\nPlotting HDBSCAN clustering results...")
+
+    # Load cluster labels and distance matrix
+    unique_labels= np.unique(cluster_labels)
+    sorted_indices = []
+    for label in unique_labels:
+        if label == -1:  # Noise
             continue
-        else:
-            for i in range(len(data_yacare[l])):
-                index_coord = int(data_yacare[l][i]) - 1
-                cluster_i.append(index_coord)
+        indices = np.where(cluster_labels == label)[0]
+        if len(indices) == 0:
+            continue
+        sub_mi = dist_matrix[np.ix_(indices, indices)]
+        mi_sums = sub_mi.sum(axis=1)
+        order = indices[np.argsort(mi_sums)]  # descending
+        sorted_indices.extend(order)
 
-    if len(cluster_i) >= 1:
-        clusters_ndx.append(cluster_i)
+    # Add noise at the end
+    noise_indices = np.where(cluster_labels == -1)[0]
+    sorted_indices.extend(noise_indices)
 
-    print("Cluster indexes extracted.")
-    for i in range(len(clusters_ndx)):
-        clusters_ndx[i] = sorted(clusters_ndx[i])
-    return clusters_ndx
+    reordered_labels= cluster_labels[sorted_indices]
+    dist_reordered = dist_matrix[sorted_indices][:, sorted_indices]
 
-def write_clusters_to_file(clusters_ndx, coordinates, output_dir, name_output_cluster):
-    """
-    Writes clustered coordinate information to a text file in a structured format.
+    plot_information_clustered(dist_reordered,reordered_labels, output_dir, output_name, label_data)
 
-    Parameters
-    ----------
-    clusters_ndx : list of list of int
-        A list of clusters, where each cluster is represented by a list of indices
-        referring to the coordinates in the `coordinates` list.
-    coordinates : list of str
-        A list of coordinate labels (e.g., torsion names or residue identifiers),
-        from which the actual entries corresponding to indices will be written.
-    output_dir : str
-        Path to the directory where the output file should be written.
-    name_output_cluster : str
-        Name of the output file to which the cluster data will be saved.
-
-    Description
-    -----------
-    For each cluster, this function writes the corresponding coordinates to the file.
-    Each cluster is labeled as `[ ClusterX ]`, where `X` is the cluster number, except
-    for the last cluster, which is labeled as `[ Noise ]`.
-
-    The output format is similar to a GROMACS-style index file, making it compatible
-    with tools or scripts that expect this structure.
     
-    Example Output:
-        [ Cluster0 ]
-        coordA
-        coordB
-        
-        [ Cluster1 ]
-        coordC
-        ...
-        
-        [ Noise ]
-        coordZ
+    logging.info("HDBSCAN clustering results plotted and saved.")
 
-    Note
-    ----
-    The function assumes the last cluster in `clusters_ndx` corresponds to noise
-    or unassigned points.
-    """
-    print("Writing clusters to file...")
+    return reordered_labels
+    
+
+#################### Function to extract the coordinates in each cluster ##########################
+def write_clusters_to_file(clusters_ndx, coordinates, output_dir, name_output_cluster):
+
+    logging.info("\nWriting clusters to file...")
     with open(output_dir + name_output_cluster, 'w') as file_out:
         for i, cluster_i in enumerate(clusters_ndx):
-            file_out.write('\n\n')
+            
             if i != len(clusters_ndx) - 1:
                 file_out.write(f'[ Cluster{i} ]\n')
             else:
                 file_out.write(f'[ Noise ]\n')
             for index_coord in cluster_i:
                 file_out.write(f'{coordinates[index_coord]} \n')
+            file_out.write('\n')
 
-    print("Clusters written to file.")
+    logging.info("Clusters written to file.")
 
-def convert_clusters_yacare_to_real_coordinates(output, output_dir, cluster_dir, name_output_cluster):
-    """
-    Converts Yacare cluster results (index-based) into real coordinate labels and writes them to a file.
-
-    Parameters
-    ----------
-    output : str
-        Path to the file or directory containing the discretized data used for clustering.
-        This is passed to `load_data_discretization()` to retrieve coordinate labels.
-    output_dir : str
-        Directory where the clustering result files are stored and where the output file will be written.
-    cluster_dir : str
-        Name of the directory where Yacare has saved its clustering output (e.g., 'Clusterize_couplings').
-    name_output_cluster : str
-        Filename for the output file that will contain the labeled coordinates grouped by cluster.
-
-    Returns
-    -------
-    clusters_ndx : list of list of int
-        The list of cluster indices, each corresponding to indices of coordinates in the original dataset.
-    coordinates : list of str
-        The full list of real coordinate names or labels, loaded from the discretized data.
-
-    Description
-    -----------
-    This function reads the cluster assignment file generated by Yacare (usually in `.ndx` format),
-    converts index-based clusters into meaningful coordinate labels using the discretization metadata,
-    and writes the labeled clusters to a file in a GROMACS-style format.
-    """
-    print("Converting clusters to real coordinates...")
-    coordinates,X_cuts,Labels=load_data_discretization(output)
-    
-    clusters_ndx=get_cluster_indexes_from_yacare(output_dir,cluster_dir)
-    write_clusters_to_file(clusters_ndx, coordinates, output_dir, name_output_cluster)
-    return clusters_ndx,coordinates
-
-def get_resids_in_clusters(clusters_ndx, coordinates, name_coordinates_to_add, barycenter_coordinates_to_add, name_output, output_dir):
-    """
-    Extracts residue indices corresponding to clustered coordinates and writes them to a file.
-
-    Parameters
-    ----------
-    clusters_ndx : list of list of int
-        Clustered indices referring to entries in the `coordinates` list.
-    coordinates : list of str
-        List of coordinate labels (e.g., dihedral names, atom names).
-    name_coordinates_to_add : list of str
-        Names of selected coordinates for which the residue ID is inferred via `barycenter_coordinates_to_add`.
-    barycenter_coordinates_to_add : list of str
-        List of coordinate labels (e.g., "23_CA") from which residue IDs can be extracted (first token before underscore).
-    name_output : str
-        Name of the output file that will contain residue indices grouped by cluster.
-    output_dir : str
-        Directory where the output file will be written.
-
-    Returns
-    -------
-    None
-
-    Description
-    -----------
-    For each cluster in `clusters_ndx`, the function identifies which residues are associated with the
-    coordinates in that cluster. The residue IDs are extracted based on known naming patterns:
-    - From barycenter labels if the coordinate is in `name_coordinates_to_add`.
-    - From dihedral names like "phi25" or "psi30".
-    - From other coordinate names using underscore-based parsing (first and third token).
-
-    The result is written in a GROMACS `.ndx`-like format to a file, with each group of residues labeled
-    as [ ClusterX ] or [ Noise ] (for the last entry).
-    """
-    print("Getting resids in clusters...")
+def get_resids_in_clusters(clusters_ndx,coordinates,name_coordinates_to_add,name_output,output_dir):
+    logging.info("\nGetting resids in clusters...")
     file_out=open(output_dir+name_output,'w')
     for i in range (len(clusters_ndx)):
         cluster_i=clusters_ndx[i]
-        file_out.write('\n\n')
         if i!=len(clusters_ndx)-1:
             file_out.write(f'[ Cluster{i} ]\n')
         else:
@@ -2117,9 +1988,7 @@ def get_resids_in_clusters(clusters_ndx, coordinates, name_coordinates_to_add, b
             index_coord=cluster_i[j]
             coord=coordinates[index_coord]
             if coord in name_coordinates_to_add:
-                index_coord_to_add=name_coordinates_to_add.index(coord)
-                name_atom_to_add=barycenter_coordinates_to_add[index_coord_to_add]
-                name_resid_to_add=int(name_atom_to_add.split('_')[0])
+                name_resid_to_add=int(name_coordinates_to_add.split('_')[0])
                 if name_resid_to_add not in resids_in_cluster_i:
                     resids_in_cluster_i.append(name_resid_to_add)
                     
@@ -2140,98 +2009,247 @@ def get_resids_in_clusters(clusters_ndx, coordinates, name_coordinates_to_add, b
         resids_in_cluster_i.sort()
         for j in range(len(resids_in_cluster_i)):
             file_out.write(f'{resids_in_cluster_i[j]} ')
-        
-    print("Getting resids in clusters completed.")
+        file_out.write('\n\n')
+    logging.info("Getting resids in clusters completed.")
     file_out.close()
 
-def clusterize_couplings(output_dir, coordinates_to_add, barycenter_coordinates_to_add, step_to_perform, number_of_states_to_show):
+
+############ Function to cluster coordinates based on mutual information distance, using hdbscan ##############
+def cluster_coordinates(output_dir,coordinates_to_add, min_cluster_size, min_samples,cluster_selection_epsilon):
     """
-    Performs clustering of residue-residue couplings and extracts associated residue indices per cluster.
+    Clusters coordinates based on mutual information distance using HDBSCAN.
 
-    Parameters
-    ----------
-    output_dir : str
-        Directory where input and output files are stored.
-    coordinates_to_add : list of str
-        Paths to selected coordinate files, used to extract coordinate names.
-    barycenter_coordinates_to_add : list of str
-        List of coordinate labels representing barycenters, used for residue ID extraction.
-    step_to_perform : str
-        Indicates whether to perform all Yacare clustering steps or skip some (e.g., 'all', 'skip-reorder').
-    number_of_states_to_show : int
-        Unused in this function but may be part of an extended interface (placeholder parameter).
+    This function loads the mutual information distance matrix, applies HDBSCAN clustering,
+    and saves the resulting cluster labels to a file.
 
-    Returns
-    -------
-    None
-
-    Description
+    Parameters:
     -----------
-    This function performs the following pipeline to cluster residue-residue coupling data:
+    output_dir : str
+        Path to the directory containing the MI distance matrix.
+    min_cluster_size : int, optional
+        Minimum size of clusters to consider (default is 5).
+    min_samples : int, optional
+        Minimum number of samples in a neighborhood for a point to be considered a core point (default is 5).
 
-    1. **Load Data:**
-       - Loads `times_indices` (used elsewhere in pipeline) and the matrix of residue-residue couplings.
-       - Sets diagonal elements of the coupling matrix to zero to ignore self-coupling.
-
-    2. **Convert Couplings to Distances:**
-       - Builds a distance matrix by inverting coupling strengths so that strong couplings become short distances.
-         The transformation used is: `distance = -coupling + max_coupling`.
-
-    3. **Clustering via Yacare:**
-       - Uses the Yacare clustering algorithm to cluster the coordinates based on the generated distance matrix.
-       - The clustering parameters are hardcoded:
-         - `min_size_cluster = 0.0001`
-         - `function_for_ratio = 2`
-         - `threshold_variable = 1.0`
-         - `amount_of_noise = 0.3`
-         - `percentage_moving_square = 1`
-
-    4. **Convert Clustered Coordinates to Real Labels:**
-       - Translates clustered coordinate indices back to their string representations using the discretized data.
-       - Writes cluster assignments to a text file.
-
-    5. **Export and Organize Output:**
-       - Copies the matrix plot image and moves the distance CSV to the appropriate directory.
-
-    6. **Extract Residue IDs per Cluster:**
-       - Maps clustered coordinates back to residue indices using naming conventions.
-       - Outputs the residue assignments per cluster in GROMACS-style index format.
+    Returns:
+    --------
+    None. The cluster labels are saved to disk.
     """
-    times_indices=np.load(output_dir+"times_indices.npy")
-    name_coordinates_to_add=[coord.split('/')[-1].split('.')[0] for coord in coordinates_to_add]
-    couplings=np.load(output_dir+'frequencies/Couplings_between_residues.npy')
-    couplings_no_diag=np.copy(couplings)
-    for i in range (len(couplings_no_diag)):
-        couplings_no_diag[i,i]=0
-    ncoord=len(couplings)
-    max_couplings=np.max(couplings_no_diag)
-    distance_couplings=np.zeros((len(couplings),len(couplings)),dtype=float)
-    for i in range(len(couplings)):
-        for j in range(len(couplings)):
-            distance_couplings[i,j]=-couplings_no_diag[i,j]+max_couplings
-        distance_couplings[i,i]=0
+    get_mutual_information(output_dir)
+    get_entropy(output_dir)
+    get_variation_information(output_dir)
 
-    min_size_cluster,function_for_ratio,threshold_variable,amount_of_noise,percentage_moving_square=0.0001,2,1.0,0.3,1
-    yacare_clusterization(output_dir,'Clusterize_couplings',step_to_perform,ncoord,distance_couplings, min_size_cluster,function_for_ratio,threshold_variable,amount_of_noise,percentage_moving_square)
-    clusters_ndx,coordinates=convert_clusters_yacare_to_real_coordinates(output_dir+"selected_coordinates.txt",output_dir,'Clusterize_couplings','Clusters_of_coordinates_from_couplings.txt')
-    os.system(f'cp {output_dir}Clusterize_couplings/Clusterize_couplings_Yacare_11-Matrix-WithNoise.png {output_dir}couplings_plots/')
-    os.system(f'mv {output_dir}distance_couplings.csv {output_dir}Clusterize_couplings/')
-    get_resids_in_clusters(clusters_ndx,coordinates,name_coordinates_to_add,barycenter_coordinates_to_add,'resids_in_clusters_from_couplings.txt',output_dir)
+    logging.info("\nClustering coordinates using HDBSCAN...")
+
+    # Load the mutual information distance matrix
+    distance_matrix = np.load(os.path.join(output_dir, "analysis", "VI.npy"))
+
+    # Apply HDBSCAN clustering
+    clusterer = hdbscan.HDBSCAN(min_cluster_size=min_cluster_size, min_samples=min_samples,cluster_selection_epsilon=cluster_selection_epsilon, metric='precomputed')
+    cluster_labels = clusterer.fit_predict(distance_matrix)
+
+    # Save the cluster labels to a file
+    np.save(os.path.join(output_dir, "analysis", "cluster_labels.npy"), cluster_labels)
+
+    logging.info("Clustering completed and labels saved.")
+
+    reordered_labels = plot_hdbscan_results(distance_matrix,cluster_labels, output_dir+'information_plots/', "VI_hdbscan", "Variation of Information")
+
+    coordinates,X_cuts,Labels=load_data_discretization(output_dir + "selected_coordinates.txt")
+
+    # Extract clusters and write to file
+    clusters_ndx = []
+    
+    noise_ndx = np.where(cluster_labels == -1)[0]  # Indices of noise points
+    for label in np.unique(cluster_labels):
+        if label == -1:  # Noise points
+            continue
+        cluster_indices = np.where(cluster_labels == label)[0]
+        clusters_ndx.append(cluster_indices)    
+    # Add noise points as a separate cluster
+    clusters_ndx.append(noise_ndx)
+    # Write clusters to file
+    write_clusters_to_file(clusters_ndx, coordinates, output_dir, "Clusters_of_coordinates_from_MI.txt")
+    # Get resids in clusters and write to file
+    name_coordinates_to_add = [coord.split('/')[-1].split('.')[0] for coord in coordinates_to_add]
+    get_resids_in_clusters(clusters_ndx, coordinates, name_coordinates_to_add, "resids_in_clusters.txt", output_dir)
+
+
+############ Function to get states from the discretized array based on cluster labels ##############
+def split_discretized_array_by_clusters(discretized_array, cluster_labels):
+    """
+    Splits the discretized array into sub-arrays based on cluster labels.
+
+    Parameters:
+    -----------
+    discretized_array : ndarray
+        The discretized representation of the coordinates.
+    cluster_labels : ndarray
+        The cluster labels for each frame in the discretized array.
+
+    Returns:
+    --------
+    clusters_data : list of ndarray
+        A list where each element is a sub-array corresponding to a unique cluster.
+    """
+    unique_labels = np.unique(cluster_labels)
+    clusters_data = []
+
+    for label in unique_labels:
+        if label == -1:  # Skip noise points
+            continue
+        indices = np.where(cluster_labels == label)[0]
+        clusters_data.append(discretized_array[:,indices])
+
+    return clusters_data
+
+def get_unique_states_in_splitted_array(clusters_data):
+    """
+    Extracts unique states from each cluster's discretized data.
+
+    Parameters:
+    -----------
+    clusters_data : list of ndarray
+        A list where each element is a sub-array corresponding to a unique cluster.
+
+    Returns:
+    --------
+    unique_states : list of ndarray
+        A list containing unique states for each cluster.
+    """
+    unique_states = []
+    probalities_unique_states = []
+    for cluster_data in clusters_data:
+        unique_i,count_i= np.unique(cluster_data, axis=0, return_counts=True)
+        probalities_unique_states.append(count_i / cluster_data.shape[0])  # Normalize
+        unique_states.append(unique_i)
+        
+    return unique_states, probalities_unique_states
+
+def compute_distances_between_states(states):
+    """
+    Computes pairwise distances between unique states.
+
+    Parameters:
+    -----------
+    states : list of ndarray
+        A list where each element is an array of unique states for a cluster.
+
+    Returns:
+    --------
+    distances : list of ndarray
+        A list containing distance matrices for each cluster's unique states.
+    """
+    distances = []
+    for state in states:
+        dist_matrix = np.linalg.norm(state[:, np.newaxis] - state, axis=2)
+        distances.append(dist_matrix)
+    return distances
+
+def extract_indexes_from_labels(output_dir,clusters_data,unique_states_clusters,all_clusters_labels,times_indices) :
+    
+    frames_by_clusters = []
+    for i, cluster_labels in enumerate(all_clusters_labels):
+        output_file=open(f"{output_dir}conformations_clustering/frames_conformations_from_cluster_of_CV_{i}.ndx", 'w')
+        unique_labels = np.unique(cluster_labels)
+        nb_conformations = len(unique_labels)
+        frames_conformations = [[] for _ in range(nb_conformations)]
+        for t in range(len(times_indices)):
+            state=clusters_data[i][t]
+            index_state = np.where((unique_states_clusters[i] == state).all(axis=1))[0][0]
+            label_state = cluster_labels[index_state]
+            frames_conformations[label_state].append(times_indices[t])
+        for j in range(nb_conformations-1):
+            output_file.write(f"[ Conformation_{j} ]\n")
+            indexes = frames_conformations[j]
+            for k in range(0, len(indexes), 20):
+                chunk = indexes[k:k+20]
+                output_file.write(" ".join(map(str, chunk)) + "\n")
+            output_file.write("\n")
+
+        output_file.write("[ Noise ]\n")
+        indexes_noise = frames_conformations[-1]
+        for k in range(0, len(indexes_noise), 20):
+                chunk = indexes_noise[k:k+20]
+                output_file.write(" ".join(map(str, chunk)) + "\n")
+        output_file.close()
+        frames_by_clusters.append(frames_conformations)
+    return frames_by_clusters
+
+
+def split_trajectory_by_conformations(output_dir, u_traj, frames_by_clusters):
+    
+    logging.info("\nSplitting trajectory by conformations...")
+    
+    for i, frames_conformations in enumerate(frames_by_clusters):
+        for j, frames in enumerate(frames_conformations):
+            if len(frames) == 0:
+                continue  # Skip empty conformations
+            output_file = os.path.join(output_dir, f"conformations_clustering/cluster_{i}_conformation_{j}.xtc")
+            at=u_traj.atoms
+            at.write(output_file, frames=frames)
+
+
+
+def get_conformations_from_clusters(output_dir,u_traj, times_indices,min_cluster_size_conformations, min_samples_conformations,cluster_selection_epsilon_conformations,split_trajectory):
+    cluster_labels = np.load(os.path.join(output_dir, "analysis", "cluster_labels.npy"))
+    coordinates,X_cuts,Labels=load_data_discretization(output_dir + "selected_coordinates.txt")
+    discretized_array = np.load(output_dir + "arrays_npy/discretized_array.npy")
+
+    logging.info("\nExtracting conformations from clusters...")
+    clusters_data = split_discretized_array_by_clusters(discretized_array, cluster_labels)
+    logging.info(f"Found {len(clusters_data)} clusters based on HDBSCAN labels.")
+    logging.info("Extracting unique states from clusters...")
+    unique_states_clusters,probalities_unique_states_clusters = get_unique_states_in_splitted_array(clusters_data)
+    logging.info(f"Computing distances between unique states in each cluster...")
+    distances_between_states = compute_distances_between_states(unique_states_clusters)
+    
+    all_clusters_labels=[]
+    for i, dist_states in enumerate(distances_between_states):
+        logging.info(f"Cluster {i}: Found {len(unique_states_clusters[i])} unique states.")    
+        clusterer = hdbscan.HDBSCAN(min_cluster_size_conformations, min_samples_conformations,cluster_selection_epsilon_conformations, metric='precomputed')
+        cluster_labels = clusterer.fit_predict(dist_states)
+        logging.info(f"Cluster {i}: Found {len(np.unique(cluster_labels))} clusters based on distances between states.")
+        _ = plot_hdbscan_results(dist_states, cluster_labels, output_dir + 'conformations_clustering/', f"distances_between_states_cluster_{i}", label_data="Distance between states")
+        all_clusters_labels.append(cluster_labels)
+    
+    for i, cluster_labels in enumerate(all_clusters_labels):
+        unique_labels = np.unique(cluster_labels)
+        proba_conformations = np.zeros(len(unique_labels), dtype=float)
+        for j, label in enumerate(cluster_labels):
+            ind_label = np.where(unique_labels == label)[0][0]
+            proba_conformations[ind_label] += probalities_unique_states_clusters[i][j]
+        logging.info(f"Conformations in cluster {i}: {unique_labels}        -1 indicates noise")
+        logging.info(f"Probabilities of conformations: {proba_conformations}")
+        logging.info("Total probability: %.5f"% np.sum(proba_conformations))
+        
+    frames_by_clusters = extract_indexes_from_labels(output_dir,clusters_data,unique_states_clusters,all_clusters_labels,times_indices)    
+    if split_trajectory:
+        split_trajectory_by_conformations(output_dir, u_traj, frames_by_clusters)   
+
+    
+
+
+
+
+
+
+
 
 """
 
-def get_positions_baricenters(u_traj,output_dir,RESIDS_SELECTED,indices_aa,terminal_atoms,coordinates_to_add,barycenter_coordinates_to_add):
-    times_indices=np.load(output_dir+'times_indices.npy')
+def get_positions_baricenters(u_traj,output_dir,selected_resids,indices_aa,important_atoms,coordinates_to_add,barycenter_coordinates_to_add):
+    times_indices=np.load(output_dir+'arrays_npy/times_indices.npy')
     coordinates,X_cuts,Labels=load_data_discretization(output_dir+"selected_coordinates.txt")
     ncoord=len(coordinates)
     data_zero=open_data_coordinate(output_dir+"coordinates_data/"+coordinates[0]+".dat")
     times_to_compare=data_zero[:,0]
     nframes=len(times_to_compare)
     if len(indices_aa) >= 2:
-        Positions_atoms_CA = np.load(output_dir+"Positions_npy/Positions_CA_atoms.npy")
-        Positions_atoms_C = np.load(output_dir+"Positions_npy/Positions_C_atoms.npy")
-        Positions_atoms_N = np.load(output_dir+"Positions_npy/Positions_N_atoms.npy")
-    Positions_terminal_atoms = np.load(output_dir+"Positions_npy/Positions_terminal_atoms.npy")
+        Positions_atoms_CA = np.load(output_dir+"arrays_npy/Positions_CA_atoms.npy")
+        Positions_atoms_C = np.load(output_dir+"arrays_npy/Positions_C_atoms.npy")
+        Positions_atoms_N = np.load(output_dir+"arrays_npy/Positions_N_atoms.npy")
+    positions_important_atoms = np.load(output_dir+"arrays_npy/positions_important_atoms.npy")
 
     Positions_barycenters=np.zeros((ncoord,nframes,3))
 
@@ -2241,7 +2259,7 @@ def get_positions_baricenters(u_traj,output_dir,RESIDS_SELECTED,indices_aa,termi
     resids_coord_to_add=[int(barycenter.split('_')[0]) for barycenter in barycenter_coordinates_to_add]
     atoms_coord_to_add=[barycenter.split('_')[1] for barycenter in barycenter_coordinates_to_add]
 
-    print("Computing barycenters...")
+    logging.info("Computing barycenters...")
     previous_progress = -1  # Initialize progress bar
     for i in range(len(coordinates)):
         previous_progress=plot_progress_bar(i,len(coordinates),previous_progress)
@@ -2274,34 +2292,34 @@ def get_positions_baricenters(u_traj,output_dir,RESIDS_SELECTED,indices_aa,termi
             if atom1 == 'CA':
                 index_CA1=indices_aa.index(resid1)
             else :
-                index_resid=RESIDS_SELECTED.index(resid1)
-                ind_at=terminal_atoms[index_resid].index(atom1)
-                index_term1=int(np.sum([len(terminal_atoms[k]) for k in range(index_resid)])+ind_at)
+                index_resid=selected_resids.index(resid1)
+                ind_at=important_atoms[index_resid].index(atom1)
+                index_term1=int(np.sum([len(important_atoms[k]) for k in range(index_resid)])+ind_at)
 
             if atom2 == 'CA':
                 index_CA2=indices_aa.index(resid2)
             else :
-                index_resid=RESIDS_SELECTED.index(resid2)
-                ind_at=terminal_atoms[index_resid].index(atom2)
-                index_term2=int(np.sum([len(terminal_atoms[k]) for k in range(index_resid)])+ind_at)
+                index_resid=selected_resids.index(resid2)
+                ind_at=important_atoms[index_resid].index(atom2)
+                index_term2=int(np.sum([len(important_atoms[k]) for k in range(index_resid)])+ind_at)
             
             if index_term1 != -1 and index_term2 != -1:
-                Positions_barycenters[i]=(Positions_terminal_atoms[index_term1,:,:]+Positions_terminal_atoms[index_term2,:,:])/2
+                Positions_barycenters[i]=(positions_important_atoms[index_term1,:,:]+positions_important_atoms[index_term2,:,:])/2
             elif index_CA1 != -1 and index_term2 != -1:
-                Positions_barycenters[i]=(Positions_atoms_CA[index_CA1,:,:]+Positions_terminal_atoms[index_term2,:,:])/2
+                Positions_barycenters[i]=(Positions_atoms_CA[index_CA1,:,:]+positions_important_atoms[index_term2,:,:])/2
             elif index_term1 != -1 and index_CA2 != -1:
-                Positions_barycenters[i]=(Positions_terminal_atoms[index_term1,:,:]+Positions_atoms_CA[index_CA2,:,:])/2
+                Positions_barycenters[i]=(positions_important_atoms[index_term1,:,:]+Positions_atoms_CA[index_CA2,:,:])/2
             elif index_CA1 != -1 and index_CA2 != -1:
                 Positions_barycenters[i]=(Positions_atoms_CA[index_CA1,:,:]+Positions_atoms_CA[index_CA2,:,:])/2
     plot_progress_bar(len(coordinates),len(coordinates),previous_progress)
-    print("\nBarycenters computed.")
-    np.save(output_dir+"Positions_npy/Positions_barycenters.npy",Positions_barycenters)
+    logging.info("\nBarycenters computed.")
+    np.save(output_dir+"arrays_npy/Positions_barycenters.npy",Positions_barycenters)
 
 def get_avg_distances_barycenters(output_dir):
-    Positions_barycenters=np.load(output_dir+"Positions_npy/Positions_barycenters.npy")
+    Positions_barycenters=np.load(output_dir+"arrays_npy/Positions_barycenters.npy")
     ncoord,nframes,dim=Positions_barycenters.shape
     avg_distances=np.zeros((ncoord,ncoord))
-    print("Computing average distances...")
+    logging.info("Computing average distances...")
     previous_progress = -1  # Initialize progress bar
     for i in range(ncoord):
         for j in range(i+1,ncoord):
@@ -2309,14 +2327,14 @@ def get_avg_distances_barycenters(output_dir):
             avg_distances[i,j]=np.mean(np.linalg.norm(Positions_barycenters[i,:,:]-Positions_barycenters[j,:,:],axis=1))
             avg_distances[j,i]=avg_distances[i,j]
     plot_progress_bar(ncoord*ncoord,ncoord*ncoord,previous_progress)
-    print("\nAverage distances computed.")
+    logging.info("\nAverage distances computed.")
     np.save(output_dir+"analysis/avg_distances_barycenters.npy",avg_distances)
 
 
 
-def mutual_information(Discretized_Array,multiplicities,single_frequencies,double_frequencies):
-    nframes,ncoord=np.shape(Discretized_Array)
-    multiplicities=get_multiplicities(Discretized_Array)
+def mutual_information(discretized_array,multiplicities,single_frequencies,double_frequencies):
+    nframes,ncoord=np.shape(discretized_array)
+    multiplicities=get_multiplicities(discretized_array)
     MI=np.zeros((ncoord,ncoord),dtype=float)
 
     index_freq_1=0
@@ -2337,27 +2355,27 @@ def mutual_information(Discretized_Array,multiplicities,single_frequencies,doubl
 
 
             
-def plot_mutual_information(MI,output_dir,name_out):
+def plot_information(MI,output_dir,name_out):
     plt.figure(figsize=(10, 6))
-    plt.imshow(MI, cmap='jet', interpolation='nearest')
+    plt.imshow(MI, cmap='magma', interpolation='nearest')
     plt.colorbar(label='Mutual Information')
     plt.title('Mutual Information Matrix')
     plt.xlabel('Coordinate Index')
     plt.ylabel('Coordinate Index')
-    plt.savefig(output_dir+'MI_plots/'+name_out+'.png', dpi=200)
+    plt.savefig(output_dir+'information_plots/'+name_out+'.png', dpi=200)
     plt.close()
 
-def plot_mutual_information_with_names(labels,MI,output_dir,name_out):
+def plot_information_with_names(labels,MI,output_dir,name_out):
     plt.figure(figsize=(14, 13))
     fonts=min(50*7/len(labels),11)
-    plt.imshow(MI, cmap='jet', interpolation='nearest')
+    plt.imshow(MI, cmap='magma', interpolation='nearest')
     plt.colorbar(label='Mutual Information')
     plt.title('Mutual Information Matrix')
     plt.xticks(range(len(labels)), labels, rotation=90, fontsize=fonts)
     plt.yticks(range(len(labels)), labels, fontsize=fonts)
     plt.xlabel('Coordinate Index')
     plt.ylabel('Coordinate Index')
-    plt.savefig(output_dir+'MI_plots/'+name_out+'.png', dpi=200)
+    plt.savefig(output_dir+'information_plots/'+name_out+'.png', dpi=200)
     plt.close()
 
 def plot_MI_vs_distance(MI,output_dir,avg_distances_barycenters):
@@ -2366,21 +2384,21 @@ def plot_MI_vs_distance(MI,output_dir,avg_distances_barycenters):
     plt.xlabel('Average Distance (A)')
     plt.ylabel('Mutual Information')
     plt.title('Mutual Information vs Average Distance')
-    plt.savefig(output_dir+'MI_plots/MI_vs_distance_plot.png', dpi=200)
+    plt.savefig(output_dir+'information_plots/MI_vs_distance_plot.png', dpi=200)
     plt.close()
 
 def plot_MI_vs_distance_clusters(MI,output_dir,avg_distances_barycenters,clusters_ndx):
-    print('\n')
-    print("Plotting MI vs distance for clustered data...")
+    logging.info('\n')
+    logging.info("Plotting MI vs distance for clustered data...")
     plt.figure(figsize=(10, 6))
-    print("Plotting noise data...")
+    logging.info("Plotting noise data...")
     distance_noise=avg_distances_barycenters[np.ix_(clusters_ndx[-1], clusters_ndx[-1])]
     MI_noise=MI[np.ix_(clusters_ndx[-1], clusters_ndx[-1])]
     
     plt.scatter(distance_noise.flatten(), MI_noise.flatten(),marker='x', color='grey', alpha=0.3,label='Noise')
     
     for i in range(len(clusters_ndx)-1):
-        print(f"Plotting cluster {i} data...")
+        logging.info(f"Plotting cluster {i} data...")
         distance_i = avg_distances_barycenters[np.ix_(clusters_ndx[i], clusters_ndx[i])]
         MI_i = MI[np.ix_(clusters_ndx[i], clusters_ndx[i])]
         if len(clusters_ndx) > 2:
@@ -2391,7 +2409,7 @@ def plot_MI_vs_distance_clusters(MI,output_dir,avg_distances_barycenters,cluster
     plt.ylabel('Mutual Information')
     plt.title('Mutual Information vs Average Distance')
     plt.legend()
-    plt.savefig(output_dir+'MI_plots/MI_vs_distance_plot_clustered.png', dpi=200)
+    plt.savefig(output_dir+'information_plots/MI_vs_distance_plot_clustered.png', dpi=200)
     plt.close()
 
 def compute_running_avg_and_plot(distances, mi_values, label, color=None):
@@ -2410,13 +2428,13 @@ def compute_running_avg_and_plot(distances, mi_values, label, color=None):
     plt.fill_between(distances[:len(running_avg)], running_avg - error_bars, running_avg + error_bars, alpha=0.3, color=color)
 
 def plot_runningavg_MI_vs_distance_clusters(MI, output_dir, avg_distances_barycenters, clusters_ndx):
-    print('\n')
-    print("Plotting running average MI vs distance for clustered data...")
+    logging.info('\n')
+    logging.info("Plotting running average MI vs distance for clustered data...")
     plt.figure(figsize=(10, 6))
 
     
 
-    print("Plotting noise data...")
+    logging.info("Plotting noise data...")
     compute_running_avg_and_plot(
         avg_distances_barycenters[np.ix_(clusters_ndx[-1], clusters_ndx[-1])],
         MI[np.ix_(clusters_ndx[-1], clusters_ndx[-1])],
@@ -2424,7 +2442,7 @@ def plot_runningavg_MI_vs_distance_clusters(MI, output_dir, avg_distances_baryce
     )
 
     for i, cluster in enumerate(clusters_ndx[:-1]):
-        print(f"Plotting cluster {i} data...")
+        logging.info(f"Plotting cluster {i} data...")
         compute_running_avg_and_plot(
             avg_distances_barycenters[np.ix_(cluster, cluster)],
             MI[np.ix_(cluster, cluster)],
@@ -2436,30 +2454,30 @@ def plot_runningavg_MI_vs_distance_clusters(MI, output_dir, avg_distances_baryce
     plt.ylabel('Mutual Information')
     plt.title('Running average of mutual Information vs Average Distance')
     plt.legend()
-    plt.savefig(output_dir + 'MI_plots/avg_MI_vs_distance_plot_clustered.png', dpi=200)
+    plt.savefig(output_dir + 'information_plots/avg_MI_vs_distance_plot_clustered.png', dpi=200)
     plt.close()
 
                 
 
 
 def get_mutual_information(output_dir):
-    print("Computing mutual information...")
-    Discretized_Array=np.load(output_dir+"discretized_array.npy")
+    logging.info("Computing mutual information...")
+    discretized_array=np.load(output_dir+"arrays_npy/discretized_array.npy")
     single_frequencies=np.load(output_dir+'frequencies/frequencies_single.npy')
     double_frequencies=np.load(output_dir+'frequencies/frequencies_double.npy')
     avg_distances_barycenters=np.load(output_dir+"analysis/avg_distances_barycenters.npy")
-    multiplicities=get_multiplicities(Discretized_Array)
-    MI=mutual_information(Discretized_Array,multiplicities,single_frequencies,double_frequencies)
+    multiplicities=get_multiplicities(discretized_array)
+    MI=mutual_information(discretized_array,multiplicities,single_frequencies,double_frequencies)
     np.save(output_dir+'analysis/MI.npy', MI)
-    print("Mutual information computed.")
+    logging.info("Mutual information computed.")
     plot_mutual_information(MI,output_dir,'MI_matrix')
     plot_MI_vs_distance(MI,output_dir,avg_distances_barycenters)
 
 def get_entropy(output_dir):
-    print("Computing entropy...")
-    Discretized_Array=np.load(output_dir+"discretized_array.npy")
+    logging.info("Computing entropy...")
+    discretized_array=np.load(output_dir+"arrays_npy/discretized_array.npy")
     single_frequencies=np.load(output_dir+'frequencies/frequencies_single.npy')
-    multiplicities=get_multiplicities(Discretized_Array)
+    multiplicities=get_multiplicities(discretized_array)
     ncoord=len(multiplicities)
     entropy=np.zeros((ncoord),dtype=float)
     count_index=0
@@ -2471,7 +2489,7 @@ def get_entropy(output_dir):
                 entropy[i]-=probab_xi*np.log(probab_xi)
 
     np.save(output_dir+'analysis/entropy.npy', entropy)
-    print("Entropy computed.")
+    logging.info("Entropy computed.")
     
     plt.scatter(range(len(entropy)), entropy, color='blue', alpha=0.5)
     plt.xlabel('Index coordinate')
@@ -2493,7 +2511,7 @@ def yacare_clusterization(output_dir,name_cluster_dir,step_to_perform,number_of_
     else :
         yacare.choose_if_we_reorder_again(variables,indices=np.arange(0,number_of_coords))
     yacare.find_final_clusters(variables)
-    print("Number of clusters before merging: "+str(variables.number_clusters))
+    logging.info("Number of clusters before merging: "+str(variables.number_clusters))
     if variables.number_clusters>1 :
         yacare.compare_clusters(variables, display_stddev = True)
         yacare.propose_list_for_concatenating_clusters(variables, threshold_variable = threshold_variable, choice_merging_clusters=3)
@@ -2505,7 +2523,7 @@ def yacare_clusterization(output_dir,name_cluster_dir,step_to_perform,number_of_
     os.system('mv '+variables.project_name+'* '+output_dir+variables.project_name)
 
 def get_cluster_indexes_from_yacare(output_dir, cluster_dir):
-    print("Extracting cluster indexes from Yacare output...")
+    logging.info("Extracting cluster indexes from Yacare output...")
     data_yacare, lines_yacare = open_file(output_dir + cluster_dir + '/' + cluster_dir + '_Clustering_Clusters.ndx')
     clusters_ndx = []
     cluster_i = []
@@ -2525,14 +2543,14 @@ def get_cluster_indexes_from_yacare(output_dir, cluster_dir):
     if len(cluster_i) >= 1:
         clusters_ndx.append(cluster_i)
 
-    print("Cluster indexes extracted.")
+    logging.info("Cluster indexes extracted.")
     for i in range(len(clusters_ndx)):
         clusters_ndx[i] = sorted(clusters_ndx[i])
     return clusters_ndx
 
 def get_representative_structure_from_yacare(output_dir, cluster_dir):
 
-    print("Extracting cluster indexes from Yacare output...")
+    logging.info("Extracting cluster indexes from Yacare output...")
     data_yacare, lines_yacare = open_file(output_dir + cluster_dir + '/' + cluster_dir + '_Clustering_RepresentativeStructures.ndx')
     Representative_structures= []
     cluster_i = []
@@ -2540,13 +2558,13 @@ def get_representative_structure_from_yacare(output_dir, cluster_dir):
     for l in range(len(lines_yacare)):
         if len(data_yacare[l])==1:
             Representative_structures.append(int(data_yacare[l][0])-1)
-    print("Cluster indexes extracted.")
+    logging.info("Cluster indexes extracted.")
     return Representative_structures
 
 
 def write_clusters_to_file(clusters_ndx, coordinates, output_dir, name_output_cluster):
 
-    print("Writing clusters to file...")
+    logging.info("Writing clusters to file...")
     with open(output_dir + name_output_cluster, 'w') as file_out:
         for i, cluster_i in enumerate(clusters_ndx):
             file_out.write('\n\n')
@@ -2557,68 +2575,28 @@ def write_clusters_to_file(clusters_ndx, coordinates, output_dir, name_output_cl
             for index_coord in cluster_i:
                 file_out.write(f'{coordinates[index_coord]} \n')
 
-    print("Clusters written to file.")
+    logging.info("Clusters written to file.")
      
 
 def convert_clusters_yacare_to_real_coordinates(output,output_dir,cluster_dir,name_output_cluster):
-    print("Converting clusters to real coordinates...")
+    logging.info("Converting clusters to real coordinates...")
     coordinates,X_cuts,Labels=load_data_discretization(output)
     
     clusters_ndx=get_cluster_indexes_from_yacare(output_dir,cluster_dir)
     write_clusters_to_file(clusters_ndx, coordinates, output_dir, name_output_cluster)
     return clusters_ndx,coordinates
 
-def get_resids_in_clusters(clusters_ndx,coordinates,name_coordinates_to_add,barycenter_coordinates_to_add,name_output,output_dir):
-    print("Getting resids in clusters...")
-    file_out=open(output_dir+name_output,'w')
-    for i in range (len(clusters_ndx)):
-        cluster_i=clusters_ndx[i]
-        file_out.write('\n\n')
-        if i!=len(clusters_ndx)-1:
-            file_out.write(f'[ Cluster{i} ]\n')
-        else:
-            file_out.write(f'[ Noise ]\n')
-        resids_in_cluster_i=[]
-        for j in range(len(cluster_i)):
-            index_coord=cluster_i[j]
-            coord=coordinates[index_coord]
-            if coord in name_coordinates_to_add:
-                index_coord_to_add=name_coordinates_to_add.index(coord)
-                name_atom_to_add=barycenter_coordinates_to_add[index_coord_to_add]
-                name_resid_to_add=int(name_atom_to_add.split('_')[0])
-                if name_resid_to_add not in resids_in_cluster_i:
-                    resids_in_cluster_i.append(name_resid_to_add)
-                    
-            elif coord[:3]=='phi' or coord[:3]=='psi':
-                name_resid_to_add=int(coord[3:])
-                if name_resid_to_add not in resids_in_cluster_i:    
-                    resids_in_cluster_i.append(name_resid_to_add)
-                    
-            else:
-                name_resid_to_add=int(coord.split('_')[0])
-                if name_resid_to_add not in resids_in_cluster_i:
-                    resids_in_cluster_i.append(name_resid_to_add)
-                    
-                
-                name_resid_to_add=int(coord.split('_')[2])
-                if name_resid_to_add not in resids_in_cluster_i:
-                    resids_in_cluster_i.append(name_resid_to_add)
-        resids_in_cluster_i.sort()
-        for j in range(len(resids_in_cluster_i)):
-            file_out.write(f'{resids_in_cluster_i[j]} ')
-        
-    print("Getting resids in clusters completed.")
-    file_out.close()
+
 
 def MI_map_for_clusters(coordinates,MI,clusters_ndx,output_dir):
     
-    if os.path.exists(f'{output_dir}MI_plots/Maps_by_cluster'):
-        os.system(f'rm -r {output_dir}MI_plots/Maps_by_cluster')
-    os.makedirs(f'{output_dir}MI_plots/Maps_by_cluster', exist_ok=True)
-    print('\n')
-    print("Creating MI maps for clusters...")
+    if os.path.exists(f'{output_dir}information_plots/Maps_by_cluster'):
+        os.system(f'rm -r {output_dir}information_plots/Maps_by_cluster')
+    os.makedirs(f'{output_dir}information_plots/Maps_by_cluster', exist_ok=True)
+    logging.info('\n')
+    logging.info("Creating MI maps for clusters...")
     for i in range(len(clusters_ndx)-1):
-        print(f"Creating MI map for cluster {i}...")
+        logging.info(f"Creating MI map for cluster {i}...")
         cluster_i=clusters_ndx[i]
         cluster_i_MI=np.zeros((len(cluster_i),len(cluster_i)),dtype=float)
         names_cluster_i=[coordinates[cluster_i[j]] for j in range(len(cluster_i))]
@@ -2635,8 +2613,8 @@ def MI_map_for_clusters(coordinates,MI,clusters_ndx,output_dir):
         plot_mutual_information_with_names(names_cluster_i,cluster_i_MI,output_dir,f'Maps_by_cluster/Cluster_{i}_MI_map')
 
 def MI_map_reordered_by_clusters(coordinates,MI,clusters_ndx,output_dir):
-    print('\n')
-    print("Creating the reordered MI map from clusters...")
+    logging.info('\n')
+    logging.info("Creating the reordered MI map from clusters...")
     reordered_MI=np.zeros((len(coordinates),len(coordinates)),dtype=float)
     reordered_indexes = [index for cluster in clusters_ndx for index in cluster]
     for i in range(len(reordered_indexes)):
@@ -2679,20 +2657,20 @@ def get_states_from_clusters(clusters_ndx,output_dir,times_indices,number_of_sta
     if os.path.exists(f'{output_dir}times_indices_clusters_states_some_structures.txt'):
         os.system(f'rm {output_dir}times_indices_clusters_states_some_structures.txt')
 
-    Discretized_Array=np.load(output_dir+"discretized_array.npy")
-    nframes,ncoord=np.shape(Discretized_Array)
+    discretized_array=np.load(output_dir+"arrays_npy/discretized_array.npy")
+    nframes,ncoord=np.shape(discretized_array)
     file_out=open(output_dir+'clusters_states.txt','w')
-    print('\n')
-    print("Getting states from clusters...")
+    logging.info('\n')
+    logging.info("Getting states from clusters...")
     for i in range(len(clusters_ndx)-1):
-        print(f"Getting states from cluster {i}...")
+        logging.info(f"Getting states from cluster {i}...")
         ind_cluster=0
         file_out.write(f'Cluster {i} states:\n')
         cluster_i=clusters_ndx[i]
         cluster_i_states=np.zeros((nframes,len(cluster_i)),dtype=int)
         for j in range(len(cluster_i)):
             index_coord=cluster_i[j]
-            cluster_i_states[:,j]=Discretized_Array[:,index_coord]
+            cluster_i_states[:,j]=discretized_array[:,index_coord]
         np.save(output_dir+f'Clusterize_MI/clusters_states/cluster_{i}_states.npy',cluster_i_states)
         
         unique_states,count_unique_states=np.unique(cluster_i_states,axis=0,return_counts=True)
@@ -2723,7 +2701,7 @@ def get_states_from_clusters(clusters_ndx,output_dir,times_indices,number_of_sta
     
 
 def clusterize_MI(output_dir,coordinates_to_add,barycenter_coordinates_to_add,step_to_perform,number_of_states_to_show):
-    times_indices=np.load(output_dir+"times_indices.npy")
+    times_indices=np.load(output_dir+"arrays_npy/times_indices.npy")
     name_coordinates_to_add=[coord.split('/')[-1].split('.')[0] for coord in coordinates_to_add]
     avg_distances_barycenters=np.load(output_dir+"analysis/avg_distances_barycenters.npy")
     MI=np.load(output_dir+'frequencies/Couplings_between_residues.npy') #'analysis/MI.npy')
@@ -2741,7 +2719,7 @@ def clusterize_MI(output_dir,coordinates_to_add,barycenter_coordinates_to_add,st
     min_size_cluster,function_for_ratio,threshold_variable,amount_of_noise,percentage_moving_square=0.0001,2,1.0,0.3,1
     yacare_clusterization(output_dir,'Clusterize_MI',step_to_perform,ncoord,distance_MI, min_size_cluster,function_for_ratio,threshold_variable,amount_of_noise,percentage_moving_square)
     clusters_ndx,coordinates=convert_clusters_yacare_to_real_coordinates(output_dir+"selected_coordinates.txt",output_dir,'Clusterize_MI','Clusters_of_coordinates_from_MI.txt')
-    os.system(f'cp {output_dir}Clusterize_MI/Clusterize_MI_Yacare_11-Matrix-WithNoise.png {output_dir}MI_plots/')
+    os.system(f'cp {output_dir}Clusterize_MI/Clusterize_MI_Yacare_11-Matrix-WithNoise.png {output_dir}information_plots/')
     os.system(f'mv {output_dir}distance_MI.csv {output_dir}Clusterize_MI/')
     get_resids_in_clusters(clusters_ndx,coordinates,name_coordinates_to_add,barycenter_coordinates_to_add,'resids_in_clusters_from_MI.txt',output_dir)
     plot_MI_vs_distance_clusters(MI,output_dir,avg_distances_barycenters,clusters_ndx)
@@ -2753,9 +2731,9 @@ def clusterize_MI(output_dir,coordinates_to_add,barycenter_coordinates_to_add,st
 def get_euclidian_distance_between_conformations(array_cluster):
 
 
-    print("Computing Euclidean distance matrix...")
+    logging.info("Computing Euclidean distance matrix...")
     distance_matrix = squareform(pdist(array_cluster, metric='euclidean'))
-    print("Euclidean distance matrix computed.")
+    logging.info("Euclidean distance matrix computed.")
     return distance_matrix
 
 def get_representative_frames(unique_states, representative_structures, times_indices, array_cluster):
@@ -2788,7 +2766,7 @@ def write_conformation_to_file(file_out, conformation_index, representative_stru
 def get_frames_in_conformation(unique_states, clusters_ndx, times_indices, array_cluster,output_dir,ind_cluster):
 
     frames_in_conformation = []
-    print(len(clusters_ndx))
+    logging.info(len(clusters_ndx))
     for i in range(len(clusters_ndx)):
         frames_in_cluster_i = []
         for j in range(len(clusters_ndx[i])):
@@ -2843,27 +2821,27 @@ def cluster_states(output_dir):
     file_out.write('Clusters conformations:\n\n')
     file_out.close()
     clusters_coordinates_ndx,coordinates=convert_clusters_yacare_to_real_coordinates(output_dir+"selected_coordinates.txt",output_dir,'Clusterize_MI','Clusters_of_coordinates_from_MI.txt')
-    times_indices=np.load(output_dir+"times_indices.npy")
+    times_indices=np.load(output_dir+"arrays_npy/times_indices.npy")
     for i in range(len(data_clusters)):
         if len(data_clusters[i])>1 and data_clusters[i][0]=='Cluster':
             Indexes_of_clusters.append(int(data_clusters[i][1]))
     for i in range(len(Indexes_of_clusters)):
 
-        print('\n')
-        print(f"Getting conformations from cluster {i}...")
+        logging.info('\n')
+        logging.info(f"Getting conformations from cluster {i}...")
         Ind_i=Indexes_of_clusters[i]
         array_cluster=np.load(output_dir+f'Clusterize_MI/clusters_states/cluster_{Ind_i}_states.npy')
         unique_states,count_unique_states=np.unique(array_cluster,axis=0,return_counts=True)
         if len(unique_states)>100:
             probabilities=count_unique_states/len(array_cluster)
             distance_matrix=get_euclidian_distance_between_conformations(unique_states)
-            print(f"Doing clusterization for cluster {i}...")
-            print(Ind_i)
+            logging.info(f"Doing clusterization for cluster {i}...")
+            logging.info(Ind_i)
             min_size_cluster,function_for_ratio,threshold_variable,amount_of_noise,percentage_moving_square=1,1,1.0,1.0,2
             yacare_clusterization(output_dir,'Get_conformations_cluster'+str(Ind_i),'Get_conformations_cluster'+str(Ind_i),len(distance_matrix),distance_matrix,min_size_cluster,function_for_ratio,threshold_variable,amount_of_noise,percentage_moving_square)
             get_proba_conformation(unique_states,probabilities,output_dir,'Get_conformations_cluster'+str(Ind_i),Ind_i,clusters_coordinates_ndx,coordinates,times_indices,array_cluster)
         else :
-            print("Not enough conformations to clusterize.")
+            logging.info("Not enough conformations to clusterize.")
             file_out=open(output_dir+'clusters_conformations.txt','a')
             file_out.write(f'\n####################################################################### \n')
             file_out.write(f'Cluster {i} states:\n')

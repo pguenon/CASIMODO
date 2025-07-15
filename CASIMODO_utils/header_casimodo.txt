@@ -11,4 +11,3 @@
 Conformational Analysis via Statistical Inference of MOlecular Dynamics Observables
 A program by Paul Guénon, Damien Laage and Olivier Rivoire                         
 
-
