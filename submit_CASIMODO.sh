@@ -117,7 +117,6 @@ python CASIMODO_utils/run_CASIMODO.py \
   --proba_cutoff "${proba_cutoff}" \
   --coordinates_to_add "${coordinates_to_add[@]}" \
   --type_coordinates_to_add "${type_coordinates_to_add[@]}" \
-  --barycenter_coordinates_to_add "${barycenter_coordinates_to_add[@]}" \
   --min_cluster_size_coordinates "${min_cluster_size_coordinates}" \
   --min_samples_coordinates "${min_samples_coordinates}" \
   --cluster_selection_epsilon_coordinates "${cluster_selection_epsilon_coordinates}"\
