@@ -85,9 +85,13 @@ coordinates_to_add=()
 # Types corresponding to each additional coordinate (same order)
 type_coordinates_to_add=()
 
+# Residues to consider for additional coordinates
+residues_coordinates_to_add=()
+
 # Example usage:
 # coordinates_to_add=(Data_files/RMSD.dat Data_files/SASA.dat)
 # type_coordinates_to_add=(rmsd sasa)
+# residues_coordinates_to_add=( 161_162 163_164 ) # Example for multiple residues
 
 ##############################################
 #            MAIN EXECUTION BLOCK            #
@@ -121,5 +125,6 @@ python CASIMODO_utils/run_CASIMODO.py \
   ${split_trajectory_flag} \
   --coordinates_to_add "${coordinates_to_add[@]}" \
   --type_coordinates_to_add "${type_coordinates_to_add[@]}" \
+  --residues_coordinates_to_add "${residues_coordinates_to_add[@]}" \
   
 

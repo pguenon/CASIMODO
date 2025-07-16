@@ -1968,7 +1968,7 @@ def write_clusters_to_file(clusters_ndx, coordinates, output_dir, name_output_cl
 
     logging.info("Clusters written to file.")
 
-def get_resids_in_clusters(clusters_ndx,coordinates,name_coordinates_to_add,name_output,output_dir):
+def get_resids_in_clusters(clusters_ndx,coordinates,name_coordinates_to_add,residues_coordinates_to_add,name_output,output_dir):
     logging.info("\nGetting resids in clusters...")
     file_out=open(output_dir+name_output,'w')
     for i in range (len(clusters_ndx)):
@@ -1982,7 +1982,8 @@ def get_resids_in_clusters(clusters_ndx,coordinates,name_coordinates_to_add,name
             index_coord=cluster_i[j]
             coord=coordinates[index_coord]
             if coord in name_coordinates_to_add:
-                name_resid_to_add=int(name_coordinates_to_add.split('_')[0])
+                index_coord_to_add=name_coordinates_to_add.index(coord)
+                name_resid_to_add=int(residues_coordinates_to_add[index_coord_to_add].split('_')[0])
                 if name_resid_to_add not in resids_in_cluster_i:
                     resids_in_cluster_i.append(name_resid_to_add)
                     
@@ -2009,7 +2010,7 @@ def get_resids_in_clusters(clusters_ndx,coordinates,name_coordinates_to_add,name
 
 
 ############ Function to cluster coordinates based on mutual information distance, using hdbscan ##############
-def cluster_coordinates(output_dir,coordinates_to_add, min_cluster_size, min_samples,cluster_selection_epsilon):
+def cluster_coordinates(output_dir,coordinates_to_add,residues_coordinates_to_add, min_cluster_size, min_samples,cluster_selection_epsilon):
     """
     Clusters coordinates based on mutual information distance using HDBSCAN.
 
@@ -2066,7 +2067,7 @@ def cluster_coordinates(output_dir,coordinates_to_add, min_cluster_size, min_sam
     write_clusters_to_file(clusters_ndx, coordinates, output_dir, "clusters_of_coordinates.txt")
     # Get resids in clusters and write to file
     name_coordinates_to_add = [coord.split('/')[-1].split('.')[0] for coord in coordinates_to_add]
-    get_resids_in_clusters(clusters_ndx, coordinates, name_coordinates_to_add, "resids_in_clusters.txt", output_dir)
+    get_resids_in_clusters(clusters_ndx, coordinates, name_coordinates_to_add,residues_coordinates_to_add, "resids_in_clusters.txt", output_dir)
 
 
 ###################### Functions to manipulate states and get conformations ########################

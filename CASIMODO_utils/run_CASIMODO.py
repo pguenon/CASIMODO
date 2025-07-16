@@ -41,7 +41,7 @@ def parse_arguments():
 
     parser.add_argument('--coordinates_to_add', nargs='*', default=[], help='List of additional coordinate files')
     parser.add_argument('--type_coordinates_to_add', nargs='*', default=[], help='List of coordinate types (same order)')
-
+    parser.add_argument('--residues_coordinates_to_add', nargs='*', default=[], help='List of residues to consider for additional coordinates (e.g., 161_162)')
 
     return parser.parse_args()
 
@@ -79,6 +79,7 @@ split_trajectory = args.split_trajectory
 
 coordinates_to_add = args.coordinates_to_add
 type_coordinates_to_add = args.type_coordinates_to_add
+residues_coordinates_to_add = args.residues_coordinates_to_add
 
 
 
@@ -204,7 +205,7 @@ if step_to_perform in ['all', 'get_frequencies']:
 
 if step_to_perform in ['all', 'cluster_coordinates']:
     cluster_coordinates(
-        output_dir, coordinates_to_add,
+        output_dir, coordinates_to_add, residues_coordinates_to_add,
         min_cluster_size_coordinates, min_samples_coordinates,cluster_selection_epsilon_coordinates
         )
     
