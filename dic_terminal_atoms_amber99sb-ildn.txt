@@ -1,26 +1,26 @@
-ALA          CB          @amino_acid
-ARG          CZ          @amino_acid
-ASN          CG          @amino_acid
-ASP          CG          @amino_acid
-ASH          CG          @amino_acid
-CYS          SG          @amino_acid
-GLN          CD          @amino_acid
-GLU          CD          @amino_acid
-GLH          CD          @amino_acid
-GLY          CA          @amino_acid
-HIS          CE1         @amino_acid  
-HIP          CE1         @amino_acid
-HID          CE1         @amino_acid
-HIE          CE1         @amino_acid
-ILE          CD          @amino_acid
-LEU          CG          @amino_acid
-LYS          NZ          @amino_acid
-LYN          NZ          @amino_acid
-MET          CE          @amino_acid
-PHE          CZ          @amino_acid
-PRO          CG          @amino_acid
-SER          OG          @amino_acid
-THR          OG1         @amino_acid
-TRP          CH2         @amino_acid
-TYR          OH          @amino_acid
-VAL          CB          @amino_acid
+ALA          CA CB          @amino_acid
+ARG          CA CZ          @amino_acid
+ASN          CA CG          @amino_acid
+ASP          CA CG          @amino_acid
+ASH          CA CG          @amino_acid
+CYS          CA SG          @amino_acid
+GLN          CA CD          @amino_acid
+GLU          CA CD          @amino_acid
+GLH          CA CD          @amino_acid
+GLY          CA             @amino_acid
+HIS          CA CE1         @amino_acid  
+HIP          CA CE1         @amino_acid
+HID          CA CE1         @amino_acid
+HIE          CA CE1         @amino_acid
+ILE          CA CD          @amino_acid
+LEU          CA CG          @amino_acid
+LYS          CA NZ          @amino_acid
+LYN          CA NZ          @amino_acid
+MET          CA CE          @amino_acid
+PHE          CA CZ          @amino_acid
+PRO          CA CG          @amino_acid
+SER          CA OG          @amino_acid
+THR          CA OG1         @amino_acid
+TRP          CA CH2         @amino_acid
+TYR          CA OH          @amino_acid
+VAL          CA CB          @amino_acid
