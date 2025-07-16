@@ -25,7 +25,7 @@ def parse_arguments():
     parser.add_argument('--size_block', type=int, default=50000, help='Size of block (ps) for analysis')
     parser.add_argument('-dt', '--delta_time', type=int, default=1, help='Time (ps) between frames to consider')
 
-    parser.add_argument('--cutoff_distance', type=int, default=5, help='Distance cutoff (Å) to define contact')
+    parser.add_argument('--cutoff_distance', type=int, default=5, help='Distance cutoff (A) to define contact')
     parser.add_argument('--delta_resid', type=int, default=3, help='Residue separation threshold for contact filtering')
     parser.add_argument('--proba_cutoff', type=float, default=0.1, help='Probability cutoff for filtering dihedral regions')
     
@@ -89,7 +89,7 @@ type_coordinates_to_add = args.type_coordinates_to_add
 
 for path in [strucfile, trajfile, dic]:
     if not os.path.exists(path):
-        print(f'Error: File "{path}" does not exist.')
+        print(f"Error: File '{path}' does not exist.")
         exit(1)
 
 #######################################
@@ -139,7 +139,7 @@ print_inputs(
 #       OPEN TRAJECTORY (if needed)   #
 #######################################
 
-if step_to_perform in ['all', 'discretize_conformations', 'get_distances_between_coordinates','get_conformations']:
+if step_to_perform in ['all', 'discretize_coordinates','get_conformations']:
     u_traj = open_trajectory(strucfile, trajfile)
 
 #######################################
@@ -153,7 +153,7 @@ if step_to_perform == 'all' or step_to_perform == 'get_conformations':
 #        GET TERMINAL ATOMS           #
 #######################################
 
-if step_to_perform in ['all', 'discretize_conformations', 'get_distances_between_coordinates']:
+if step_to_perform in ['all', 'discretize_coordinates']:
     important_atoms_file = os.path.join(output_dir, 'important_atoms.txt')
     if os.path.exists(important_atoms_file):
         os.remove(important_atoms_file)
@@ -161,14 +161,12 @@ if step_to_perform in ['all', 'discretize_conformations', 'get_distances_between
     important_atoms, selected_resids, selected_resnames, indices_aa = get_important_atoms_MDA(u_traj, dic)
     save_important_atoms(important_atoms, selected_resids, selected_resnames, output_dir)
 
-    
-
 
 #######################################
 #     DISCRETIZE CONFORMATIONS        #
 #######################################
 
-if step_to_perform in ['all', 'discretize_conformations']:
+if step_to_perform in ['all', 'discretize_coordinates']:
     selected_coordinates_file = os.path.join(output_dir, 'selected_coordinates.txt')
     if os.path.exists(selected_coordinates_file):
         os.remove(selected_coordinates_file)
@@ -204,7 +202,7 @@ if step_to_perform in ['all', 'get_frequencies']:
 #           CLUSTERING STEP           #
 #######################################
 
-if step_to_perform in [ 'clusterize_MI']:
+if step_to_perform in ['all', 'cluster_coordinates']:
     cluster_coordinates(
         output_dir, coordinates_to_add,
         min_cluster_size_coordinates, min_samples_coordinates,cluster_selection_epsilon_coordinates

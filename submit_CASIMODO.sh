@@ -7,13 +7,10 @@ set -e  # Exit immediately if any command fails
 # Choose which step to execute:
 # Options:
 #   all (default) — run the full pipeline
-#   discretize_conformations — discretize conformations
-#   get_distances_between_coordinates — compute distances between coordinates
-#   get_frequencies — compute frequency distributions
-#   get_mutual_information — compute mutual information
-#   get_entropy — compute entropy
-#   clusterize_MI — cluster based on mutual information
-#   extract_conformations — extract representative conformations
+#   discretize_coordinates — discretize the coordinates
+#   get_frequencies — compute single and double frequencies
+#   cluster_coordinates — cluster based on mutual information
+#   get_conformations — get the conformations from the clustered coordinates
 
 step_to_perform="all"
 

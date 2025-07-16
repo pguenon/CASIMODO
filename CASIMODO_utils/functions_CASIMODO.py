@@ -1,32 +1,26 @@
-import numpy as np	
-import argparse
-import MDAnalysis as mda 
-from MDAnalysis.analysis import distances
 import os
-import scipy.stats as stats 
-from scipy import signal
-from scipy.stats import gaussian_kde
-import matplotlib.pyplot as plt
-from scipy.stats import t
+import logging
+from datetime import datetime
+
+import numpy as np	
+
 from math import exp,log
-from scipy.signal import find_peaks
 
-import yacare
-
+import scipy.stats as stats 
+from scipy.stats import t
 from scipy.ndimage import uniform_filter1d
 from scipy.spatial.distance import pdist, squareform
-from sklearn.mixture import GaussianMixture,BayesianGaussianMixture
 from sklearn.neighbors import KernelDensity
-from statsmodels.nonparametric.kde import KDEUnivariate
-from sklearn.neighbors import KernelDensity
-from scipy.interpolate import interp1d
+
+import matplotlib.pyplot as plt
 from matplotlib.patches import Rectangle
 
-from datetime import datetime
+import MDAnalysis as mda 
+from MDAnalysis.analysis import distances
 
 import hdbscan
 
-import logging
+
 
 
 ###################### INITIATE LOGGING #####################
@@ -2069,13 +2063,13 @@ def cluster_coordinates(output_dir,coordinates_to_add, min_cluster_size, min_sam
     # Add noise points as a separate cluster
     clusters_ndx.append(noise_ndx)
     # Write clusters to file
-    write_clusters_to_file(clusters_ndx, coordinates, output_dir, "Clusters_of_coordinates_from_MI.txt")
+    write_clusters_to_file(clusters_ndx, coordinates, output_dir, "clusters_of_coordinates.txt")
     # Get resids in clusters and write to file
     name_coordinates_to_add = [coord.split('/')[-1].split('.')[0] for coord in coordinates_to_add]
     get_resids_in_clusters(clusters_ndx, coordinates, name_coordinates_to_add, "resids_in_clusters.txt", output_dir)
 
 
-############ Function to get states from the discretized array based on cluster labels ##############
+###################### Functions to manipulate states and get conformations ########################
 def split_discretized_array_by_clusters(discretized_array, cluster_labels):
     """
     Splits the discretized array into sub-arrays based on cluster labels.
@@ -2146,715 +2140,383 @@ def compute_distances_between_states(states):
         distances.append(dist_matrix)
     return distances
 
-def extract_indexes_from_labels(output_dir,clusters_data,unique_states_clusters,all_clusters_labels,times_indices) :
+def extract_frames_from_labels(output_dir, clusters_data, unique_states_clusters, all_clusters_labels, times_indices):
+    """
+    Extracts the original frame indices corresponding to each conformation
+    within each cluster, based on HDBSCAN labels of unique states.
+
+    Parameters:
+    -----------
+    output_dir : str
+        Directory where output .ndx files will be saved.
+    clusters_data : list of ndarray
+        Each element contains the discretized states for a cluster.
+    unique_states_clusters : list of ndarray
+        Unique states (rows) found in each cluster.
+    all_clusters_labels : list of ndarray
+        HDBSCAN labels of unique states in each cluster.
+    times_indices : list or ndarray
+        Mapping of indices to the original frame times.
+
+    Returns:
+    --------
+    frames_by_clusters : list of list of list of int
+        Frame indices for each conformation in each cluster.
+        Structure: cluster → conformation → list of frame indices.
+    """
     
     frames_by_clusters = []
+
     for i, cluster_labels in enumerate(all_clusters_labels):
-        output_file=open(f"{output_dir}conformations_clustering/frames_conformations_from_cluster_of_CV_{i}.ndx", 'w')
+        # Open output file for current cluster
+        output_file = open(f"{output_dir}conformations_clustering/frames_conformations_from_cluster_of_CV_{i}.ndx", 'w')
+
         unique_labels = np.unique(cluster_labels)
         nb_conformations = len(unique_labels)
+
+        # Prepare storage for frames belonging to each conformation
         frames_conformations = [[] for _ in range(nb_conformations)]
+
+        # Map each frame to its conformation based on the state
         for t in range(len(times_indices)):
-            state=clusters_data[i][t]
+            state = clusters_data[i][t]  # Discretized state at frame t
+
+            # Find which unique state this frame matches
             index_state = np.where((unique_states_clusters[i] == state).all(axis=1))[0][0]
+
+            # Get the HDBSCAN label for that unique state
             label_state = cluster_labels[index_state]
+
+            # Add corresponding time index
             frames_conformations[label_state].append(times_indices[t])
-        for j in range(nb_conformations-1):
+
+        # Write conformations (excluding noise) to file
+        for j in range(nb_conformations - 1):
             output_file.write(f"[ Conformation_{j} ]\n")
             indexes = frames_conformations[j]
             for k in range(0, len(indexes), 20):
-                chunk = indexes[k:k+20]
+                chunk = indexes[k:k + 20]
                 output_file.write(" ".join(map(str, chunk)) + "\n")
             output_file.write("\n")
 
+        # Write noise frames (assumed to be the last conformation)
         output_file.write("[ Noise ]\n")
         indexes_noise = frames_conformations[-1]
         for k in range(0, len(indexes_noise), 20):
-                chunk = indexes_noise[k:k+20]
-                output_file.write(" ".join(map(str, chunk)) + "\n")
+            chunk = indexes_noise[k:k + 20]
+            output_file.write(" ".join(map(str, chunk)) + "\n")
+
         output_file.close()
         frames_by_clusters.append(frames_conformations)
+
     return frames_by_clusters
 
-
 def split_trajectory_by_conformations(output_dir, u_traj, frames_by_clusters):
+    """
+    Splits the trajectory into separate files for each identified conformation
+    in each cluster, based on frame indices.
+
+    Parameters:
+    -----------
+    output_dir : str
+        Path to the base output directory.
+    u_traj : MDAnalysis Universe
+        MDAnalysis trajectory object containing atom and trajectory data.
+    frames_by_clusters : list of list of list of int
+        Nested list where each element represents a cluster,
+        containing sublists of frame indices for each conformation.
+        Structure: cluster → conformation → frame indices.
+    """
     
     logging.info("\nSplitting trajectory by conformations...")
-    
+
     for i, frames_conformations in enumerate(frames_by_clusters):
+        # Create directory for storing split trajectories from current cluster
+        cluster_output_dir = os.path.join(output_dir, f"conformations_clustering/trajectories_cluster_{i}")
+        if not os.path.exists(cluster_output_dir):
+            os.mkdir(cluster_output_dir)
+
         for j, frames in enumerate(frames_conformations):
             if len(frames) == 0:
-                continue  # Skip empty conformations
-            output_file = os.path.join(output_dir, f"conformations_clustering/cluster_{i}_conformation_{j}.xtc")
-            at=u_traj.atoms
-            at.write(output_file, frames=frames)
+                continue  # Skip empty conformations (e.g., noise or unused clusters)
+
+            # Define output file path for current conformation
+            output_file = os.path.join(
+                cluster_output_dir, f"cluster_{i}_conformation_{j}.xtc"
+            )
+
+            # Write selected frames to new trajectory file
+            atoms = u_traj.atoms
+            atoms.write(output_file, frames=frames)
+
+def get_most_probable_states(all_clusters_labels, unique_states_clusters, probabilities_unique_states_clusters):
+    """
+    For each cluster, identify the most probable state (discretized conformation)
+    within each sub-cluster (i.e., HDBSCAN-labeled conformation).
+
+    Parameters:
+    -----------
+    all_clusters_labels : list of ndarray
+        List of HDBSCAN label arrays, one per main cluster.
+        Each array gives the label for each unique state within that cluster.
+        Example shape: [n_main_clusters][n_states_in_cluster_i]
+
+    unique_states_clusters : list of ndarray
+        List of arrays containing all unique discretized states in each main cluster.
+        Example shape: [n_main_clusters][n_unique_states_in_cluster_i, n_coords]
+
+    probabilities_unique_states_clusters : list of ndarray
+        List of probability arrays corresponding to each unique state in each main cluster.
+        Example shape: [n_main_clusters][n_unique_states_in_cluster_i]
+
+    Returns:
+    --------
+    most_probable_states : list of list of ndarray
+        For each cluster, a list of the most probable state in each HDBSCAN sub-cluster (i.e., conformation).
+        Structure: [n_main_clusters][n_conformations_in_cluster_i]
+
+    proba_most_probable_states : list of list of float
+        Corresponding probabilities for each most probable state.
+        Structure mirrors `most_probable_states`.
+    """
+    most_probable_states = []
+    proba_most_probable_states = []
+
+    # Loop through each main cluster
+    for i, cluster_labels in enumerate(all_clusters_labels):
+        most_probable_states_cluster = []
+        proba_most_probable_states_cluster = []
+
+        # Get unique conformation labels in current cluster
+        unique_labels = np.unique(cluster_labels)
+
+        # Find indices of unique states that belong to each conformation label
+        ind_labels_cluster = [
+            np.where(cluster_labels == label)[0] for label in unique_labels
+        ]
+
+        # Loop through conformations (HDBSCAN sub-clusters)
+        for j, ind_labels in enumerate(ind_labels_cluster):
+            # Get the probabilities of the states in the current conformation
+            proba_cluster_conf_j = probabilities_unique_states_clusters[i][ind_labels]
+
+            # Identify the state with the highest probability
+            ind_max_proba = ind_labels[np.argmax(proba_cluster_conf_j)]
+
+            # Save the most probable state and its probability
+            most_probable_states_cluster.append(unique_states_clusters[i][ind_max_proba])
+            proba_most_probable_states_cluster.append(
+                probabilities_unique_states_clusters[i][ind_max_proba]
+            )
+
+            # Log the result for tracking
+            logging.info(
+                f"Most probable state in cluster {i}, conformation {j}: "
+                f"{unique_states_clusters[i][ind_max_proba]} "
+                f"with probability {probabilities_unique_states_clusters[i][ind_max_proba]}"
+            )
+
+        # Append results for the current cluster
+        most_probable_states.append(most_probable_states_cluster)
+        proba_most_probable_states.append(proba_most_probable_states_cluster)
+
+    return most_probable_states, proba_most_probable_states
+
+def get_coordinates_in_clusters(output_dir): 
+    """
+    Parses the 'clusters_of_coordinates.txt' file to extract coordinate groupings for each cluster.
+
+    This function assumes that the file contains sections like:
+    [ Cluster 0 ]
+    coord_1
+    coord_2
+    ...
+    [ Cluster 1 ]
+    ...
+
+    Parameters:
+    -----------
+    output_dir : str
+        Path to the output directory where 'clusters_of_coordinates.txt' is stored.
+
+    Returns:
+    --------
+    clusters_coords : list of list of str
+        Each element is a list of coordinate names (as strings) belonging to a cluster.
+        The outer list contains one entry per cluster.
+    """
+    file_clusters = open(output_dir + "clusters_of_coordinates.txt", 'r')
+    clusters_coords = []  # List to hold coordinates per cluster
+    current_cluster = []  # Temporarily store coordinates for current cluster
+
+    for line in file_clusters:
+        line = line.strip()
+
+        # Start of a new cluster section
+        if line.startswith("[ Cluster") or line.startswith("[ Noise"):
+            # Save the previous cluster if it had any coordinates
+            if len(current_cluster) > 0:
+                clusters_coords.append(current_cluster)
+                current_cluster = []  # Reset for the next cluster
+
+        elif line:
+            # Line contains a coordinate name, add to current cluster
+            current_cluster.append(line)
+
+    # Don't forget to append the last cluster if not empty
+    if len(current_cluster) > 0:
+        clusters_coords.append(current_cluster)
+
+    return clusters_coords
+
+def write_conformations_to_file(most_probable_states, proba_most_probable_states, proba_clusters, output_dir):
+    """
+    Writes the most probable conformational states of each cluster to a human-readable text file.
+
+    For each cluster (corresponding to a group of coordinates), this function writes:
+    - The cluster header.
+    - Each most probable conformation and its associated probabilities.
+    - The discretized state values (per coordinate) that define each conformation.
+
+    Parameters:
+    -----------
+    most_probable_states : list of list of ndarray
+        Each element corresponds to a cluster and contains the most probable states (as arrays) per conformation.
+
+    proba_most_probable_states : list of list of float
+        Probabilities of each most probable state in the corresponding conformation, per cluster.
+
+    proba_clusters : list of ndarray
+        Each element is an array containing the total probability of each conformation in the corresponding cluster.
+
+    output_dir : str
+        Directory where the output file ("conformations.txt") will be saved.
+    """
+    clusters_coords = get_coordinates_in_clusters(output_dir)  # Get coordinate names (CVs) associated with each cluster
+    logging.info("\nWriting conformations to file...")
+
+    # Open the output file for writing
+    with open(output_dir + "conformations.txt", 'w') as file_out:
+        # Loop over clusters
+        for i, cluster_states in enumerate(most_probable_states):
+            file_out.write(f"[ Cluster {i} ]\n")
+
+            # Loop over conformations within the cluster
+            for j, state in enumerate(cluster_states):
+                if j != 0:  # Optional: skip first index if it's reserved for noise or placeholder
+                    # Write conformation metadata
+                    file_out.write(f"Conformation {j-1} - Probability: {proba_clusters[i][j]:.5f}\n")
+                    file_out.write(f"Most probable state: {state}\n")
+                    file_out.write(f"Probability of the most probable state: {proba_most_probable_states[i][j]:.5f}\n")
+                    file_out.write("Discretized values:\n")
+
+                    # Write coordinate name and value
+                    for k, coord in enumerate(state):
+                        file_out.write(f"{clusters_coords[i][k]}: {coord}\n")
+                    file_out.write('\n')  # Blank line between conformations
+
+            file_out.write('\n')  # Blank line between clusters
 
 
+######################### Function to extract conformations from clusters ##########################
+def get_conformations_from_clusters(output_dir, u_traj, times_indices,
+                                     min_cluster_size_conformations, min_samples_conformations,
+                                     cluster_selection_epsilon_conformations, split_trajectory):
+    """
+    Extracts representative conformations from trajectory data based on hierarchical clustering.
+    
+    Parameters:
+    -----------
+    output_dir : str
+        Path to output directory containing clustering and discretization data.
+    u_traj : MDAnalysis.Universe
+        Trajectory universe for accessing conformational frames.
+    times_indices : ndarray
+        Mapping of trajectory time steps to frame indices.
+    min_cluster_size_conformations, min_samples_conformations, cluster_selection_epsilon_conformations : int or float
+        HDBSCAN clustering hyperparameters.
+    split_trajectory : bool
+        Whether to save separate trajectory files for each final cluster.
+    """
 
-def get_conformations_from_clusters(output_dir,u_traj, times_indices,min_cluster_size_conformations, min_samples_conformations,cluster_selection_epsilon_conformations,split_trajectory):
+    # Load top-level cluster assignments
     cluster_labels = np.load(os.path.join(output_dir, "analysis", "cluster_labels.npy"))
-    coordinates,X_cuts,Labels=load_data_discretization(output_dir + "selected_coordinates.txt")
+
+    # Load selected coordinates and the discretized representation
+    coordinates, X_cuts, Labels = load_data_discretization(output_dir + "selected_coordinates.txt")
     discretized_array = np.load(output_dir + "arrays_npy/discretized_array.npy")
 
     logging.info("\nExtracting conformations from clusters...")
+
+    # Split the discretized array based on top-level HDBSCAN clustering
     clusters_data = split_discretized_array_by_clusters(discretized_array, cluster_labels)
     logging.info(f"Found {len(clusters_data)} clusters based on HDBSCAN labels.")
+
+    # Extract unique conformational states and their probabilities within each cluster
     logging.info("Extracting unique states from clusters...")
-    unique_states_clusters,probalities_unique_states_clusters = get_unique_states_in_splitted_array(clusters_data)
+    unique_states_clusters, probabilities_unique_states_clusters = get_unique_states_in_splitted_array(clusters_data)
+
+    # Compute pairwise distances between unique states inside each cluster
     logging.info(f"Computing distances between unique states in each cluster...")
     distances_between_states = compute_distances_between_states(unique_states_clusters)
     
-    all_clusters_labels=[]
+    all_clusters_labels = []
     for i, dist_states in enumerate(distances_between_states):
         logging.info(f"Cluster {i}: Found {len(unique_states_clusters[i])} unique states.")    
-        clusterer = hdbscan.HDBSCAN(min_cluster_size_conformations, min_samples_conformations,cluster_selection_epsilon_conformations, metric='precomputed')
+
+        # Perform HDBSCAN clustering on the distance matrix of conformations
+        clusterer = hdbscan.HDBSCAN(
+            min_cluster_size=min_cluster_size_conformations,
+            min_samples=min_samples_conformations,
+            cluster_selection_epsilon=cluster_selection_epsilon_conformations,
+            metric='precomputed'
+        )
         cluster_labels = clusterer.fit_predict(dist_states)
-        logging.info(f"Cluster {i}: Found {len(np.unique(cluster_labels))} clusters based on distances between states.")
-        _ = plot_hdbscan_results(dist_states, cluster_labels, output_dir + 'conformations_clustering/', f"distances_between_states_cluster_{i}", label_data="Distance between states")
+
+        n_clusters = len(np.unique(cluster_labels)) - (1 if -1 in cluster_labels else 0)
+        logging.info(f"Cluster {i}: Found {n_clusters} clusters based on distances between states.")
+
+        # Plot and save the HDBSCAN results for this sub-cluster
+        _ = plot_hdbscan_results(
+            dist_states, cluster_labels,
+            output_dir + 'conformations_clustering/',
+            f"distances_between_states_cluster_{i}",
+            label_data="Distance between states"
+        )
         all_clusters_labels.append(cluster_labels)
     
+    # Compute probabilities for each conformation cluster (after second-level clustering)
+    proba_clusters = []
     for i, cluster_labels in enumerate(all_clusters_labels):
         unique_labels = np.unique(cluster_labels)
         proba_conformations = np.zeros(len(unique_labels), dtype=float)
+
         for j, label in enumerate(cluster_labels):
             ind_label = np.where(unique_labels == label)[0][0]
-            proba_conformations[ind_label] += probalities_unique_states_clusters[i][j]
+            proba_conformations[ind_label] += probabilities_unique_states_clusters[i][j]
+
         logging.info(f"Conformations in cluster {i}: {unique_labels}        -1 indicates noise")
         logging.info(f"Probabilities of conformations: {proba_conformations}")
-        logging.info("Total probability: %.5f"% np.sum(proba_conformations))
+        logging.info("Total probability: %.5f" % np.sum(proba_conformations))
+        proba_clusters.append(proba_conformations)
         
-    frames_by_clusters = extract_indexes_from_labels(output_dir,clusters_data,unique_states_clusters,all_clusters_labels,times_indices)    
-    if split_trajectory:
-        split_trajectory_by_conformations(output_dir, u_traj, frames_by_clusters)   
-
-    
-
-
-
-
-
-
-
-
-"""
-
-def get_positions_baricenters(u_traj,output_dir,selected_resids,indices_aa,important_atoms,coordinates_to_add,barycenter_coordinates_to_add):
-    times_indices=np.load(output_dir+'arrays_npy/times_indices.npy')
-    coordinates,X_cuts,Labels=load_data_discretization(output_dir+"selected_coordinates.txt")
-    ncoord=len(coordinates)
-    data_zero=open_data_coordinate(output_dir+"coordinates_data/"+coordinates[0]+".dat")
-    times_to_compare=data_zero[:,0]
-    nframes=len(times_to_compare)
-    if len(indices_aa) >= 2:
-        Positions_atoms_CA = np.load(output_dir+"arrays_npy/Positions_CA_atoms.npy")
-        Positions_atoms_C = np.load(output_dir+"arrays_npy/Positions_C_atoms.npy")
-        Positions_atoms_N = np.load(output_dir+"arrays_npy/Positions_N_atoms.npy")
-    positions_important_atoms = np.load(output_dir+"arrays_npy/positions_important_atoms.npy")
-
-    Positions_barycenters=np.zeros((ncoord,nframes,3))
-
-    name_coord_to_add=[]
-    for coord_file in coordinates_to_add:
-        name_coord_to_add.append(coord_file.split('/')[-1].split('.')[0])
-    resids_coord_to_add=[int(barycenter.split('_')[0]) for barycenter in barycenter_coordinates_to_add]
-    atoms_coord_to_add=[barycenter.split('_')[1] for barycenter in barycenter_coordinates_to_add]
-
-    logging.info("Computing barycenters...")
-    previous_progress = -1  # Initialize progress bar
-    for i in range(len(coordinates)):
-        previous_progress=plot_progress_bar(i,len(coordinates),previous_progress)
-        coord=coordinates[i]
-
-        if coord[:3]=='phi':
-            index_resid=int(coord[3:])
-            ind_pos=indices_aa.index(index_resid)
-            Positions_barycenters[i]=(Positions_atoms_C[ind_pos-1,:, :]+Positions_atoms_N[ind_pos,:, :]+Positions_atoms_CA[ind_pos , :, :]+Positions_atoms_C[ind_pos, :, :])/4
-        elif coord[:3]=='psi':
-            index_resid=int(coord[3:])
-            ind_pos=indices_aa.index(index_resid)
-            Positions_barycenters[i]=(Positions_atoms_N[ind_pos, :, :]+Positions_atoms_CA[ind_pos, :, :]+Positions_atoms_C[ind_pos , :, :]+Positions_atoms_N[ind_pos+1, :, :])/4
-        elif coord in name_coord_to_add :
-            index_coord=name_coord_to_add.index(coord)
-            atom_selection= u_traj.select_atoms(f"resid {resids_coord_to_add[index_coord]} and name {atoms_coord_to_add[index_coord]}")
-            for k, frame in enumerate(times_indices):
-                
-                u_traj.trajectory[frame]
-                Positions_barycenters[i, k, :] = atom_selection.positions
-        else :
-            resid1=int(coord.split('_')[0])
-            atom1=coord.split('_')[1]
-            resid2=int(coord.split('_')[2])
-            atom2=coord.split('_')[3]
-            index_term1=-1
-            index_term2=-1
-            index_CA1=-1
-            index_CA2=-1
-            if atom1 == 'CA':
-                index_CA1=indices_aa.index(resid1)
-            else :
-                index_resid=selected_resids.index(resid1)
-                ind_at=important_atoms[index_resid].index(atom1)
-                index_term1=int(np.sum([len(important_atoms[k]) for k in range(index_resid)])+ind_at)
-
-            if atom2 == 'CA':
-                index_CA2=indices_aa.index(resid2)
-            else :
-                index_resid=selected_resids.index(resid2)
-                ind_at=important_atoms[index_resid].index(atom2)
-                index_term2=int(np.sum([len(important_atoms[k]) for k in range(index_resid)])+ind_at)
-            
-            if index_term1 != -1 and index_term2 != -1:
-                Positions_barycenters[i]=(positions_important_atoms[index_term1,:,:]+positions_important_atoms[index_term2,:,:])/2
-            elif index_CA1 != -1 and index_term2 != -1:
-                Positions_barycenters[i]=(Positions_atoms_CA[index_CA1,:,:]+positions_important_atoms[index_term2,:,:])/2
-            elif index_term1 != -1 and index_CA2 != -1:
-                Positions_barycenters[i]=(positions_important_atoms[index_term1,:,:]+Positions_atoms_CA[index_CA2,:,:])/2
-            elif index_CA1 != -1 and index_CA2 != -1:
-                Positions_barycenters[i]=(Positions_atoms_CA[index_CA1,:,:]+Positions_atoms_CA[index_CA2,:,:])/2
-    plot_progress_bar(len(coordinates),len(coordinates),previous_progress)
-    logging.info("\nBarycenters computed.")
-    np.save(output_dir+"arrays_npy/Positions_barycenters.npy",Positions_barycenters)
-
-def get_avg_distances_barycenters(output_dir):
-    Positions_barycenters=np.load(output_dir+"arrays_npy/Positions_barycenters.npy")
-    ncoord,nframes,dim=Positions_barycenters.shape
-    avg_distances=np.zeros((ncoord,ncoord))
-    logging.info("Computing average distances...")
-    previous_progress = -1  # Initialize progress bar
-    for i in range(ncoord):
-        for j in range(i+1,ncoord):
-            previous_progress=plot_progress_bar(i*ncoord+j,ncoord*ncoord,previous_progress)
-            avg_distances[i,j]=np.mean(np.linalg.norm(Positions_barycenters[i,:,:]-Positions_barycenters[j,:,:],axis=1))
-            avg_distances[j,i]=avg_distances[i,j]
-    plot_progress_bar(ncoord*ncoord,ncoord*ncoord,previous_progress)
-    logging.info("\nAverage distances computed.")
-    np.save(output_dir+"analysis/avg_distances_barycenters.npy",avg_distances)
-
-
-
-def mutual_information(discretized_array,multiplicities,single_frequencies,double_frequencies):
-    nframes,ncoord=np.shape(discretized_array)
-    multiplicities=get_multiplicities(discretized_array)
-    MI=np.zeros((ncoord,ncoord),dtype=float)
-
-    index_freq_1=0
-    for i in range(ncoord):
-        for xi in range(multiplicities[i]):
-            index_freq_2=0
-            for j in range(ncoord):
-                for xj in range(multiplicities[j]):
-                    probab_xi=single_frequencies[index_freq_1]
-                    probab_xj=single_frequencies[index_freq_2]
-                    prob_xi_xj=double_frequencies[index_freq_1,index_freq_2]
-                    if prob_xi_xj>0:
-                        MI[i,j]+=prob_xi_xj*np.log(prob_xi_xj/(probab_xi*probab_xj))
-                    index_freq_2+=1
-            index_freq_1+=1
-    return MI
-
-
-
-            
-def plot_information(MI,output_dir,name_out):
-    plt.figure(figsize=(10, 6))
-    plt.imshow(MI, cmap='magma', interpolation='nearest')
-    plt.colorbar(label='Mutual Information')
-    plt.title('Mutual Information Matrix')
-    plt.xlabel('Coordinate Index')
-    plt.ylabel('Coordinate Index')
-    plt.savefig(output_dir+'information_plots/'+name_out+'.png', dpi=200)
-    plt.close()
-
-def plot_information_with_names(labels,MI,output_dir,name_out):
-    plt.figure(figsize=(14, 13))
-    fonts=min(50*7/len(labels),11)
-    plt.imshow(MI, cmap='magma', interpolation='nearest')
-    plt.colorbar(label='Mutual Information')
-    plt.title('Mutual Information Matrix')
-    plt.xticks(range(len(labels)), labels, rotation=90, fontsize=fonts)
-    plt.yticks(range(len(labels)), labels, fontsize=fonts)
-    plt.xlabel('Coordinate Index')
-    plt.ylabel('Coordinate Index')
-    plt.savefig(output_dir+'information_plots/'+name_out+'.png', dpi=200)
-    plt.close()
-
-def plot_MI_vs_distance(MI,output_dir,avg_distances_barycenters):
-    plt.figure(figsize=(10, 6))
-    plt.scatter(avg_distances_barycenters.flatten(), MI.flatten(),marker='x', color='blue', alpha=0.5)
-    plt.xlabel('Average Distance (A)')
-    plt.ylabel('Mutual Information')
-    plt.title('Mutual Information vs Average Distance')
-    plt.savefig(output_dir+'information_plots/MI_vs_distance_plot.png', dpi=200)
-    plt.close()
-
-def plot_MI_vs_distance_clusters(MI,output_dir,avg_distances_barycenters,clusters_ndx):
-    logging.info('\n')
-    logging.info("Plotting MI vs distance for clustered data...")
-    plt.figure(figsize=(10, 6))
-    logging.info("Plotting noise data...")
-    distance_noise=avg_distances_barycenters[np.ix_(clusters_ndx[-1], clusters_ndx[-1])]
-    MI_noise=MI[np.ix_(clusters_ndx[-1], clusters_ndx[-1])]
-    
-    plt.scatter(distance_noise.flatten(), MI_noise.flatten(),marker='x', color='grey', alpha=0.3,label='Noise')
-    
-    for i in range(len(clusters_ndx)-1):
-        logging.info(f"Plotting cluster {i} data...")
-        distance_i = avg_distances_barycenters[np.ix_(clusters_ndx[i], clusters_ndx[i])]
-        MI_i = MI[np.ix_(clusters_ndx[i], clusters_ndx[i])]
-        if len(clusters_ndx) > 2:
-            plt.scatter(distance_i.flatten(), MI_i.flatten(),marker='x', alpha=0.8,label=f'Cluster {i}',color=plt.cm.rainbow(i / (len(clusters_ndx)-2)))
-        else:
-            plt.scatter(distance_i.flatten(), MI_i.flatten(),marker='x', alpha=0.8,label=f'Cluster {i}',color='blue')
-    plt.xlabel('Average Distance (A)')
-    plt.ylabel('Mutual Information')
-    plt.title('Mutual Information vs Average Distance')
-    plt.legend()
-    plt.savefig(output_dir+'information_plots/MI_vs_distance_plot_clustered.png', dpi=200)
-    plt.close()
-
-def compute_running_avg_and_plot(distances, mi_values, label, color=None):
-    distances = distances[~np.eye(distances.shape[0], dtype=bool)].flatten()
-    mi_values = mi_values[~np.eye(mi_values.shape[0], dtype=bool)].flatten()
-    sorted_indices = np.argsort(distances)
-    distances = distances[sorted_indices]
-    mi_values = mi_values[sorted_indices]
-
-    window_size = max(1, len(distances) // 10)
-    running_avg = uniform_filter1d(mi_values, size=window_size, mode='nearest')
-    squared_diff = (mi_values - running_avg) ** 2
-    error_bars = np.sqrt(uniform_filter1d(squared_diff, size=window_size, mode='nearest'))
-
-    plt.plot(distances[:len(running_avg)], running_avg, label=label, color=color)
-    plt.fill_between(distances[:len(running_avg)], running_avg - error_bars, running_avg + error_bars, alpha=0.3, color=color)
-
-def plot_runningavg_MI_vs_distance_clusters(MI, output_dir, avg_distances_barycenters, clusters_ndx):
-    logging.info('\n')
-    logging.info("Plotting running average MI vs distance for clustered data...")
-    plt.figure(figsize=(10, 6))
-
-    
-
-    logging.info("Plotting noise data...")
-    compute_running_avg_and_plot(
-        avg_distances_barycenters[np.ix_(clusters_ndx[-1], clusters_ndx[-1])],
-        MI[np.ix_(clusters_ndx[-1], clusters_ndx[-1])],
-        label='Noise', color='grey'
+    # Extract the most probable states from each cluster 
+    logging.info("\nComputing most probable states in each cluster...")
+    most_probable_states, proba_most_probable_states = get_most_probable_states(
+        all_clusters_labels, unique_states_clusters, probabilities_unique_states_clusters
     )
 
-    for i, cluster in enumerate(clusters_ndx[:-1]):
-        logging.info(f"Plotting cluster {i} data...")
-        compute_running_avg_and_plot(
-            avg_distances_barycenters[np.ix_(cluster, cluster)],
-            MI[np.ix_(cluster, cluster)],
-            label=f'Cluster {i}',
-            color=plt.cm.rainbow(i / (len(clusters_ndx)-2))
-        )
+    # Write representative conformations to file
+    write_conformations_to_file(most_probable_states, proba_most_probable_states, proba_clusters, output_dir)
+    logging.info("Conformations written to file.")
 
-    plt.xlabel('Average Distance (A)')
-    plt.ylabel('Mutual Information')
-    plt.title('Running average of mutual Information vs Average Distance')
-    plt.legend()
-    plt.savefig(output_dir + 'information_plots/avg_MI_vs_distance_plot_clustered.png', dpi=200)
-    plt.close()
+    # Extract original frame indices from final conformation labels
+    frames_by_clusters = extract_frames_from_labels(
+        output_dir, clusters_data, unique_states_clusters, all_clusters_labels, times_indices
+    )
 
-                
-
-
-def get_mutual_information(output_dir):
-    logging.info("Computing mutual information...")
-    discretized_array=np.load(output_dir+"arrays_npy/discretized_array.npy")
-    single_frequencies=np.load(output_dir+'frequencies/frequencies_single.npy')
-    double_frequencies=np.load(output_dir+'frequencies/frequencies_double.npy')
-    avg_distances_barycenters=np.load(output_dir+"analysis/avg_distances_barycenters.npy")
-    multiplicities=get_multiplicities(discretized_array)
-    MI=mutual_information(discretized_array,multiplicities,single_frequencies,double_frequencies)
-    np.save(output_dir+'analysis/MI.npy', MI)
-    logging.info("Mutual information computed.")
-    plot_mutual_information(MI,output_dir,'MI_matrix')
-    plot_MI_vs_distance(MI,output_dir,avg_distances_barycenters)
-
-def get_entropy(output_dir):
-    logging.info("Computing entropy...")
-    discretized_array=np.load(output_dir+"arrays_npy/discretized_array.npy")
-    single_frequencies=np.load(output_dir+'frequencies/frequencies_single.npy')
-    multiplicities=get_multiplicities(discretized_array)
-    ncoord=len(multiplicities)
-    entropy=np.zeros((ncoord),dtype=float)
-    count_index=0
-    for i in range(ncoord):
-        for xi in range(multiplicities[i]):
-            probab_xi=single_frequencies[count_index]
-            count_index+=1
-            if probab_xi>0:
-                entropy[i]-=probab_xi*np.log(probab_xi)
-
-    np.save(output_dir+'analysis/entropy.npy', entropy)
-    logging.info("Entropy computed.")
-    
-    plt.scatter(range(len(entropy)), entropy, color='blue', alpha=0.5)
-    plt.xlabel('Index coordinate')
-    plt.ylabel('Entropy')
-    plt.title('Entropy by Coordinate')
-    plt.savefig(output_dir+'analysis/entropy_by_coordinate.png', dpi=200)
-    plt.close()
-
-def yacare_clusterization(output_dir,name_cluster_dir,step_to_perform,number_of_coords,distance_matrix,min_size_cluster,function_for_ratio,threshold_variable,amount_of_noise,percentage_moving_square):
-    variables=yacare.Variables()
-    variables.project_name = name_cluster_dir
-    variables.save_images = True
-    variables.distance_matrix=distance_matrix
-    yacare.perform_first_reordering(variables, percentage_moving_square = percentage_moving_square)
-    yacare.find_optimal_cutoff(variables, minimal_size_cluster = min_size_cluster,function_for_ratio=function_for_ratio)
-    if step_to_perform != 'all' :
-        yacare.choose_if_we_reorder_again(variables)
-        yacare.change_proposed_cutoff(variables)
-    else :
-        yacare.choose_if_we_reorder_again(variables,indices=np.arange(0,number_of_coords))
-    yacare.find_final_clusters(variables)
-    logging.info("Number of clusters before merging: "+str(variables.number_clusters))
-    if variables.number_clusters>1 :
-        yacare.compare_clusters(variables, display_stddev = True)
-        yacare.propose_list_for_concatenating_clusters(variables, threshold_variable = threshold_variable, choice_merging_clusters=3)
-        yacare.concatenate_clusters(variables)
-    yacare.expand_clusters(variables, amount_of_noise = amount_of_noise)
-    yacare.write_indices(variables)
-
-    os.system('mkdir -p '+output_dir+variables.project_name)
-    os.system('mv '+variables.project_name+'* '+output_dir+variables.project_name)
-
-def get_cluster_indexes_from_yacare(output_dir, cluster_dir):
-    logging.info("Extracting cluster indexes from Yacare output...")
-    data_yacare, lines_yacare = open_file(output_dir + cluster_dir + '/' + cluster_dir + '_Clustering_Clusters.ndx')
-    clusters_ndx = []
-    cluster_i = []
-
-    for l in range(len(lines_yacare)):
-        line = lines_yacare[l]
-        if line[0] == '[':
-            if len(cluster_i) >= 1:
-                clusters_ndx.append(cluster_i)
-            cluster_i = []
-            continue
-        else:
-            for i in range(len(data_yacare[l])):
-                index_coord = int(data_yacare[l][i]) - 1
-                cluster_i.append(index_coord)
-
-    if len(cluster_i) >= 1:
-        clusters_ndx.append(cluster_i)
-
-    logging.info("Cluster indexes extracted.")
-    for i in range(len(clusters_ndx)):
-        clusters_ndx[i] = sorted(clusters_ndx[i])
-    return clusters_ndx
-
-def get_representative_structure_from_yacare(output_dir, cluster_dir):
-
-    logging.info("Extracting cluster indexes from Yacare output...")
-    data_yacare, lines_yacare = open_file(output_dir + cluster_dir + '/' + cluster_dir + '_Clustering_RepresentativeStructures.ndx')
-    Representative_structures= []
-    cluster_i = []
-
-    for l in range(len(lines_yacare)):
-        if len(data_yacare[l])==1:
-            Representative_structures.append(int(data_yacare[l][0])-1)
-    logging.info("Cluster indexes extracted.")
-    return Representative_structures
-
-
-def write_clusters_to_file(clusters_ndx, coordinates, output_dir, name_output_cluster):
-
-    logging.info("Writing clusters to file...")
-    with open(output_dir + name_output_cluster, 'w') as file_out:
-        for i, cluster_i in enumerate(clusters_ndx):
-            file_out.write('\n\n')
-            if i != len(clusters_ndx) - 1:
-                file_out.write(f'[ Cluster{i} ]\n')
-            else:
-                file_out.write(f'[ Noise ]\n')
-            for index_coord in cluster_i:
-                file_out.write(f'{coordinates[index_coord]} \n')
-
-    logging.info("Clusters written to file.")
-     
-
-def convert_clusters_yacare_to_real_coordinates(output,output_dir,cluster_dir,name_output_cluster):
-    logging.info("Converting clusters to real coordinates...")
-    coordinates,X_cuts,Labels=load_data_discretization(output)
-    
-    clusters_ndx=get_cluster_indexes_from_yacare(output_dir,cluster_dir)
-    write_clusters_to_file(clusters_ndx, coordinates, output_dir, name_output_cluster)
-    return clusters_ndx,coordinates
-
-
-
-def MI_map_for_clusters(coordinates,MI,clusters_ndx,output_dir):
-    
-    if os.path.exists(f'{output_dir}information_plots/Maps_by_cluster'):
-        os.system(f'rm -r {output_dir}information_plots/Maps_by_cluster')
-    os.makedirs(f'{output_dir}information_plots/Maps_by_cluster', exist_ok=True)
-    logging.info('\n')
-    logging.info("Creating MI maps for clusters...")
-    for i in range(len(clusters_ndx)-1):
-        logging.info(f"Creating MI map for cluster {i}...")
-        cluster_i=clusters_ndx[i]
-        cluster_i_MI=np.zeros((len(cluster_i),len(cluster_i)),dtype=float)
-        names_cluster_i=[coordinates[cluster_i[j]] for j in range(len(cluster_i))]
-        for j in range(len(cluster_i)):
-            for k in range(len(cluster_i)):
-                index_coord_1=cluster_i[j]
-                index_coord_2=cluster_i[k]
-                if j!=k :
-                    cluster_i_MI[j,k]=MI[index_coord_1,index_coord_2]
-        max_MI=np.max(cluster_i_MI)
-        for j in range(len(cluster_i)):
-            cluster_i_MI[j,j]=max_MI
-        
-        plot_mutual_information_with_names(names_cluster_i,cluster_i_MI,output_dir,f'Maps_by_cluster/Cluster_{i}_MI_map')
-
-def MI_map_reordered_by_clusters(coordinates,MI,clusters_ndx,output_dir):
-    logging.info('\n')
-    logging.info("Creating the reordered MI map from clusters...")
-    reordered_MI=np.zeros((len(coordinates),len(coordinates)),dtype=float)
-    reordered_indexes = [index for cluster in clusters_ndx for index in cluster]
-    for i in range(len(reordered_indexes)):
-        for j in range(len(reordered_indexes)):
-            reordered_MI[i,j]=MI[reordered_indexes[i],reordered_indexes[j]]
-    plot_mutual_information(reordered_MI,output_dir,'MI_matrix_reordered')
-
-def get_times_cluster_states(cluster_i_states,output_dir,selected_states,times,ind_cluster):
-    cluster_i_states=cluster_i_states.astype(str)
-    file_indices=open(output_dir+f'Clusterize_MI/clusters_states/times_indices_cluster{ind_cluster}.ndx','w')
-    file_representative=open(output_dir+f'times_indices_clusters_states_some_structures.txt','a')
-    for j in range(len(selected_states)):
-        file_indices.write(f'[ State{j} ] \n')
-        file_representative.write(f'[ Cluster{ind_cluster}_State{j} ] \n')
-        indexes_not_X=np.where(np.array(selected_states[j])!='X')[0]
-        cluster_i_states_not_X = cluster_i_states[:, indexes_not_X]
-        selected_states_not_X = np.array(selected_states)[j,indexes_not_X] 
-        indices_state=np.where(np.all(cluster_i_states_not_X==selected_states_not_X,axis=1))[0]
-        indices_from_times=times[indices_state]
-        indices_from_times=indices_from_times.astype(int)
-        for idx, time in enumerate(indices_from_times):
-            file_indices.write(f"{time} ")
-            if (idx + 1) % 15 == 0:
-                file_indices.write("\n")
-        file_indices.write("\n\n")
-        random_indices = np.random.choice(indices_from_times, size=min(10, len(indices_from_times)), replace=False)
-        random_indices.sort()
-        for random_index in random_indices:
-            file_representative.write(f"{random_index}\n")
-        file_representative.write("\n\n")
-    file_indices.close()
-        
-
-def get_states_from_clusters(clusters_ndx,output_dir,times_indices,number_of_states_to_show):
-    if os.path.exists(f'{output_dir}Clusterize_MI/clusters_states') :
-        os.system(f'rm -r {output_dir}Clusterize_MI/clusters_states')
-    os.system(f'mkdir -p {output_dir}Clusterize_MI/clusters_states')
-
-
-    if os.path.exists(f'{output_dir}times_indices_clusters_states_some_structures.txt'):
-        os.system(f'rm {output_dir}times_indices_clusters_states_some_structures.txt')
-
-    discretized_array=np.load(output_dir+"arrays_npy/discretized_array.npy")
-    nframes,ncoord=np.shape(discretized_array)
-    file_out=open(output_dir+'clusters_states.txt','w')
-    logging.info('\n')
-    logging.info("Getting states from clusters...")
-    for i in range(len(clusters_ndx)-1):
-        logging.info(f"Getting states from cluster {i}...")
-        ind_cluster=0
-        file_out.write(f'Cluster {i} states:\n')
-        cluster_i=clusters_ndx[i]
-        cluster_i_states=np.zeros((nframes,len(cluster_i)),dtype=int)
-        for j in range(len(cluster_i)):
-            index_coord=cluster_i[j]
-            cluster_i_states[:,j]=discretized_array[:,index_coord]
-        np.save(output_dir+f'Clusterize_MI/clusters_states/cluster_{i}_states.npy',cluster_i_states)
-        
-        unique_states,count_unique_states=np.unique(cluster_i_states,axis=0,return_counts=True)
-        
-        probabilities=count_unique_states/nframes
-        
-        unique_merged_states_with_probabilities = sorted(
-            zip(unique_states, probabilities),
-            key=lambda x: x[1],
-            reverse=True
-        )
-        sum_probababilities = 0
-        selected_states=[]
-        for k in range (min(number_of_states_to_show,len(unique_merged_states_with_probabilities))):
-            state, probability = unique_merged_states_with_probabilities[k]
-            state = state.astype(str)
-            
-            sum_probababilities += probability
-            file_out.write(f"State: ")
-            file_out.write(', '.join(state))
-            file_out.write(f"   Probability: {probability:.6f} \n")
-            selected_states.append(state)
-        file_out.write(f"Sum of probabilities: {sum_probababilities:.6f} \n")
-        file_out.write('\n\n')
-        get_times_cluster_states(cluster_i_states,output_dir,selected_states,times_indices,i)
-    
-    file_out.close()
-    
-
-def clusterize_MI(output_dir,coordinates_to_add,barycenter_coordinates_to_add,step_to_perform,number_of_states_to_show):
-    times_indices=np.load(output_dir+"arrays_npy/times_indices.npy")
-    name_coordinates_to_add=[coord.split('/')[-1].split('.')[0] for coord in coordinates_to_add]
-    avg_distances_barycenters=np.load(output_dir+"analysis/avg_distances_barycenters.npy")
-    MI=np.load(output_dir+'frequencies/Couplings_between_residues.npy') #'analysis/MI.npy')
-    MI_no_diag=np.copy(MI)
-    for i in range (len(MI_no_diag)):
-        MI_no_diag[i,i]=0
-    ncoord=len(MI)
-    max_MI=np.max(MI_no_diag)
-    distance_MI=np.zeros((len(MI),len(MI)),dtype=float)
-    for i in range(len(MI)):
-        for j in range(len(MI)):
-            distance_MI[i,j]=-MI_no_diag[i,j]+max_MI
-        distance_MI[i,i]=0
-
-    min_size_cluster,function_for_ratio,threshold_variable,amount_of_noise,percentage_moving_square=0.0001,2,1.0,0.3,1
-    yacare_clusterization(output_dir,'Clusterize_MI',step_to_perform,ncoord,distance_MI, min_size_cluster,function_for_ratio,threshold_variable,amount_of_noise,percentage_moving_square)
-    clusters_ndx,coordinates=convert_clusters_yacare_to_real_coordinates(output_dir+"selected_coordinates.txt",output_dir,'Clusterize_MI','Clusters_of_coordinates_from_MI.txt')
-    os.system(f'cp {output_dir}Clusterize_MI/Clusterize_MI_Yacare_11-Matrix-WithNoise.png {output_dir}information_plots/')
-    os.system(f'mv {output_dir}distance_MI.csv {output_dir}Clusterize_MI/')
-    get_resids_in_clusters(clusters_ndx,coordinates,name_coordinates_to_add,barycenter_coordinates_to_add,'resids_in_clusters_from_MI.txt',output_dir)
-    plot_MI_vs_distance_clusters(MI,output_dir,avg_distances_barycenters,clusters_ndx)
-    plot_runningavg_MI_vs_distance_clusters(MI,output_dir,avg_distances_barycenters,clusters_ndx)
-    MI_map_reordered_by_clusters(coordinates,MI,clusters_ndx,output_dir)
-    MI_map_for_clusters(coordinates,MI,clusters_ndx,output_dir)
-    get_states_from_clusters(clusters_ndx,output_dir,times_indices,number_of_states_to_show)
-
-def get_euclidian_distance_between_conformations(array_cluster):
-
-
-    logging.info("Computing Euclidean distance matrix...")
-    distance_matrix = squareform(pdist(array_cluster, metric='euclidean'))
-    logging.info("Euclidean distance matrix computed.")
-    return distance_matrix
-
-def get_representative_frames(unique_states, representative_structures, times_indices, array_cluster):
-
-    frames_representative_structures = []
-    for i in range(len(representative_structures)):
-        frame_index = np.where((array_cluster == unique_states[representative_structures[i]]).all(axis=1))[0][0]
-        frames_representative_structures.append(times_indices[frame_index])
-    return frames_representative_structures
-
-def calculate_conformation_probabilities(clusters_ndx, probabilities):
-
-    conformation_probabilities = []
-    for cluster in clusters_ndx:
-        probability = sum(probabilities[ind - 1] for ind in cluster)
-        conformation_probabilities.append(probability)
-    return conformation_probabilities
-
-def write_conformation_to_file(file_out, conformation_index, representative_structure, frame, probability, coordinates, cluster_coordinates):
-
-    file_out.write(f"Conformation {conformation_index}:\n")
-    file_out.write(f"Representative structure: {', '.join(representative_structure)}\n")
-    file_out.write(f"Representative structure frame: {frame}\n")
-    file_out.write(f"Probability: {probability:.6f}\n")
-    file_out.write("Coordinates:\n")
-    for coord, value in zip(cluster_coordinates, representative_structure):
-        file_out.write(f"{coord}: {value}\n")
-    file_out.write("\n")
-
-def get_frames_in_conformation(unique_states, clusters_ndx, times_indices, array_cluster,output_dir,ind_cluster):
-
-    frames_in_conformation = []
-    logging.info(len(clusters_ndx))
-    for i in range(len(clusters_ndx)):
-        frames_in_cluster_i = []
-        for j in range(len(clusters_ndx[i])):
-            state= clusters_ndx[i][j]
-            frame_indices = np.where((array_cluster == unique_states[state]).all(axis=1))[0]
-            frames_in_cluster_i+=list(times_indices[frame_indices])
-        frames_in_cluster_i.sort()
-        frames_in_conformation.append(frames_in_cluster_i)
-    file_conf_out=open(output_dir+'Get_conformations_cluster'+str(ind_cluster)+'/cluster'+str(ind_cluster)+'_conformations.ndx','w')
-    for i in range(len(frames_in_conformation)-1):
-        file_conf_out.write(f'[ Conformation{i} ] \n')
-        for j in range(len(frames_in_conformation[i])):
-            file_conf_out.write(f"{frames_in_conformation[i][j]} ")
-            if (j + 1) % 15 == 0:
-                file_conf_out.write("\n")
-        file_conf_out.write("\n\n")
-    file_conf_out.write(f'[ Noise ] \n')
-    for j in range(len(frames_in_conformation[-1])):
-        file_conf_out.write(f"{frames_in_conformation[-1][j]} ")
-        if (j + 1) % 15 == 0:
-            file_conf_out.write("\n")
-    file_conf_out.close()
-    
-
-def get_proba_conformation(unique_states, probabilities, output_dir, cluster_dir, ind_cluster, clusters_coordinates_ndx, coordinates, times_indices, array_cluster):
-
-    clusters_ndx = get_cluster_indexes_from_yacare(output_dir, cluster_dir)
-    representative_structures = get_representative_structure_from_yacare(output_dir, cluster_dir)
-    frames_representative_structures = get_representative_frames(unique_states, representative_structures, times_indices, array_cluster)
-    conformation_probabilities = calculate_conformation_probabilities(clusters_ndx, probabilities)
-    get_frames_in_conformation(unique_states, clusters_ndx, times_indices, array_cluster,output_dir, ind_cluster)
-
-    cluster_coordinates = [coordinates[ndx] for ndx in clusters_coordinates_ndx[ind_cluster]]
-    file_out = open(output_dir + 'clusters_conformations.txt', 'a')
-    file_out.write(f"\n#######################################################################\n")
-    file_out.write(f"Cluster {ind_cluster} conformations:\n\n")
-
-    total_probabilities = 0
-    for i, (probability, frame, representative_structure) in enumerate(zip(conformation_probabilities[:-1], frames_representative_structures, unique_states[representative_structures])):
-        representative_structure = representative_structure.astype(str)
-        write_conformation_to_file(file_out, i, representative_structure, frame, probability, coordinates, cluster_coordinates)
-        total_probabilities += probability
-
-    file_out.write(f"Total probability: {total_probabilities:.6f}\n\n")
-    file_out.close()
-
-
-def cluster_states(output_dir):
-    data_clusters,_=open_file(output_dir+'clusters_states.txt')
-    Indexes_of_clusters=[]
-    file_out=open(output_dir+'clusters_conformations.txt','w')
-    file_out.write('Clusters conformations:\n\n')
-    file_out.close()
-    clusters_coordinates_ndx,coordinates=convert_clusters_yacare_to_real_coordinates(output_dir+"selected_coordinates.txt",output_dir,'Clusterize_MI','Clusters_of_coordinates_from_MI.txt')
-    times_indices=np.load(output_dir+"arrays_npy/times_indices.npy")
-    for i in range(len(data_clusters)):
-        if len(data_clusters[i])>1 and data_clusters[i][0]=='Cluster':
-            Indexes_of_clusters.append(int(data_clusters[i][1]))
-    for i in range(len(Indexes_of_clusters)):
-
-        logging.info('\n')
-        logging.info(f"Getting conformations from cluster {i}...")
-        Ind_i=Indexes_of_clusters[i]
-        array_cluster=np.load(output_dir+f'Clusterize_MI/clusters_states/cluster_{Ind_i}_states.npy')
-        unique_states,count_unique_states=np.unique(array_cluster,axis=0,return_counts=True)
-        if len(unique_states)>100:
-            probabilities=count_unique_states/len(array_cluster)
-            distance_matrix=get_euclidian_distance_between_conformations(unique_states)
-            logging.info(f"Doing clusterization for cluster {i}...")
-            logging.info(Ind_i)
-            min_size_cluster,function_for_ratio,threshold_variable,amount_of_noise,percentage_moving_square=1,1,1.0,1.0,2
-            yacare_clusterization(output_dir,'Get_conformations_cluster'+str(Ind_i),'Get_conformations_cluster'+str(Ind_i),len(distance_matrix),distance_matrix,min_size_cluster,function_for_ratio,threshold_variable,amount_of_noise,percentage_moving_square)
-            get_proba_conformation(unique_states,probabilities,output_dir,'Get_conformations_cluster'+str(Ind_i),Ind_i,clusters_coordinates_ndx,coordinates,times_indices,array_cluster)
-        else :
-            logging.info("Not enough conformations to clusterize.")
-            file_out=open(output_dir+'clusters_conformations.txt','a')
-            file_out.write(f'\n####################################################################### \n')
-            file_out.write(f'Cluster {i} states:\n')
-            for j in range(min(10,len(unique_states))):
-                state_j=unique_states[j]
-                state_j = state_j.astype(str)
-                file_out.write(f"State: ")
-                file_out.write(str(state_j))
-                file_out.write(f"   Probability: {count_unique_states[j]/len(array_cluster):.6f} \n")
-            file_out.write('\n\n')
-            file_out.close()
-    file_out.close()
-
-"""
+    # Optionally split trajectory files for each conformation cluster
+    if split_trajectory:
+        split_trajectory_by_conformations(output_dir, u_traj, frames_by_clusters)
 
 
