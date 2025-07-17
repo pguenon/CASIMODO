@@ -8,7 +8,6 @@ set -e  # Exit immediately if any command fails
 # Options:
 #   all (default) — run the full pipeline
 #   discretize_coordinates — discretize the coordinates
-#   get_frequencies — compute single and double frequencies
 #   cluster_coordinates — cluster based on mutual information
 #   get_conformations — get the conformations from the clustered coordinates
 
@@ -75,6 +74,7 @@ min_samples_conformations=100
 # Epsilon for cluster selection in conformations extraction
 cluster_selection_epsilon_conformations=0.0
 
+cutoff_proba_conformations=0.01  # Probability cutoff for conformations extraction
 
 ##############################################
 #           OPTIONAL COORDINATES             #
@@ -123,6 +123,7 @@ python CASIMODO_utils/run_CASIMODO.py \
   --min_samples_conformations "${min_samples_conformations}" \
   --cluster_selection_epsilon_conformations "${cluster_selection_epsilon_conformations}" \
   ${split_trajectory_flag} \
+  --cutoff_proba_conformations "${cutoff_proba_conformations}" \
   --coordinates_to_add "${coordinates_to_add[@]}" \
   --type_coordinates_to_add "${type_coordinates_to_add[@]}" \
   --residues_coordinates_to_add "${residues_coordinates_to_add[@]}" \

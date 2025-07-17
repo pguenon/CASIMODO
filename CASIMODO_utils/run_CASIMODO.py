@@ -37,11 +37,14 @@ def parse_arguments():
     parser.add_argument('--min_samples_conformations', type=int, default=40, help='Minimum samples for conformations extraction')
     parser.add_argument('--cluster_selection_epsilon_conformations', type=float, default=0.0, help='Epsilon for cluster selection in conformations extraction')
 
+    parser.add_argument('--cutoff_proba_conformations', type=float, default=0.001, help='Probability cutoff for conformations extraction')
     parser.add_argument('--split_trajectory', default=True, action=argparse.BooleanOptionalAction)
 
     parser.add_argument('--coordinates_to_add', nargs='*', default=[], help='List of additional coordinate files')
     parser.add_argument('--type_coordinates_to_add', nargs='*', default=[], help='List of coordinate types (same order)')
     parser.add_argument('--residues_coordinates_to_add', nargs='*', default=[], help='List of residues to consider for additional coordinates (e.g., 161_162)')
+
+
 
     return parser.parse_args()
 
@@ -75,6 +78,7 @@ min_cluster_size_conformations = args.min_cluster_size_conformations
 min_samples_conformations = args.min_samples_conformations
 cluster_selection_epsilon_conformations = args.cluster_selection_epsilon_conformations
 
+cutoff_proba_conformations = args.cutoff_proba_conformations
 split_trajectory = args.split_trajectory
 
 coordinates_to_add = args.coordinates_to_add
@@ -131,8 +135,8 @@ print_inputs(
     cutoff_distance, delta_resid, proba_cutoff,
     min_cluster_size_coordinates, min_samples_coordinates, cluster_selection_epsilon_coordinates,
     min_cluster_size_conformations, min_samples_conformations, cluster_selection_epsilon_conformations,
-    split_trajectory,
-    coordinates_to_add, type_coordinates_to_add
+    split_trajectory, cutoff_proba_conformations,
+    coordinates_to_add, type_coordinates_to_add,residues_coordinates_to_add
 )
 
 
@@ -191,13 +195,7 @@ if step_to_perform in ['all', 'discretize_coordinates']:
 
     get_discretized_array(output_dir)
 
-#######################################
-#    COMPUTING FREQUENCIES       #
-#######################################
-
-if step_to_perform in ['all', 'get_frequencies']:
-    get_frequencies(output_dir)
-
+    compute_information(output_dir)
 
 #######################################
 #           CLUSTERING STEP           #
@@ -213,7 +211,7 @@ if step_to_perform in ['all', 'get_conformations']:
     get_conformations_from_clusters(
     output_dir,u_traj, times_indices,
     min_cluster_size_conformations, min_samples_conformations, cluster_selection_epsilon_conformations,
-    split_trajectory
+    split_trajectory, cutoff_proba_conformations, trajfile
     )
 
 print_ending_message(output_dir, step_to_perform)

@@ -1,4 +1,5 @@
 import os
+import shutil
 import logging
 from datetime import datetime
 
@@ -73,8 +74,8 @@ def print_inputs(
     cutoff_distance, delta_resid, proba_cutoff,
     min_cluster_size_coordinates, min_samples_coordinates, cluster_selection_epsilon_coordinates,
     min_cluster_size_conformations, min_samples_conformations, cluster_selection_epsilon_conformations,
-    split_trajectory,
-    coordinates_to_add, type_coordinates_to_add):
+    split_trajectory, cutoff_proba_conformations,
+    coordinates_to_add, type_coordinates_to_add,residues_coordinates_to_add):
     """
     Prints the input parameters to the log file.
 
@@ -97,8 +98,10 @@ def print_inputs(
     - min_samples_conformations (int): Minimum samples for conformation clustering.
     - cluster_selection_epsilon_conformations (float): Epsilon for cluster selection in conformation clustering.
     - split_trajectory (bool): Whether to split the trajectory into blocks.
+    - cutoff_proba_conformations (float): Probability cutoff for conformation extraction.
     - coordinates_to_add (list): List of additional coordinate files to include.
     - type_coordinates_to_add (list): List of types for the additional coordinates.
+    - residues_coordinates_to_add (list): List of residues to consider for additional coordinates.
 
     Returns:
     - None
@@ -123,8 +126,11 @@ def print_inputs(
     logging.info("Minimum samples for conformations: %d", min_samples_conformations)
     logging.info("Cluster selection epsilon for conformations: %.2f", cluster_selection_epsilon_conformations)
     logging.info("Split trajectory: %s", split_trajectory)
+    logging.info("Cutoff probability for conformations: %.5f", cutoff_proba_conformations)
     logging.info("Additional coordinates to add: %s", coordinates_to_add)
     logging.info("Types of additional coordinates: %s", type_coordinates_to_add)
+    logging.info("Residues for additional coordinates: %s", residues_coordinates_to_add)
+    
 
 
 ####################### PRINT ENDING MESSAGE #####################
@@ -1791,7 +1797,7 @@ def mutual_information(discretized_array, multiplicities, single_frequencies, do
 
                     # Apply mutual information formula only if valid
                     if p_xi_xj > epsilon and p_xj > epsilon:
-                        MI[i, j] += p_xi_xj * np.log2(p_xi_xj / (p_xi * p_xj))  # in bits
+                        MI[i, j] += p_xi_xj * np.log(p_xi_xj / (p_xi * p_xj))  # in bits
 
     return MI
 
@@ -1892,6 +1898,15 @@ def get_variation_information(output_dir):
     for i in range(ncoord):
         for j in range(ncoord):
             VI[i, j] = entropy[i] + entropy[j] - 2 * MI[i, j]
+    # Ensure VI is non-negative (can happen if MI is too high)
+    min_VI = np.min(VI)
+    if min_VI < 0:
+        VI -= min_VI  # Shift to make minimum zero
+
+    # Ensure the VI matrix is symmetric
+    VI = (VI + VI.T) / 2
+    # Ensure diagonal elements are zero (no self-information)
+    np.fill_diagonal(VI, 0)
 
     # Save the VI matrix to a file
     np.save(os.path.join(output_dir, "analysis", "VI.npy"), VI)
@@ -1900,6 +1915,7 @@ def get_variation_information(output_dir):
     plot_information(VI, output_dir + 'information_plots/', "VI_matrix", label_data="Variation Information")
 
     logging.info("Variation information computed.")
+
 
 
 ############# Function to plot hdbscan results ##########################
@@ -1934,7 +1950,7 @@ def plot_hdbscan_results(dist_matrix,cluster_labels, output_dir, output_name, la
         sub_mi = dist_matrix[np.ix_(indices, indices)]
         mi_sums = sub_mi.sum(axis=1)
         order = indices[np.argsort(mi_sums)]  # descending
-        sorted_indices.extend(order)
+        sorted_indices.extend(indices)
 
     # Add noise at the end
     noise_indices = np.where(cluster_labels == -1)[0]
@@ -2009,6 +2025,30 @@ def get_resids_in_clusters(clusters_ndx,coordinates,name_coordinates_to_add,resi
     file_out.close()
 
 
+############ Function to compute information metrics and save results ##############
+def compute_information(output_dir):
+    """
+    Computes mutual information, entropy, and variation information for the discretized coordinates.
+
+    This function loads the discretized data, computes the necessary information metrics,
+    and saves the results to disk. It also plots the mutual information matrix.
+
+    Parameters:
+    -----------
+    output_dir : str
+        Path to the directory containing the discretized data.
+
+    Returns:
+    --------
+    None. The computed metrics are saved to disk.
+    """
+    
+    get_frequencies(output_dir)
+    get_mutual_information(output_dir)
+    get_entropy(output_dir)
+    get_variation_information(output_dir)
+
+
 ############ Function to cluster coordinates based on mutual information distance, using hdbscan ##############
 def cluster_coordinates(output_dir,coordinates_to_add,residues_coordinates_to_add, min_cluster_size, min_samples,cluster_selection_epsilon):
     """
@@ -2030,9 +2070,6 @@ def cluster_coordinates(output_dir,coordinates_to_add,residues_coordinates_to_ad
     --------
     None. The cluster labels are saved to disk.
     """
-    get_mutual_information(output_dir)
-    get_entropy(output_dir)
-    get_variation_information(output_dir)
 
     logging.info("\nClustering coordinates using HDBSCAN...")
 
@@ -2137,11 +2174,11 @@ def compute_distances_between_states(states):
     """
     distances = []
     for state in states:
-        dist_matrix = np.linalg.norm(state[:, np.newaxis] - state, axis=2)
+        dist_matrix = squareform(pdist(state, metric='euclidean'))
         distances.append(dist_matrix)
     return distances
 
-def extract_frames_from_labels(output_dir, clusters_data, unique_states_clusters, all_clusters_labels, times_indices):
+def extract_frames_from_labels(output_dir, clusters_data, unique_states_clusters, all_clusters_labels, times_indices, proba_clusters, cutoff_proba_conformations):
     """
     Extracts the original frame indices corresponding to each conformation
     within each cluster, based on HDBSCAN labels of unique states.
@@ -2186,33 +2223,29 @@ def extract_frames_from_labels(output_dir, clusters_data, unique_states_clusters
             index_state = np.where((unique_states_clusters[i] == state).all(axis=1))[0][0]
 
             # Get the HDBSCAN label for that unique state
-            label_state = cluster_labels[index_state]
+            label_index = list(unique_labels).index(cluster_labels[index_state])
 
             # Add corresponding time index
-            frames_conformations[label_state].append(times_indices[t])
+            frames_conformations[label_index].append(times_indices[t])
 
         # Write conformations (excluding noise) to file
-        for j in range(nb_conformations - 1):
-            output_file.write(f"[ Conformation_{j} ]\n")
+        for j in range(nb_conformations):
+            proba_conformation= proba_clusters[i][j]
+            if unique_labels[j] == -1 or proba_conformation < cutoff_proba_conformations or len(frames_conformations[j]) == 0:
+                continue
+            output_file.write(f"[ Conformation_{unique_labels[j]} ]\n")
             indexes = frames_conformations[j]
             for k in range(0, len(indexes), 20):
                 chunk = indexes[k:k + 20]
                 output_file.write(" ".join(map(str, chunk)) + "\n")
             output_file.write("\n")
 
-        # Write noise frames (assumed to be the last conformation)
-        output_file.write("[ Noise ]\n")
-        indexes_noise = frames_conformations[-1]
-        for k in range(0, len(indexes_noise), 20):
-            chunk = indexes_noise[k:k + 20]
-            output_file.write(" ".join(map(str, chunk)) + "\n")
-
         output_file.close()
         frames_by_clusters.append(frames_conformations)
 
     return frames_by_clusters
 
-def split_trajectory_by_conformations(output_dir, u_traj, frames_by_clusters):
+def split_trajectory_by_conformations(output_dir, u_traj, frames_by_clusters,proba_clusters,cutoff_proba_conformations,all_clusters_labels,trajfile):
     """
     Splits the trajectory into separate files for each identified conformation
     in each cluster, based on frame indices.
@@ -2229,28 +2262,39 @@ def split_trajectory_by_conformations(output_dir, u_traj, frames_by_clusters):
         Structure: cluster → conformation → frame indices.
     """
     
+    extension_traj = trajfile.split('.')[-1]
+
     logging.info("\nSplitting trajectory by conformations...")
 
     for i, frames_conformations in enumerate(frames_by_clusters):
+        logging.info(f"Processing cluster {i}...")
         # Create directory for storing split trajectories from current cluster
         cluster_output_dir = os.path.join(output_dir, f"conformations_clustering/trajectories_cluster_{i}")
-        if not os.path.exists(cluster_output_dir):
-            os.mkdir(cluster_output_dir)
-
+        if os.path.exists(cluster_output_dir):
+            shutil.rmtree(cluster_output_dir)  # Remove existing directory            
+        os.mkdir(cluster_output_dir)
+        unique_labels = np.unique(all_clusters_labels[i])
+    
         for j, frames in enumerate(frames_conformations):
-            if len(frames) == 0:
-                continue  # Skip empty conformations (e.g., noise or unused clusters)
+            
+            proba_conf = proba_clusters[i][j]
+            
+            if len(frames) == 0 or proba_conf < cutoff_proba_conformations or unique_labels[j] == -1:
+                continue  # Skip empty frames or low-probability conformations or noise
+            
+            logging.info(f"Writing conformation {unique_labels[j]} in cluster {i} with probability {proba_conf:.2f}...")
 
             # Define output file path for current conformation
             output_file = os.path.join(
-                cluster_output_dir, f"cluster_{i}_conformation_{j}.xtc"
+                cluster_output_dir, f"cluster_{i}_conformation_{unique_labels[j]}.{extension_traj}"
             )
 
             # Write selected frames to new trajectory file
             atoms = u_traj.atoms
             atoms.write(output_file, frames=frames)
+    logging.info("Trajectory splitting completed.")
 
-def get_most_probable_states(all_clusters_labels, unique_states_clusters, probabilities_unique_states_clusters):
+def get_most_probable_states(all_clusters_labels, unique_states_clusters, probabilities_unique_states_clusters,cutoff_proba_conformations):
     """
     For each cluster, identify the most probable state (discretized conformation)
     within each sub-cluster (i.e., HDBSCAN-labeled conformation).
@@ -2310,12 +2354,15 @@ def get_most_probable_states(all_clusters_labels, unique_states_clusters, probab
                 probabilities_unique_states_clusters[i][ind_max_proba]
             )
 
-            # Log the result for tracking
-            logging.info(
-                f"Most probable state in cluster {i}, conformation {j}: "
-                f"{unique_states_clusters[i][ind_max_proba]} "
-                f"with probability {probabilities_unique_states_clusters[i][ind_max_proba]}"
-            )
+            if np.sum(proba_cluster_conf_j) > cutoff_proba_conformations :
+                # Log the result for tracking
+                if unique_labels[j] != -1 :
+                    logging.info(
+                        f"Most probable state in cluster {i}, conformation {unique_labels[j]}: "
+                        f"{unique_states_clusters[i][ind_max_proba]} "
+                        f"with probability {probabilities_unique_states_clusters[i][ind_max_proba]}"
+                    )
+        logging.info("\n")
 
         # Append results for the current cluster
         most_probable_states.append(most_probable_states_cluster)
@@ -2370,7 +2417,7 @@ def get_coordinates_in_clusters(output_dir):
 
     return clusters_coords
 
-def write_conformations_to_file(most_probable_states, proba_most_probable_states, proba_clusters, output_dir):
+def write_conformations_to_file(most_probable_states, proba_most_probable_states, proba_clusters, output_dir, cutoff_proba_conformations):
     """
     Writes the most probable conformational states of each cluster to a human-readable text file.
 
@@ -2406,6 +2453,8 @@ def write_conformations_to_file(most_probable_states, proba_most_probable_states
             for j, state in enumerate(cluster_states):
                 if j != 0:  # Optional: skip first index if it's reserved for noise or placeholder
                     # Write conformation metadata
+                    if proba_clusters[i][j] < cutoff_proba_conformations:
+                        continue
                     file_out.write(f"Conformation {j-1} - Probability: {proba_clusters[i][j]:.5f}\n")
                     file_out.write(f"Most probable state: {state}\n")
                     file_out.write(f"Probability of the most probable state: {proba_most_probable_states[i][j]:.5f}\n")
@@ -2422,7 +2471,7 @@ def write_conformations_to_file(most_probable_states, proba_most_probable_states
 ######################### Function to extract conformations from clusters ##########################
 def get_conformations_from_clusters(output_dir, u_traj, times_indices,
                                      min_cluster_size_conformations, min_samples_conformations,
-                                     cluster_selection_epsilon_conformations, split_trajectory):
+                                     cluster_selection_epsilon_conformations, split_trajectory,cutoff_proba_conformations, trajfile):
     """
     Extracts representative conformations from trajectory data based on hierarchical clustering.
     
@@ -2495,29 +2544,32 @@ def get_conformations_from_clusters(output_dir, u_traj, times_indices,
         for j, label in enumerate(cluster_labels):
             ind_label = np.where(unique_labels == label)[0][0]
             proba_conformations[ind_label] += probabilities_unique_states_clusters[i][j]
+        #select probabilities larger than 0.001
+        selected_unique_labels = unique_labels[proba_conformations > cutoff_proba_conformations]
+        selected_proba_conformations = proba_conformations[proba_conformations > cutoff_proba_conformations]
 
-        logging.info(f"Conformations in cluster {i}: {unique_labels}        -1 indicates noise")
-        logging.info(f"Probabilities of conformations: {proba_conformations}")
-        logging.info("Total probability: %.5f" % np.sum(proba_conformations))
+        logging.info(f"Conformations in cluster {i}: {selected_unique_labels}        -1 indicates noise")
+        logging.info(f"Probabilities of conformations: {selected_proba_conformations}")
+        logging.info("Total probability: %.5f" % np.sum(selected_proba_conformations))
         proba_clusters.append(proba_conformations)
         
     # Extract the most probable states from each cluster 
     logging.info("\nComputing most probable states in each cluster...")
     most_probable_states, proba_most_probable_states = get_most_probable_states(
-        all_clusters_labels, unique_states_clusters, probabilities_unique_states_clusters
+        all_clusters_labels, unique_states_clusters, probabilities_unique_states_clusters, cutoff_proba_conformations
     )
 
     # Write representative conformations to file
-    write_conformations_to_file(most_probable_states, proba_most_probable_states, proba_clusters, output_dir)
+    write_conformations_to_file(most_probable_states, proba_most_probable_states, proba_clusters, output_dir, cutoff_proba_conformations)
     logging.info("Conformations written to file.")
 
     # Extract original frame indices from final conformation labels
     frames_by_clusters = extract_frames_from_labels(
-        output_dir, clusters_data, unique_states_clusters, all_clusters_labels, times_indices
+        output_dir, clusters_data, unique_states_clusters, all_clusters_labels, times_indices,proba_clusters,cutoff_proba_conformations
     )
 
     # Optionally split trajectory files for each conformation cluster
     if split_trajectory:
-        split_trajectory_by_conformations(output_dir, u_traj, frames_by_clusters)
+        split_trajectory_by_conformations(output_dir, u_traj, frames_by_clusters,proba_clusters,cutoff_proba_conformations,all_clusters_labels,trajfile)
 
 
