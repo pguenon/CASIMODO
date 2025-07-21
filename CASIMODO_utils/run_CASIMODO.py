@@ -151,19 +151,19 @@ if step_to_perform in ['all', 'discretize_coordinates','get_conformations']:
 #         TIME FILTERING              #
 #######################################
 
-if step_to_perform == 'all' or step_to_perform == 'get_conformations':
+if step_to_perform == 'all' :
     times, times_indices = filter_times_and_indices(u_traj, time_zero, delta_time, output_dir)
 
 #######################################
 #        GET TERMINAL ATOMS           #
 #######################################
 
-if step_to_perform in ['all', 'discretize_coordinates']:
+if step_to_perform in ['all', 'discretize_coordinates', 'get_conformations']:
     important_atoms_file = os.path.join(output_dir, 'important_atoms.txt')
     if os.path.exists(important_atoms_file):
         os.remove(important_atoms_file)
     
-    important_atoms, selected_resids, selected_resnames, indices_aa = get_important_atoms_MDA(u_traj, dic)
+    important_atoms, selected_resids, selected_resnames, indices_aa, indices_na_pyrimidine, indices_na_purine = get_important_atoms_MDA(u_traj, dic)
     save_important_atoms(important_atoms, selected_resids, selected_resnames, output_dir)
 
 
@@ -183,6 +183,12 @@ if step_to_perform in ['all', 'discretize_coordinates']:
     if len(indices_aa)!=0 :
         get_dihedrals_protein(
             u_traj, indices_aa, time_zero, size_block,
+            proba_cutoff, output_dir
+        )
+
+    if len(indices_na_pyrimidine) != 0 or len(indices_na_purine) != 0:
+        get_dihedrals_nucleic_acids(
+            u_traj, indices_na_pyrimidine, indices_na_purine, time_zero, size_block,
             proba_cutoff, output_dir
         )
 
@@ -209,9 +215,9 @@ if step_to_perform in ['all', 'cluster_coordinates']:
     
 if step_to_perform in ['all', 'get_conformations']:
     get_conformations_from_clusters(
-    output_dir,u_traj, times_indices,
+    output_dir,u_traj, 
     min_cluster_size_conformations, min_samples_conformations, cluster_selection_epsilon_conformations,
-    split_trajectory, cutoff_proba_conformations, trajfile
+    split_trajectory, cutoff_proba_conformations,strucfile,trajfile,selected_resids
     )
 
 print_ending_message(output_dir, step_to_perform)
