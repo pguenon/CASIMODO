@@ -94,20 +94,20 @@ Experiment with these to optimize clustering outcomes.
 
 CASIMODO produces the following outputs:
 
-- `casimodo.log`: Log of key runtime information.
+- `casimodo.log`: Log of key information.
 - `important_atoms.txt`: Selected atoms for each important residue.
 - `selected_coordinates.txt`: Multimodal coordinates with discretization.
 - `clusters_of_coordinates.txt`: Coordinate clusters identified via VI.
 - `resids_in_clusters.txt`: Residues involved in each coordinate cluster.
-- `conformations.txt`: Probable conformations in each cluster.
-- `discretizing_npy/`: Intermediate NumPy arrays from discretization.
+- `conformations.txt`: Conformations in each cluster.
+- `discretizing_npy/`: NumPy arrays from discretization.
 - `analysis_npy/`: Arrays from entropy and clustering analysis.
 - `coordinates_data/`: Time series of each selected coordinate.
-- `coordinates_plots/`: Distributions with cutoff lines.
+- `coordinates_plots/`: Distributions with cutoff lines of each selected coordinate.
 - `information_plots/`: Entropy, MI, VI plots.
-- `conformations_clustering/`: Cluster plots, indices, and trajectory segments (if `split_trajectory=1`).
+- `conformations_clustering/`: Cluster plots and indices for conformations, and trajectory segments (if `split_trajectory=1`).
 
-Key files include `clusters_of_coordinates.txt`, `conformations.txt`, and outputs in `conformations_clustering/`.
+The most important output files ares `clusters_of_coordinates.txt`, `conformations.txt`, and outputs in `conformations_clustering/` if `split_trajectory=1`.
 
 ---
 
