@@ -2194,8 +2194,8 @@ def get_mutual_information(output_dir):
     discretized_array = np.load(os.path.join(output_dir, "discretizing_npy/discretized_array.npy"))
 
     # Load marginal and joint frequencies
-    single_frequencies = np.load(os.path.join(output_dir, "frequencies", "frequencies_single.npy"))
-    double_frequencies = np.load(os.path.join(output_dir, "frequencies", "frequencies_double.npy"))
+    single_frequencies = np.load(os.path.join(output_dir, "analysis_npy", "frequencies_single.npy"))
+    double_frequencies = np.load(os.path.join(output_dir, "analysis_npy", "frequencies_double.npy"))
 
     # Compute multiplicities: number of discrete bins for each coordinate
     multiplicities = get_multiplicities(discretized_array)
@@ -2204,7 +2204,7 @@ def get_mutual_information(output_dir):
     MI = mutual_information(discretized_array, multiplicities, single_frequencies, double_frequencies)
 
     # Save the result to output directory
-    output_path = os.path.join(output_dir, "analysis")
+    output_path = os.path.join(output_dir, "analysis_npy")
     os.makedirs(output_path, exist_ok=True)  # Ensure output directory exists
     np.save(os.path.join(output_path, "MI.npy"), MI)
 
@@ -2217,7 +2217,7 @@ def get_mutual_information(output_dir):
 def get_entropy(output_dir):
     logging.info("\nComputing entropy...")
     discretized_array=np.load(output_dir+"discretizing_npy/discretized_array.npy")
-    single_frequencies=np.load(output_dir+'frequencies/frequencies_single.npy')
+    single_frequencies=np.load(output_dir+'analysis_npy/frequencies_single.npy')
     multiplicities=get_multiplicities(discretized_array)
     ncoord=len(multiplicities)
     entropy=np.zeros((ncoord),dtype=float)

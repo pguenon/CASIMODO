@@ -230,5 +230,4 @@ You may also adjust the following optional parameters in `submit_CASIMODO.sh` fo
 ---
 
 ## License
-
-This software is distributed under the **License**. See `LICENSE` for details.
+License to come.
