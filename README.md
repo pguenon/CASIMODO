@@ -94,7 +94,7 @@ If you have nucleic acids in your system, then CASIMODO Will try to discretize a
 You may give as inputs other coordinates to CASIMODO.
 
 For that you need to fill the following parameters :
-* *coordinates_to_add* is a list of paths to the time evolution files of the coordinates you want to add. In the time evolution files, the first column should be the time in ps and the second column be either the distance in A or the angle in °. 
+* *coordinates_to_add* is a list of paths to the time evolution files of the coordinates you want to add. In the time evolution files, the first column should be the time in ps and the second column be either the distance in angstroms or the angle in °. 
 * *type_coordinates_to_add* is a list of types for the coordinates to add (angle or distance).
 * *residues_coordinates_to_add* is a list of residue numbers involved in each coordinates to add. If you want to put more than one residue per coordinate, just put an underscore in between each number. 
 
@@ -107,7 +107,8 @@ If we selected and discretized N variables, then each frame of the trajectory ca
 We then compute several information on our discretized trajectory:
 * The single frequency for each value x on each variable X.
 * The double frequencies for each values x,y on each couple of variables X, J.
-* The entropy for each variable X is computed as H(X)=-sum<sub>x</sub> {p(x)logp(x)}
+* The entropy for each variable X is computed as H(X) = -sum<sub>x</sub> {p(x)logp(x)}.
+* The mutual information between each pair of variable is computed as I(X,Y) = sum<sub>x</sub>sum<sub>y</sub> {P(x,y) log(P(x,y)/(P(x)P(y)))} 
 
 
 
