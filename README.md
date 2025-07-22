@@ -164,17 +164,13 @@ For each pair of selected coordinates:
 
 ### Entropy
 
-\[
-H(X) = -\sum_x P(x) \log P(x)
-\]
+$H(X) = -\sum_x P(x) \log P(x)$
 
 Measures the variability of a coordinate.
 
 ### Mutual Information
 
-\[
-I(X; Y) = \sum_{x,y} P(x, y) \log \left( frac{P(x, y)}{P(x)P(y)} \right)
-\]
+$I(X; Y) = \sum_{x,y} P(x, y) \log \left( frac{P(x, y)}{P(x)P(y)} \right)$
 
 Quantifies how much knowing one coordinate tells you about another.
 
