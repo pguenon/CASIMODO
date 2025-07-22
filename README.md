@@ -42,10 +42,10 @@ Make sure to also download in your working directory:
 
 To run CASIMODO, you need three key input files:
 
-- A **structure file** (e.g., `.pdb`, `.gro`) supported by MDAnalysis, that describes the molecular system.
-- A **centered trajectory file** (e.g., `.xtc`, `.trr`).  
+1. A **structure file** (e.g., `.pdb`, `.gro`) supported by MDAnalysis, that describes the molecular system.
+2. A **centered trajectory file** (e.g., `.xtc`, `.trr`).  
   ⚠️ *CASIMODO does not handle periodic boundary conditions. You must preprocess and center your trajectory before analysis.*
-- A **dictionary file**, which lists:
+3. A **dictionary file**, which lists:
     * Important residue names in the first column
     * Key atoms for each residue in subsequent columns
 
@@ -161,15 +161,16 @@ For **Nucleic acids**: α, β, γ, δ, ε, ζ, χ
 These are treated using the same selection and discretization process as distances.
 
 #### c. User-Defined Coordinates
-
+You can also input your own time-dependent coordinates:
 - `coordinates_to_add`: List of file paths with coordinate values (first column: time in ps, second: value).  
   *For distances, use Ångströms; for angles, use degrees.*
-- `type_coordinates_to_add`: List of `angle` or `distance`.
-- `residues_coordinates_to_add`: Residue indices (use underscores `_` to join multiple residues).
+- `type_coordinates_to_add`: Specify `"angle"` or `"distance"` for each.
+- `residues_coordinates_to_add`: Residue indices involved (use underscores `_` to join multiple residues).
 
----
+### 5. Discretization of Conformational Space
+Each frame is represented as a list of discrete values (one per coordinate), forming a representation of the system based on the discretized coordinates. This is saved as `discretized_array.npy`.
 
-## 6. Information-Theoretic Analysis
+### 6. Information-Theoretic Analysis
 
 For each pair of selected coordinates, the following values are computed:
 
@@ -190,7 +191,7 @@ Quantifies how much knowing one coordinate tells you about another.
 $VI(X; Y) = H(X) + H(Y) - 2I(X; Y)$
 
 
-A proper distance metric that forms the basis for clustering.
+A proper distance metric that is linked to mutual information and that forms the basis for clustering.
 
 ---
 
@@ -198,7 +199,7 @@ A proper distance metric that forms the basis for clustering.
 
 CASIMODO clusters coordinates using **Advanced Density Peaks (ADP)**, implemented in `dadapy`. The clustering is based on the Variation of Information (VI) matrix between all pairs of coordinates.
 
-Each resulting cluster groups together coordinates that are functionally or dynamically related.
+Coordinates are grouped into clusters representing independently changing subsystems.
 
 ---
 
