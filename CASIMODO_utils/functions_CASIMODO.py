@@ -433,7 +433,7 @@ def get_important_atoms_MDA(u_traj, important_atoms_dic):
 
     return important_atoms, selected_resids, selected_resnames, indices_aa, indices_na_pyrimidine, indices_na_purine
 
-def save_important_atoms(important_atoms, selected_resids, selected_resnames, output_dir):
+def save_important_atoms(important_atoms, selected_resids, selected_resnames, indices_aa, indices_na_pyrimidine, indices_na_purine,output_dir):
     """
     Saves important atoms information to a text file.
 
@@ -441,11 +441,14 @@ def save_important_atoms(important_atoms, selected_resids, selected_resnames, ou
     - important_atoms (list): List of important atom names per residue.
     - selected_resids (list): List of corresponding residue IDs.
     - selected_resnames (list): List of corresponding residue names.
+    - indices_aa (list): List of residue IDs that are amino acids.
+    - indices_na_pyrimidine (list): List of residue IDs for pyrimidine nucleic acids.
+    - indices_na_purine (list): List of residue IDs for purine nucleic acids.
     - output_dir (str): Directory path where the output file will be saved.
 
     Output:
     - A text file named 'important_atoms.txt' containing:
-      <resid>   <resname>   <atom_names>
+      <resid>   <resname>   <atom_names> <tag>
     """
     logging.info("\nSaving important atoms to file...")
     with open(output_dir + 'important_atoms.txt', 'w') as f:
@@ -453,7 +456,14 @@ def save_important_atoms(important_atoms, selected_resids, selected_resnames, ou
             atom = important_atoms[k]
             resid = selected_resids[k]
             type_res = selected_resnames[k]
-            f.write(f'{resid}   {type_res}   {atom}\n')
+            tag = ''
+            if resid in indices_aa:
+                tag = 'AA'
+            elif resid in indices_na_pyrimidine:
+                tag = 'NA_pyrimidine'
+            elif resid in indices_na_purine:
+                tag = 'NA_purine'
+            f.write(f'{resid}   {type_res}   {atom}   {tag}\n')
         f.close()
     logging.info("Important atoms saved to file.")
 

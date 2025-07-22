@@ -29,14 +29,33 @@ dic_file=" " # path to your dictionary file
 output_directory="results_CASIMODO" # path to your output directory
 
 # Time in ps to start the analysis (to skip equilibration)
-time_zero=0
+time_zero=0.
 
 # Size in ps of each analysis block
-size_block=100000000 # size of each analysis block in ps, if you want only one block, set it to a large value
+size_block=100000000. # size of each analysis block in ps, if you want only one block, set it to a large value
 
 # Whether to split the trajectory by conformations
 # If True, the trajectory will be split into segments based on the identified conformations
 split_trajectory=True
+
+
+##############################################
+#           OPTIONAL COORDINATES             #
+##############################################
+# Additional coordinates to include in the analysis (e.g., RMSD, SASA, etc.)
+coordinates_to_add=()
+
+# Types corresponding to each additional coordinate (same order)
+type_coordinates_to_add=()
+
+# Residues to consider for additional coordinates
+residues_coordinates_to_add=()
+
+# Example usage:
+# coordinates_to_add=(Data_files/angle1.dat Data_files/RMSD2.dat)
+# type_coordinates_to_add=(angle distance)
+# residues_coordinates_to_add=( 161_162 163_164 ) # Example for multiple residues
+
 
 ##############################################
 #        ADVANCED SETTINGS (Optional)        #
@@ -44,18 +63,17 @@ split_trajectory=True
 
 # Time (ps) between frames to consider.
 # If smaller than actual trajectory resolution, defaults to the actual timestep.
-delta_time=1
+delta_time=1.0
 
 #Parameters for contact analysis
 # Distance threshold (Å) — two atoms are considered in contact
 # if their distance is below this at least once
 cutoff_distance=5
 # Ignore contacts between residues closer than this in the sequence
-delta_residue=3
+delta_residue=1
 
 #Parameter for discretization
-# Minimum height difference (in %) between a local min and max
-# to consider the local max as a significant peak
+# Probability cutoff for discretization
 proba_cutoff=0.01
 
 #Parameters for Advanced Density Peaks clustering of the coordinates
@@ -72,22 +90,6 @@ halo_parameter_conformations=0
 
 cutoff_proba_conformations=0.01  # Probability cutoff for conformations extraction
 
-##############################################
-#           OPTIONAL COORDINATES             #
-##############################################
-# Additional coordinates to include in the analysis (e.g., RMSD, SASA, etc.)
-coordinates_to_add=()
-
-# Types corresponding to each additional coordinate (same order)
-type_coordinates_to_add=()
-
-# Residues to consider for additional coordinates
-residues_coordinates_to_add=()
-
-# Example usage:
-# coordinates_to_add=(Data_files/RMSD.dat Data_files/SASA.dat)
-# type_coordinates_to_add=(rmsd sasa)
-# residues_coordinates_to_add=( 161_162 163_164 ) # Example for multiple residues
 
 ##############################################
 #            MAIN EXECUTION BLOCK            #

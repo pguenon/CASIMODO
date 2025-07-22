@@ -22,9 +22,9 @@ def parse_arguments():
     parser.add_argument('--o_dir', type=str, default='results/', help='Output directory')
     
 
-    parser.add_argument('--time_zero', type=int, default=150000, help='Time (ps) to start analysis')
-    parser.add_argument('--size_block', type=int, default=50000, help='Size of block (ps) for analysis')
-    parser.add_argument('-dt', '--delta_time', type=int, default=1, help='Time (ps) between frames to consider')
+    parser.add_argument('--time_zero', type=float, default=0., help='Time (ps) to start analysis')
+    parser.add_argument('--size_block', type=float, default=100000000., help='Size of block (ps) for analysis')
+    parser.add_argument('-dt', '--delta_time', type=float, default=1.0, help='Time (ps) between frames to consider')
 
     parser.add_argument('--cutoff_distance', type=int, default=5, help='Distance cutoff (A) to define contact')
     parser.add_argument('--delta_resid', type=int, default=3, help='Residue separation threshold for contact filtering')
@@ -148,7 +148,7 @@ if step_to_perform == 'all' :
     times, times_indices = filter_times_and_indices(u_traj, time_zero, delta_time, output_dir)
 
 #######################################
-#        GET TERMINAL ATOMS           #
+#        GET IMPORTANT ATOMS          #
 #######################################
 
 if step_to_perform in ['all', 'discretize_coordinates', 'get_conformations']:
@@ -157,7 +157,7 @@ if step_to_perform in ['all', 'discretize_coordinates', 'get_conformations']:
         os.remove(important_atoms_file)
     
     important_atoms, selected_resids, selected_resnames, indices_aa, indices_na_pyrimidine, indices_na_purine = get_important_atoms_MDA(u_traj, dic)
-    save_important_atoms(important_atoms, selected_resids, selected_resnames, output_dir)
+    save_important_atoms(important_atoms, selected_resids, selected_resnames, indices_aa, indices_na_pyrimidine, indices_na_purine, output_dir)
 
 
 #######################################
