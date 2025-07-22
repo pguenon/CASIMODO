@@ -107,7 +107,7 @@ If we selected and discretized N variables, then each frame of the trajectory ca
 We then compute several information on our discretized trajectory:
 * The single frequency for each value x on each variable X.
 * The double frequencies for each values x,y on each couple of variables X, J.
-* The entropy for each variable X is computed as H(X)=-sum<sub>x</sub>p(x)logp(x)
+* The entropy for each variable X is computed as H(X)=-sum<sub>x(</sub>p(x)logp(x))
 
 
 
