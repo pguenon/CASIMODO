@@ -173,17 +173,15 @@ Measures the variability of a coordinate.
 ### Mutual Information
 
 \[
-I(X; Y) = \sum_{x,y} P(x, y) \log \left( frac{P(x, y)}{P(x)P(y)} 
-right)
+I(X; Y) = \sum_{x,y} P(x, y) \log \left( frac{P(x, y)}{P(x)P(y)} \right)
 \]
 
 Quantifies how much knowing one coordinate tells you about another.
 
 ### Variation of Information
 
-\[
-	ext{VI}(X, Y) = H(X) + H(Y) - 2I(X; Y)
-\]
+${tex`VI(X; Y) = H(X) + H(Y) - 2I(X; Y)`}
+
 
 A proper distance metric that forms the basis for clustering.
 
