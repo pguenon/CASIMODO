@@ -7,23 +7,23 @@ A script by _Paul Guénon_, Guillaume Stirnemann, Damien Laage, and Olivier Rivo
 
 ## What is CASIMODO?
 
-CASIMODO is a tool designed to automatically analyze conformational changes in molecular dynamics (MD) simulations. It discretizes the conformational space of large biomolecular systems, revealing which geometric variables vary most over time and identifying the distinct conformations adopted throughout the simulation.
+**CASIMODO** is a Python-based tool designed to help automatically analyze conformational changes in molecular dynamics (MD) trajectories, especially in large and complex systems. It works by discretizing the conformational space and identifying the geometric variables that evolve throughout the simulation.
 
-It is optimized to run efficiently on a single CPU core and aims to produce insightful results in a short time with minimal user intervention. While particularly helpful for beginners who may be overwhelmed by the number of degrees of freedom in large systems, CASIMODO is also valuable for experienced researchers who seek a fast and robust way to reduce the complexity of trajectory analysis—without losing important structural information.
+The core idea behind CASIMODO is to provide a fast, lightweight, and user-friendly method for uncovering which parts of a system undergo structural changes—and how. It is designed to run on a single CPU core and deliver results in a relatively short amount of time, making it accessible even on modest computing resources.
 
-CASIMODO can be run on any environment that supports **Python** and **Bash**.
+This tool is especially valuable for early-career scientists who may find it challenging to analyze systems with many degrees of freedom. However, we believe experienced researchers will also find it useful due to its ease of use, speed, and ability to reduce the complexity of analysis without losing essential information.
 
 ---
 
 ## Quick Start
 
-This section provides a brief walkthrough to get CASIMODO running in minutes. For more in-depth usage and customization, see the following sections.
+This section walks you through the basic steps needed to get CASIMODO up and running in just a few minutes. If you're looking for more detail, feel free to read on into the later sections.
 
 ### Installation Requirements
 
-CASIMODO requires Python ≥3.9. A Conda environment is recommended.
+To get started, you’ll need a Python environment (Python 3.9 or higher).
 
-Required Python packages:
+You’ll need the following Python packages installed:
 
 - `numpy`
 - `scipy`
@@ -37,39 +37,46 @@ Make sure to also download in your working directory:
 - The job submission file `submit_CASIMODO.sh`,
 - (Optional) The reference file `dic_important_atoms_protein_nucleic_acids.txt` to help you create your own dictionary.
 
+
 ### Input Files
 
-You will need the following input files:
+To run CASIMODO, you need three key input files:
 
-- A **structure file** (e.g., `.pdb`, `.gro`) supported by MDAnalysis.
+- A **structure file** (e.g., `.pdb`, `.gro`) supported by MDAnalysis, that describes the molecular system.
 - A **centered trajectory file** (e.g., `.xtc`, `.trr`).  
   ⚠️ *CASIMODO does not handle periodic boundary conditions. You must preprocess and center your trajectory before analysis.*
-- A **dictionary file** listing the important residues and atoms to analyze.  
-  Optionally, use tags:
-  - `@amino_acid`
-  - `@nucleic_acid_pyrimidine`
-  - `@nucleic_acid_purine`
+- A **dictionary file**, which lists:
+    * Important residue names in the first column
+    * Key atoms for each residue in subsequent columns
+
+    You can also add tags to indicate whether a residue is:
+    * An amino acid (`@amino_acid`)
+    * A purine (`@nucleic_acid_purine`)
+    * A pyrimidine (`@nucleic_acid_pyrimidine`)
+
+This dictionary allows CASIMODO to focus on the relevant parts of your system and apply specific angle-based analyses when appropriate.
 
 ### Running CASIMODO
 
-In the `submit_CASIMODO.sh` script, you must define the following:
+Before launching the script, open the file `submit_CASIMODO.sh` and fill in the following parameters:
 
-- `step_to_perform`: Initial run should be `"all"`.
-- `struc_file`: Path to structure file.
-- `trj_file`: Path to trajectory file.
-- `dic_file`: Path to the dictionary file.
-- `output_directory`: Output directory (created if missing).
-- `time_zero`: Start time (ps) for analysis. Use to skip equilibration.
-- `size_block`: Block size (ps) for time averaging. To disable block averaging, set it larger than the total simulation time.
-- `split_trajectory`: `1` to split trajectory by conformations, else `0`.
+* `step_to_perform`: Choose the step to execute. Begin with `"all"` for a full run. Later on, you can rerun specific steps (see Tuning Clustering).
+* `struc_file`: Path to your structure file.
+* `trj_file`: Path to your trajectory file.
+* `dic_file`: Path to your dictionary file.
+* `output_directory`: Where the output files will be saved. CASIMODO will create this directory if it doesn’t exist.
+* `time_zero`: The time (in ps) at which to begin analysis. Use this to skip the equilibration phase if needed.
+* `size_block`: Size (in ps) of the time blocks used for convergence analysis and distribution calculation. If you want to skip block averaging, simply set this to a value larger than your total simulation time.
+* `split_trajectory`: Set this to 1 if you want CASIMODO to split your trajectory into individual conformations.
+    ⚠️ Note: This may generate large files depending on your trajectory size.
 
-Run the script on one or more cores:
+To run the script, use:
 
 ```bash
 bash submit_CASIMODO.sh
 ```
 
-You may integrate this script into job submission systems as long as you preserve its integrity.
+You can modify or integrate this script into your own job submission pipeline, as long as its structure is preserved. CASIMODO should work smoothly in any environment where both Python and Bash are available.
 
 ### Tuning Clustering
 
@@ -129,12 +136,12 @@ Residues listed in the dictionary are marked as important. CASIMODO selects the 
 
 #### a. Distances
 
-For each residue pair (i, j), the absolute shortest distance among all pairs of important atoms is selected. If this distance drops below `cutoff_distance` at any time, it is retained.
+For each pair of residues, CASIMODO computes all pairwise distances between important atoms and retains the **minimum observed distance** over the trajectory, d_ij.
 
 The distance is then:
-- Histogrammed using block averages,
+- Histogrammed using block average,
 - Smoothed using a kernel density estimator,
-- Discretized based on identified peaks and cutoffs.
+- Discretized based on identified peaks and minima.
 
 Modes with integrated probability above `proba_cutoff` are retained.
 
