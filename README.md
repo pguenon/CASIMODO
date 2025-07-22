@@ -41,6 +41,12 @@ Before running the script please make sure to indicate the following parameters 
 
 Once all mandatory parameters above are set you need to run the *submit_CASIMODO.sh* script on one (or more) CPU core. You may want to include this script in other scripts or to add a header to specify where to run the script. Please don't hesitate to do it, as long as you keep the script full integrity.
 
+### Outputs
+Here is a list of all ouputs produced by CASIMODO:
+* *casimodo.log* this file contains is updated while the script is running and contains all the important information on the running.
+* *selected_coordinates* is the list of the coordinates that were found to be multimodal by CASIMODO. The first column is the name of the coordinates then the next ones are organized like this: **label_0** **cutoff_value_0** **label_1** **cutoff_value_1** **label_2** . The smaller labels are assigned to the larger probabilities.
+* 
+
 ## How does CASIMODO work?
 
 ## Advanced Parameters
