@@ -100,16 +100,25 @@ For that you need to fill the following parameters :
 
 The coordinates to add are discretized and selected just like other variables.
 
-#### Discretization of the conformational space
+### Discretization of the conformational space
 If we selected and discretized N variables, then each frame of the trajectory can now be expressed as a number of length N, where each digit X can take n<sub>X</sub> different values, n<sub>X</sub> being the multiplicity of the selected coordinate X. This discretization is saved in *discretizing_npy/discretized_array.npy*.
 
-#### Information calculation
+### Information calculation
 We then compute several information on our discretized trajectory:
 * The single frequency for each value x on each variable X.
 * The double frequencies for each values x,y on each couple of variables X, J.
 * The entropy for each variable X is computed as H(X) = -sum<sub>x</sub> {p(x)logp(x)}.
 * The mutual information between each pair of variable is computed as I(X,Y) = sum<sub>x</sub>sum<sub>y</sub> {P(x,y) log(P(x,y)/(P(x)P(y)))} 
+* The variation of information computed as VI(X,Y) = H(X)+H(Y)-2I(X,Y). This is very similar to the mutual information expect that it is now a true distance that obey triangular inequality, which is important for the clustering step.
 
+### Clustering the coordinates
+Using the Advanced Density Peaks clustering algorithm from dadapy, the coordinates are now clustered based on the variation of information. 
+The cluster of coordinates are then saved in *selected_coordinates.txt* and the residues in each cluster in *selected_coordinates.txt*.
+
+### Conformation selection
+Each cluster of coordinates define a subspace in which we can study the trajectory to find conformations based only on the coordinates that are part of the cluster.
+
+To do so, we start by 
 
 
 
