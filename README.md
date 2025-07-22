@@ -133,7 +133,7 @@ Residues listed in the dictionary are marked as important. CASIMODO selects the 
 
 #### a. Distances
 
-For each residue pair (i, j), the shortest distance among all pairs of important atoms is computed per frame. If this distance drops below `cutoff_distance` at any time, it is retained.
+For each residue pair (i, j), the absolute shortest distance among all pairs of important atoms is selected. If this distance drops below `cutoff_distance` at any time, it is retained.
 
 The distance is then:
 - Histogrammed using block averages,
