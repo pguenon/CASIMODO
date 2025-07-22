@@ -1,6 +1,6 @@
 # CASIMODO
 ### _Conformation Analysis via Statistical Inference of MOlecular Dynamics Observables_
-A script by <ins>Paul Guénon</ins>, Guillaume Stirnemann, Damien Laage and Olivier Rivoire*
+A script by <ins>Paul Guénon</ins>, Guillaume Stirnemann, Damien Laage and Olivier Rivoire*.
 
 ## What is CASIMODO?
 
@@ -109,7 +109,7 @@ We then compute several information on our discretized trajectory:
 * The double frequencies for each values x,y on each couple of variables X, J.
 * The entropy for each variable X is computed as H(X) = -sum<sub>x</sub> {p(x)logp(x)}.
 * The mutual information between each pair of variable is computed as I(X,Y) = sum<sub>x</sub>sum<sub>y</sub> {P(x,y) log(P(x,y)/(P(x)P(y)))} 
-* The variation of information computed as VI(X,Y) = H(X)+H(Y)-2I(X,Y). This is very similar to the mutual information expect that it is now a true distance that obey triangular inequality, which is important for the clustering step.
+* The variation of information computed as VI(X,Y) = H(X)+H(Y)-2I(X,Y). This is very similar to the mutual information but it is now a true distance that obey triangular inequality, which is important for the clustering step.
 
 ### Clustering the coordinates
 Using the Advanced Density Peaks clustering algorithm from dadapy, the coordinates are now clustered based on the variation of information. 
@@ -118,8 +118,12 @@ The cluster of coordinates are then saved in *selected_coordinates.txt* and the 
 ### Conformation selection
 Each cluster of coordinates define a subspace in which we can study the trajectory to find conformations based only on the coordinates that are part of the cluster.
 
-To do so, we start by 
+To do so for a cluster i, we start by defining new states from the discretized definition of the trajectory but this time keeping only the coordinates that are part of cluster i. Then we make the list of all the states that appear at least once in this subspace. We then cluster these unique states.
 
+The clusters of unique states give us conformations. By using the probabilities of each unique state to appear along the trajectory we get the probabilities of the conformations.
+All these information are written in *conformations.txt*.
+
+If *split_trajectory* is **True** then we also split the trajectory according to conformations for each cluster of coordinates.
 
 
 ## Advanced Parameters
