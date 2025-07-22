@@ -36,8 +36,22 @@ size_block=100000000. # size of each analysis block in ps, if you want only one 
 
 # Whether to split the trajectory by conformations
 # If True, the trajectory will be split into segments based on the identified conformations
-split_trajectory=True
+split_trajectory=1 # 1 for True, 0 for False
 
+############################################## 
+# ADVANCED DENSITY PEAKS CLUSTERING SETTINGS #
+##############################################
+#Parameters for Advanced Density Peaks clustering of the coordinates
+# Z parameter for clustering coordinates
+Z_parameter_coordinates=3.0
+# Halo parameter for clustering coordinates (0=False or 1=True)
+halo_parameter_coordinates=1
+
+#Parameters for Advanced Density Peaks clustering of the conformations
+# Z parameter for clustering conformations
+Z_parameter_conformations=3.0
+# Halo parameter for clustering conformations (0=False or 1=True)
+halo_parameter_conformations=0
 
 ##############################################
 #           OPTIONAL COORDINATES             #
@@ -55,7 +69,6 @@ residues_coordinates_to_add=()
 # coordinates_to_add=(Data_files/angle1.dat Data_files/RMSD2.dat)
 # type_coordinates_to_add=(angle distance)
 # residues_coordinates_to_add=( 161_162 163_164 ) # Example for multiple residues
-
 
 ##############################################
 #        ADVANCED SETTINGS (Optional)        #
@@ -76,18 +89,7 @@ delta_residue=1
 # Probability cutoff for discretization
 proba_cutoff=0.01
 
-#Parameters for Advanced Density Peaks clustering of the coordinates
-# Z parameter for clustering coordinates
-Z_parameter_coordinates=3.0
-# Halo parameter for clustering coordinates (0=False or 1=True)
-halo_parameter_coordinates=1
-
-#Parameters for Advanced Density Peaks clustering of the conformations
-# Z parameter for clustering conformations
-Z_parameter_conformations=3.0
-# Halo parameter for clustering conformations (0=False or 1=True)
-halo_parameter_conformations=0
-
+# Probability cutoff for conformations extraction
 cutoff_proba_conformations=0.01  # Probability cutoff for conformations extraction
 
 
@@ -95,12 +97,6 @@ cutoff_proba_conformations=0.01  # Probability cutoff for conformations extracti
 #            MAIN EXECUTION BLOCK            #
 ##############################################
 # Do not modify below unless you know what you're doing
-
-if [ "${split_trajectory}" = "True" ]; then
-  split_trajectory_flag="--split_trajectory"
-else
-  split_trajectory_flag="--no-split_trajectory"
-fi
 
 python CASIMODO_utils/run_CASIMODO.py \
   --step_to_perform "${step_to_perform}" \
@@ -118,7 +114,7 @@ python CASIMODO_utils/run_CASIMODO.py \
   --halo_parameter_coordinates "${halo_parameter_coordinates}" \
   --Z_parameter_conformations "${Z_parameter_conformations}" \
   --halo_parameter_conformations "${halo_parameter_conformations}" \
-  ${split_trajectory_flag} \
+  --split_trajectory ${split_trajectory}\
   --cutoff_proba_conformations "${cutoff_proba_conformations}" \
   --coordinates_to_add "${coordinates_to_add[@]}" \
   --type_coordinates_to_add "${type_coordinates_to_add[@]}" \

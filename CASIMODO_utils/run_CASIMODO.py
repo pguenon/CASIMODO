@@ -27,8 +27,8 @@ def parse_arguments():
     parser.add_argument('-dt', '--delta_time', type=float, default=1.0, help='Time (ps) between frames to consider')
 
     parser.add_argument('--cutoff_distance', type=int, default=5, help='Distance cutoff (A) to define contact')
-    parser.add_argument('--delta_resid', type=int, default=3, help='Residue separation threshold for contact filtering')
-    parser.add_argument('--proba_cutoff', type=float, default=0.1, help='Probability cutoff for filtering dihedral regions')
+    parser.add_argument('--delta_resid', type=int, default=1, help='Residue separation threshold for contact filtering')
+    parser.add_argument('--proba_cutoff', type=float, default=0.01, help='Probability cutoff for filtering modes')
     
     parser.add_argument('--Z_parameter_coordinates', type=float, default=3.0, help='Z parameter for clustering coordinates')
     parser.add_argument('--halo_parameter_coordinates', type=int, default=1, help='Halo parameter for clustering coordinates (0 or 1)')
@@ -37,7 +37,7 @@ def parse_arguments():
     parser.add_argument('--halo_parameter_conformations', type=int, default=0, help='Halo parameter for clustering conformations (0 or 1)')
 
     parser.add_argument('--cutoff_proba_conformations', type=float, default=0.001, help='Probability cutoff for conformations extraction')
-    parser.add_argument('--split_trajectory', default=True, action=argparse.BooleanOptionalAction)
+    parser.add_argument('--split_trajectory', type=int, default=1, choices=[0, 1], help='Whether to split the trajectory by conformations (1 for True, 0 for False)')
 
     parser.add_argument('--coordinates_to_add', nargs='*', default=[], help='List of additional coordinate files')
     parser.add_argument('--type_coordinates_to_add', nargs='*', default=[], help='List of coordinate types (same order)')
@@ -76,7 +76,12 @@ Z_parameter_conformations = args.Z_parameter_conformations
 halo_parameter_conformations = args.halo_parameter_conformations
 
 cutoff_proba_conformations = args.cutoff_proba_conformations
-split_trajectory = args.split_trajectory
+split_trajectory_int = args.split_trajectory
+
+# Convert split_trajectory to boolean
+if split_trajectory_int not in [0, 1]:
+    raise ValueError("split_trajectory must be 0 (False) or 1 (True).") 
+split_trajectory = bool(split_trajectory_int)
 
 coordinates_to_add = args.coordinates_to_add
 type_coordinates_to_add = args.type_coordinates_to_add

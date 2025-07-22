@@ -1,131 +1,230 @@
 # CASIMODO
 ### _Conformation Analysis via Statistical Inference of MOlecular Dynamics Observables_
-A script by <ins>Paul Guénon</ins>, Guillaume Stirnemann, Damien Laage and Olivier Rivoire*.
+
+A script by _Paul Guénon_, Guillaume Stirnemann, Damien Laage, and Olivier Rivoire\*.
+
+---
 
 ## What is CASIMODO?
 
+CASIMODO is a tool designed to automatically analyze conformational changes in molecular dynamics (MD) simulations. It discretizes the conformational space of large biomolecular systems, revealing which geometric variables vary most over time and identifying the distinct conformations adopted throughout the simulation.
+
+It is optimized to run efficiently on a single CPU core and aims to produce insightful results in a short time with minimal user intervention. While particularly helpful for beginners who may be overwhelmed by the number of degrees of freedom in large systems, CASIMODO is also valuable for experienced researchers who seek a fast and robust way to reduce the complexity of trajectory analysis—without losing important structural information.
+
+CASIMODO can be run on any environment that supports **Python** and **Bash**.
+
+---
+
 ## Quick Start
-In this section you will find all the information to easily start using CASIMODO in few minutes. If you want more details, please refer to the next sections. 
 
-### Installing CASIMODO
-To install CASIMODO, you will need a conda environment with a version of python 3.9 or higher.
+This section provides a brief walkthrough to get CASIMODO running in minutes. For more in-depth usage and customization, see the following sections.
 
-You also need the following packages:
-* numpy
-* scipy
-* sklearn
-* matplotlib
-* MDAnalysis
-* dadapy
+### Installation Requirements
 
-You will also need to download the *CASIMODO_utils/*  directory as well as the subimission file *submit_CASIMODO.sh* and to place them where you want to run CASIMODO.
+CASIMODO requires Python ≥3.9. A Conda environment is recommended.
 
-You may also want to download the dictionnary file *dic_important_atoms_protein_nucleic_acids.txt* to inspire yourself when creating your own dictionnary file.
+Required Python packages:
 
-### Input files
-As input files you need:
-* A structure file with a format recognized by MDAnalysis (.pdb, .gro etc)
-* A trajectory file with a format recognized by MDAnalysis (.trr, .xtc etc)
-* A dictionnary file that contains the list of the important residue names in your simulation in the first column and the important atoms to study in each residue in the other columns. Optionnaly you may want to specify if a residue is an amino acid by adding the *@amino_acid* tag in the last column. Similarly you can specify if it is a nucleic acid with *@nucleic_acid_pyrimidine* and *@nucleic_acid_purine* tags.
+- `numpy`
+- `scipy`
+- `scikit-learn`
+- `matplotlib`
+- `MDAnalysis`
+- `dadapy`
+
+Make sure to also download:
+- The `CASIMODO_utils/` directory,
+- The job submission file `submit_CASIMODO.sh`,
+- (Optional) The reference file `dic_important_atoms_protein_nucleic_acids.txt` to help you create your own dictionary.
+
+### Input Files
+
+You will need the following:
+
+- A **structure file** (e.g., `.pdb`, `.gro`) supported by MDAnalysis.
+- A **centered trajectory file** (e.g., `.xtc`, `.trr`).  
+  ⚠️ *CASIMODO does not handle periodic boundary conditions. You must preprocess and center your trajectory before analysis.*
+- A **dictionary file** listing the important residues and atoms to analyze.  
+  Optionally, use tags:
+  - `@amino_acid`
+  - `@nucleic_acid_pyrimidine`
+  - `@nucleic_acid_purine`
 
 ### Running CASIMODO
-Before running the script please make sure to indicate the following parameters in the *submit_CASIMODO.sh* file:
-* *step_to_perform* sets the step you want to perform. Always start with the value **"all"**, when the first run is finished you can rerun other steps as described in the **Tuning Clustering** section.
-* *struc_file* is the path to your structure file.
-* *trj_file* is the path to your trajectory file.
-* *dic_file* is the path to your dictionnary file that we described earlier.
-* *output_directory* is the path to the directory where output files will be created. If the directory does not exist, it will be created.
-* *time_zero* is the first time in your trajectory, in ps, to start the analysis. You can use this parameter to skip equilibration.
-* *size_block* is the size of the time blocks, in ps, that will be used by CASIMODO during analysis. Indeed, during the analysis, distributions of geometric variables are plotted, and for checking convergence a block average is performed. If you don't want any block average please set this parameter to a very large value (longer than your simulation).
-* *split_trajectory* this parameter tells the programm if you want to split the trajectory in conformations or not. Please be aware that splitting the trajectory leads to copying it multiple times and may produce large amount of data.
 
-Once all mandatory parameters above are set you need to run the *submit_CASIMODO.sh* script on one (or more) CPU core. You may want to include this script in other scripts or to add a header to specify where to run the script. Please don't hesitate to do it, as long as you keep the script full integrity.
+In the `submit_CASIMODO.sh` script, you must define the following:
 
-### Outputs
-Here is a list of all ouputs produced by CASIMODO:
-* *casimodo.log* this file contains is updated while the script is running and contains all the important information on the running.
-* *important_atoms.txt* contains the list of the important atoms that were found in each of the selected residues.
-* *selected_coordinates.txt* is the list of the coordinates that were found to be multimodal by CASIMODO. The first column is the name of the coordinates then the next ones are organized like this: **label0** **cutoff0** **label1** **cutoff1** **label2** . The smaller labels are assigned to the larger probabilities.
-* *clusters_of_coordinates.txt* is the list of the clusters of coordinates that were found by the script, based on the variation of information, with the list of coordinates in each cluster.
-* *resids_in_clusters.txt* is the list of the residues involved in each cluster of coordinates. This file is usefull for a quick visualization of the clusters but should'nt replace the detailed analysis of the coordinates in clusters.
-* *conformations.txt* contains the list of the conformations that were found by CASIMODO for each cluster of coordinates. For each conformation, the probability of the conformation as well as the most probable state is printed.
-* *discretizing_npy/* is a directory containing all the numpy arrays computed by CASIMODO during the discretizing step.
-* *analysis_npy/* is a directory containing all the numpy arrays computed by CASIMODO during the analysis step.
-* *coordinates_data/* contains the time evolution files for all the coordinates selected by CASIMODO.
-* *coordinates_plots/* contains the distribution plots of all the coordinates selected by CASIMODO with discretizing cutoffs represented.
-* *information_plots/* contains the plots for the entropy, the mutual information, the variation of information and the variation of information clustered for the selected coordinates.
-* *conformations_clustering/* contains the plots for the clustering of states in each cluster of coordinates, as well as indexes for conformations in each cluster of coordinates and, if *split_trajectory*  is **True**, the splitted trajectories and a structure file with the same topology.
+- `step_to_perform`: Initial run should be `"all"`.
+- `struc_file`: Path to structure file.
+- `trj_file`: Path to trajectory file.
+- `dic_file`: Path to the dictionary file.
+- `output_directory`: Output directory (created if missing).
+- `time_zero`: Start time (ps) for analysis. Use to skip equilibration.
+- `size_block`: Block size (ps) for time averaging. To disable block averaging, set it larger than the total simulation time.
+- `split_trajectory`: `1` to split trajectory by conformations, else `0`.
 
-The most important outputs are probably ***clusters_of_coordinates.txt*** and ***conformations.txt*** because they contain information about the clusters of coordinates and about conformations, ax well as ***conformations_clustering/*** because it contains the splitted trajectories.
+Run the script on one or more cores:
 
-## How does CASIMODO work?
-If you want to use CASIMODO at its full potential it's important that you know how it works. All the steps followed by the programm are described lower.
+```bash
+bash submit_CASIMODO.sh
+```
 
-### Loading the trajectory
-CASIMODO uses MDAnalysis to load the trajectory, therefore all file formats recognized by MDAnalysis will work with CASIMODO.
+You may integrate this script into job submission systems as long as you preserve its integrity.
 
-### Times filtering
-The times of the trajectory are filtered keeping all times from *time_zero* and with a time step *delta_time*.
+---
 
-### Important atoms selections 
-All residues listed in your dictionnary file are kept as important residues. All atoms from these residues listed in your dictionnary are kept as important atoms. 
+## Tuning Clustering
 
-Amino acids are listed, as well as nucleic acids (both pyrimidine and purine).
+After an initial run, you can refine clustering via:
 
-### Selection and discretization of the coordinates
+- `step_to_perform = "cluster_coordinates"`: Re-run coordinate clustering.
+- `step_to_perform = "get_conformations"`: Re-run conformation identification.
 
-#### Selection and discretization of distances 
-The distances between each residues are computed in the following way.
+Adjust the following parameters:
 
-Let's say we have a residue i and a resude j, in residue i there are n<sub>i</sub> important atoms and in residue j there are n<sub>j</sub> important atoms. This define n<sub>i</sub>*n<sub>j</sub> distances between i and j that are computed by CASIMODO. Then, CASIMODO only keeps the distance that get the lowest among all of them accross the simulation and defines it as d<sub>ij</sub>. 
+#### For coordinate clustering:
+- `Z_parameter_coordinates`: Lower values increase purity but add noise.
+- `halo_parameter_coordinates`: Set to `1` (recommended).
 
-If d<sub>ij</sub> gets lower than *cutoff_distance* during the trajectory then we try to discretize it, otherwise we do not select any distance between i and j.
+#### For conformation clustering:
+- `Z_parameter_conformations`: Lower values increase purity but add noise.
+- `halo_parameter_conformations`: Set to `0` (recommended).
 
-To discretize d<sub>ij</sub> we start by computing the distribution of this distance along the trajectory using block averaging. Then we smooth it with a gaussian kernel density estimator. On the smoothed distribution we try to identify several modes using peaks and minima determination. For a mode to be selected as a real mode, it's integrated probability should be larger than *proba_cutoff*.
+Experiment with these to optimize clustering outcomes.
 
-If d<sub>ij</sub> is multimodal then it is discretized based on the modes and this discretization is written inside the *selected_coordinates.txt* file, the plot of its distribution is saved *coordinates_plots/* and it's time evolution in *coordinates_data/*.
+---
 
-#### Selection and discretization of dihedral angles
-If you have amino acids in your system, then CASIMODO Will try to discretize and select all the psi and phi angles in the same way as for distances.
+## Output Files
 
-If you have nucleic acids in your system, then CASIMODO Will try to discretize and select all the alpha, beta, gamma, delta, epsilon, zeta and chi angles in the same way as for distances.
+CASIMODO produces the following outputs:
 
-#### Selection and discretization of other coordinates
-You may give as inputs other coordinates to CASIMODO.
+- `casimodo.log`: Log of key runtime information.
+- `important_atoms.txt`: Selected atoms for each important residue.
+- `selected_coordinates.txt`: Multimodal coordinates with discretization.
+- `clusters_of_coordinates.txt`: Coordinate clusters identified via VI.
+- `resids_in_clusters.txt`: Residues involved in each coordinate cluster.
+- `conformations.txt`: Probable conformations in each cluster.
+- `discretizing_npy/`: Intermediate NumPy arrays from discretization.
+- `analysis_npy/`: Arrays from entropy and clustering analysis.
+- `coordinates_data/`: Time series of each selected coordinate.
+- `coordinates_plots/`: Distributions with cutoff lines.
+- `information_plots/`: Entropy, MI, VI plots.
+- `conformations_clustering/`: Cluster plots, indices, and trajectory segments (if `split_trajectory=1`).
 
-For that you need to fill the following parameters :
-* *coordinates_to_add* is a list of paths to the time evolution files of the coordinates you want to add. In the time evolution files, the first column should be the time in ps and the second column be either the distance in angstroms or the angle in °. 
-* *type_coordinates_to_add* is a list of types for the coordinates to add (angle or distance).
-* *residues_coordinates_to_add* is a list of residue numbers involved in each coordinates to add. If you want to put more than one residue per coordinate, just put an underscore in between each number. 
+Key files include `clusters_of_coordinates.txt`, `conformations.txt`, and outputs in `conformations_clustering/`.
 
-The coordinates to add are discretized and selected just like other variables.
+---
 
-### Discretization of the conformational space
-If we selected and discretized N variables, then each frame of the trajectory can now be expressed as a number of length N, where each digit X can take n<sub>X</sub> different values, n<sub>X</sub> being the multiplicity of the selected coordinate X. This discretization is saved in *discretizing_npy/discretized_array.npy*.
+## How Does CASIMODO Work?
 
-### Information calculation
-We then compute several information on our discretized trajectory:
-* The single frequency for each value x on each variable X.
-* The double frequencies for each values x,y on each couple of variables X, J.
-* The entropy for each variable X is computed as H(X) = -sum<sub>x</sub> {p(x)logp(x)}.
-* The mutual information between each pair of variable is computed as I(X,Y) = sum<sub>x</sub>sum<sub>y</sub> {P(x,y) log(P(x,y)/(P(x)P(y)))} 
-* The variation of information computed as VI(X,Y) = H(X)+H(Y)-2I(X,Y). This is very similar to the mutual information but it is now a true distance that obey triangular inequality, which is important for the clustering step.
+### 1. Trajectory Loading
 
-### Clustering the coordinates
-Using the Advanced Density Peaks clustering algorithm from dadapy, the coordinates are now clustered based on the variation of information. 
-The cluster of coordinates are then saved in *selected_coordinates.txt* and the residues in each cluster in *selected_coordinates.txt*.
+CASIMODO uses **MDAnalysis** to load structure and trajectory files in supported formats.
 
-### Conformation selection
-Each cluster of coordinates define a subspace in which we can study the trajectory to find conformations based only on the coordinates that are part of the cluster.
+### 2. Time Filtering
 
-To do so for a cluster i, we start by defining new states from the discretized definition of the trajectory but this time keeping only the coordinates that are part of cluster i. Then we make the list of all the states that appear at least once in this subspace. We then cluster these unique states.
+Only frames after `time_zero` are kept. Frames are sampled at an interval defined by `delta_time`.
 
-The clusters of unique states give us conformations. By using the probabilities of each unique state to appear along the trajectory we get the probabilities of the conformations.
-All these information are written in *conformations.txt*.
+### 3. Important Atom Selection
 
-If *split_trajectory* is **True** then we also split the trajectory according to conformations for each cluster of coordinates.
+Residues listed in the dictionary are marked as important. CASIMODO selects the atoms listed for each residue, with special handling for amino acids and nucleic acids.
 
+### 4. Coordinate Selection and Discretization
+
+#### a. Distances
+
+For each residue pair (i, j), the shortest distance among all pairs of important atoms is computed per frame. If this distance drops below `cutoff_distance` at any time, it is retained.
+
+The distance is then:
+- Histogrammed using block averages,
+- Smoothed using a kernel density estimator,
+- Discretized based on identified peaks and cutoffs.
+
+Modes with integrated probability above `proba_cutoff` are retained.
+
+#### b. Dihedral Angles
+
+- **Amino acids**: φ (phi) and ψ (psi)
+- **Nucleic acids**: α, β, γ, δ, ε, ζ, χ
+
+These are discretized in the same manner as distances.
+
+#### c. User-Defined Coordinates
+
+- `coordinates_to_add`: List of file paths with coordinate values (first column: time in ps, second: value).  
+  *For distances, use Ångströms; for angles, use degrees.*
+- `type_coordinates_to_add`: List of `angle` or `distance`.
+- `residues_coordinates_to_add`: Residue indices (use underscores `_` to join multiple residues).
+
+---
+
+## 6. Information-Theoretic Analysis
+
+For each pair of selected coordinates:
+
+### Entropy
+
+\[
+H(X) = -\sum_x P(x) \log P(x)
+\]
+
+Measures the variability of a coordinate.
+
+### Mutual Information
+
+\[
+I(X; Y) = \sum_{x,y} P(x, y) \log \left( rac{P(x, y)}{P(x)P(y)} 
+ight)
+\]
+
+Quantifies how much knowing one coordinate tells you about another.
+
+### Variation of Information
+
+\[
+	ext{VI}(X, Y) = H(X) + H(Y) - 2I(X; Y)
+\]
+
+A proper distance metric that forms the basis for clustering.
+
+---
+
+## 7. Clustering the Coordinates
+
+CASIMODO clusters coordinates using **Advanced Density Peaks (ADP)**, implemented in `dadapy`. The clustering is based on the Variation of Information (VI) matrix between all pairs of coordinates.
+
+Each resulting cluster groups together coordinates that are functionally or dynamically related.
+
+---
+
+## 8. Conformation Analysis
+
+Once coordinate clusters are defined, CASIMODO identifies conformations in each cluster:
+
+1. Project trajectory into cluster subspace.
+2. Define discrete states for each frame.
+3. List all unique states observed.
+4. Cluster the unique states using ADP.
+5. Compute probability of each conformation.
+6. Filter conformations with probability > `cutoff_proba_conformations`.
+7. If `split_trajectory = 1`, extract trajectory segments for each conformation.
+
+Output is saved in `conformations.txt` and (optionally) in `conformations_clustering/`.
+
+---
 
 ## Advanced Parameters
 
-## Tuning clustering
+These may be customized in `submit_CASIMODO.sh`:
+
+- `delta_time`: Time step (ps) between frames.
+- `cutoff_distance`: Minimum proximity (Å) for distances to be analyzed.
+- `delta_residue`: Avoid intra-sequential residue distances (default: 1).
+- `proba_cutoff`: Minimum integrated probability for a mode to be retained.
+- `cutoff_proba_conformations`: Minimum probability for conformations.
+
+---
+
+## License
+
+This software is distributed under the **MIT License**. See `LICENSE` for details.
