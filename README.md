@@ -39,7 +39,7 @@ Make sure to also download in your working directory:
 
 ### Input Files
 
-You will need the following:
+You will need the following input files:
 
 - A **structure file** (e.g., `.pdb`, `.gro`) supported by MDAnalysis.
 - A **centered trajectory file** (e.g., `.xtc`, `.trr`).  
@@ -71,9 +71,7 @@ bash submit_CASIMODO.sh
 
 You may integrate this script into job submission systems as long as you preserve its integrity.
 
----
-
-## Tuning Clustering
+### Tuning Clustering
 
 After an initial run, you can refine clustering via:
 
