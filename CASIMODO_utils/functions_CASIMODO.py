@@ -2845,7 +2845,7 @@ def get_coordinates_in_clusters(output_dir):
 
     return clusters_coords
 
-def write_conformations_to_file(most_probable_states, proba_most_probable_states, proba_clusters, output_dir, cutoff_proba_conformations):
+def write_conformations_to_file(all_cluster_labels,most_probable_states, proba_most_probable_states, proba_clusters, output_dir, cutoff_proba_conformations):
     """
     Writes the most probable conformational states of each cluster to a human-readable text file.
 
@@ -2876,22 +2876,21 @@ def write_conformations_to_file(most_probable_states, proba_most_probable_states
         # Loop over clusters
         for i, cluster_states in enumerate(most_probable_states):
             file_out.write(f"[ Cluster {i} ]\n")
-
+            unique_cluster_labels = np.unique(all_cluster_labels[i])
             # Loop over conformations within the cluster
             for j, state in enumerate(cluster_states):
-                if j != 0:  # Optional: skip first index if it's reserved for noise or placeholder
-                    # Write conformation metadata
-                    if proba_clusters[i][j] < cutoff_proba_conformations:
-                        continue
-                    file_out.write(f"Conformation {j-1} - Probability: {proba_clusters[i][j]:.5f}\n")
-                    file_out.write(f"Most probable state: {state}\n")
-                    file_out.write(f"Probability of the most probable state: {proba_most_probable_states[i][j]:.5f}\n")
-                    file_out.write("Discretized values:\n")
 
-                    # Write coordinate name and value
-                    for k, coord in enumerate(state):
-                        file_out.write(f"{clusters_coords[i][k]}: {coord}\n")
-                    file_out.write('\n')  # Blank line between conformations
+                if unique_cluster_labels[j]==-1 or proba_clusters[i][j] < cutoff_proba_conformations:
+                    continue
+                file_out.write(f"Conformation {unique_cluster_labels[j]} - Probability: {proba_clusters[i][j]:.5f}\n")
+                file_out.write(f"Most probable state: {state}\n")
+                file_out.write(f"Probability of the most probable state: {proba_most_probable_states[i][j]:.5f}\n")
+                file_out.write("Discretized values:\n")
+
+                # Write coordinate name and value
+                for k, coord in enumerate(state):
+                    file_out.write(f"{clusters_coords[i][k]}: {coord}\n")
+                file_out.write('\n')  # Blank line between conformations
 
             file_out.write('\n')  # Blank line between clusters
 
@@ -2999,7 +2998,7 @@ def get_conformations_from_clusters(output_dir, u_traj,
     )
 
     # Write representative conformations to file
-    write_conformations_to_file(most_probable_states, proba_most_probable_states, proba_clusters, output_dir, cutoff_proba_conformations)
+    write_conformations_to_file(all_clusters_labels,most_probable_states, proba_most_probable_states, proba_clusters, output_dir, cutoff_proba_conformations)
     logging.info("Conformations written to file.")
 
     # Extract original frame indices from final conformation labels
