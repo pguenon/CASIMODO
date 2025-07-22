@@ -215,7 +215,7 @@ Once coordinate clusters are defined, CASIMODO identifies conformations in each 
 6. Filter conformations with probability > `cutoff_proba_conformations`.
 7. If `split_trajectory = 1`, extract trajectory segments for each conformation.
 
-Output is saved in `conformations.txt` and (optionally) in `conformations_clustering/`.
+Output is saved in `conformations.txt` and in `conformations_clustering/`.
 
 ---
 
