@@ -160,7 +160,7 @@ These are discretized in the same manner as distances.
 
 ## 6. Information-Theoretic Analysis
 
-For each pair of selected coordinates:
+For each pair of selected coordinates, the following values are computed:
 
 ### Entropy
 
