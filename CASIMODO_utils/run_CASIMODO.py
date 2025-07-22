@@ -93,22 +93,6 @@ for path in [strucfile, trajfile, dic]:
         print(f"Error: File '{path}' does not exist.")
         exit(1)
 
-#######################################
-#      CREATE OUTPUT DIRECTORIES      #
-#######################################
-
-subdirs = [
-    'coordinates_data',
-    'coordinates_plots',
-    'arrays_npy',
-    'analysis',
-    'information_plots',
-    'frequencies',
-    'conformations_clustering'
-]
-
-for subdir in subdirs:
-    os.makedirs(os.path.join(output_dir, subdir), exist_ok=True)
 
 ########################################
 #           INITIATE LOGGING            #
@@ -168,6 +152,20 @@ if step_to_perform in ['all', 'discretize_coordinates', 'get_conformations']:
 #######################################
 
 if step_to_perform in ['all', 'discretize_coordinates']:
+    subdirs = [
+    'coordinates_data',
+    'coordinates_plots',
+    'arrays_npy',
+    'analysis',
+    'information_plots',
+    'frequencies',
+    ]
+
+    for subdir in subdirs:
+        if os.path.exists(os.path.join(output_dir, subdir)):
+            os.rmdir(os.path.join(output_dir, subdir))
+        os.mkdir(os.path.join(output_dir, subdir))
+
     selected_coordinates_file = os.path.join(output_dir, 'selected_coordinates.txt')
     if os.path.exists(selected_coordinates_file):
         os.remove(selected_coordinates_file)
@@ -210,6 +208,15 @@ if step_to_perform in ['all', 'cluster_coordinates']:
         )
     
 if step_to_perform in ['all', 'get_conformations']:
+    subdirs = [
+    'conformations_clustering'
+    ]
+
+    for subdir in subdirs:
+        if os.path.exists(os.path.join(output_dir, subdir)):
+            os.rmdir(os.path.join(output_dir, subdir))
+        os.mkdir(os.path.join(output_dir, subdir))
+
     get_conformations_from_clusters(
     output_dir,u_traj, 
     Z_parameter_conformations, halo_parameter_conformations,
