@@ -221,16 +221,14 @@ Output is saved in `conformations.txt` and in `conformations_clustering/`.
 
 ## Advanced Parameters
 
-These may be customized in `submit_CASIMODO.sh`:
-
-- `delta_time`: Time step (ps) between frames.
-- `cutoff_distance`: Minimum proximity (Å) for distances to be analyzed.
-- `delta_residue`: Avoid intra-sequential residue distances (default: 1).
+You may also adjust the following optional parameters in `submit_CASIMODO.sh` for more control: 
+- `delta_time`: Time step (ps) between frames. Defaults to your trajectory's native time step if set too low.
+- `cutoff_distance`: 	Distance threshold below which a coordinate is considered for analysis.
+- `delta_residue`: Optional parameter (default = 1) that ignores distances between nearby residues in sequence.
 - `proba_cutoff`: Minimum integrated probability for a mode to be retained.
-- `cutoff_proba_conformations`: Minimum probability for conformations.
-
+- `cutoff_proba_conformations`: Minimum probability for a conformation to be retained.
 ---
 
 ## License
 
-This software is distributed under the **MIT License**. See `LICENSE` for details.
+This software is distributed under the **License**. See `LICENSE` for details.
