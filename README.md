@@ -180,7 +180,7 @@ Quantifies how much knowing one coordinate tells you about another.
 
 ### Variation of Information
 
-${tex`VI(X; Y) = H(X) + H(Y) - 2I(X; Y)`}
+$VI(X; Y) = H(X) + H(Y) - 2I(X; Y)$
 
 
 A proper distance metric that forms the basis for clustering.
