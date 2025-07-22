@@ -90,9 +90,7 @@ Adjust the following parameters:
 
 Experiment with these to optimize clustering outcomes.
 
----
-
-## Output Files
+### Output Files
 
 CASIMODO produces the following outputs:
 
