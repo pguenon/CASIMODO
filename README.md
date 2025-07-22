@@ -44,7 +44,7 @@ Once all mandatory parameters above are set you need to run the *submit_CASIMODO
 ### Outputs
 Here is a list of all ouputs produced by CASIMODO:
 * *casimodo.log* this file contains is updated while the script is running and contains all the important information on the running.
-* *selected_coordinates* is the list of the coordinates that were found to be multimodal by CASIMODO. The first column is the name of the coordinates then the next ones are organized like this: **label_0** **cutoff_value_0** **label_1** **cutoff_value_1** **label_2** . The smaller labels are assigned to the larger probabilities.
+* *selected_coordinates* is the list of the coordinates that were found to be multimodal by CASIMODO. The first column is the name of the coordinates then the next ones are organized like this: **label0** **cutoff0** **label1** **cutoff1** **label2** . The smaller labels are assigned to the larger probabilities.
 * 
 
 ## How does CASIMODO work?
