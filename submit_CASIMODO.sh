@@ -17,22 +17,22 @@ step_to_perform="all"
 #              REQUIRED INPUTS               #
 ##############################################
 # Structure file (.gro or .pdb), centered and fitted
-struc_file="Data_files/REMD_DHFR_WT_nowater_center_fit0.gro"
+struc_file=" " # path to your structure file
 
 # Trajectory file (.xtc or .trr), centered and fitted
-trj_file="Data_files/REMD_DHFR_WT_nowater_center_fit.xtc"
+trj_file=" " # path to your trajectory file
 
 # Dictionary file defining important atoms of residues
-dic_file="dic_important_atoms_protein_modified.txt"
+dic_file=" " # path to your dictionary file
 
 # Directory where all results will be saved
-output_directory="results_DHFR"
+output_directory="results_CASIMODO" # path to your output directory
 
 # Time in ps to start the analysis (to skip equilibration)
-time_zero=150000
+time_zero=0
 
 # Size in ps of each analysis block
-size_block=50000
+size_block=100000000 # size of each analysis block in ps, if you want only one block, set it to a large value
 
 # Whether to split the trajectory by conformations
 # If True, the trajectory will be split into segments based on the identified conformations

@@ -24,3 +24,8 @@ THR          CA OG1         @amino_acid
 TRP          CA CH2         @amino_acid
 TYR          CA OH          @amino_acid
 VAL          CA CB          @amino_acid
+C            N4 O2 C4'      @nucleic_acid_pyrimidine
+U            O4 N3 C4'      @nucleic_acid_pyrimidine
+T            O4 N3 C4'      @nucleic_acid_pyrimidine
+G            O6 N2 C4'      @nucleic_acid_purine
+A            N1 N6 C4'      @nucleic_acid_purine
