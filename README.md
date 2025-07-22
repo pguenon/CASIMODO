@@ -80,49 +80,54 @@ You can modify or integrate this script into your own job submission pipeline, a
 
 ### Tuning Clustering
 
-After an initial run, you can refine clustering via:
+Once the initial full run is complete, you may wish to explore better clustering results by adjusting certain parameters. CASIMODO allows you to rerun only the clustering steps to save time.
 
-- `step_to_perform = "cluster_coordinates"`: Re-run coordinate clustering.
-- `step_to_perform = "get_conformations"`: Re-run conformation identification.
+Use the `step_to_perform` variable in the submission script to specify the step:
+* `"cluster_coordinates"`: Reruns the clustering of the geometric variables.
+* `"get_conformations"`: Reruns the clustering of states and identification of conformations.
 
-Adjust the following parameters:
+#### Parameters to adjust:
 
-#### For coordinate clustering:
-- `Z_parameter_coordinates`: Lower values increase purity but add noise.
+**For coordinate clustering**:
+- `Z_parameter_coordinates`: Lower values result in more refined clusters but may assign more coordinates to noise.
 - `halo_parameter_coordinates`: Set to `1` (recommended).
 
-#### For conformation clustering:
-- `Z_parameter_conformations`: Lower values increase purity but add noise.
+**For conformation clustering**:
+- `Z_parameter_conformations`: A lower value increases purity of conformations, at the cost of more discarded states.
 - `halo_parameter_conformations`: Set to `0` (recommended).
 
-Experiment with these to optimize clustering outcomes.
+You may need to experiment with these values to find a clustering result that best captures the behavior of your system.
 
 ### Output Files
 
-CASIMODO produces the following outputs:
+CASIMODO produces a number of output files and directories to help you interpret the results. Here are the key ones:
 
-- `casimodo.log`: Log of key information.
-- `important_atoms.txt`: Selected atoms for each important residue.
-- `selected_coordinates.txt`: Multimodal coordinates with discretization.
+- `casimodo.log`: A log file containing the progress and key messages.
+- `important_atoms.txt`: Lists important atoms identified from the dictionary.
+- `selected_coordinates.txt`: Lists all multimodal coordinates and their discretization cutoffs.
 - `clusters_of_coordinates.txt`: Coordinate clusters identified via VI.
-- `resids_in_clusters.txt`: Residues involved in each coordinate cluster.
-- `conformations.txt`: Conformations in each cluster.
-- `discretizing_npy/`: NumPy arrays from discretization.
-- `analysis_npy/`: Arrays from entropy and clustering analysis.
+- `resids_in_clusters.txt`: Residues associated with each cluster (mainly for quick inspection).
+- `conformations.txt`: The conformations identified, their probabilities, and representative states.
+- `discretizing_npy/`: NumPy arrays from the discretization step.
+- `analysis_npy/`: NumPy arrays from the analysis step.
 - `coordinates_data/`: Time series of each selected coordinate.
 - `coordinates_plots/`: Distributions with cutoff lines of each selected coordinate.
-- `information_plots/`: Entropy, MI, VI plots.
-- `conformations_clustering/`: Cluster plots and indices for conformations, and trajectory segments (if `split_trajectory=1`).
+- `information_plots/`: Entropy, mutual information, and variation of information visualizations.
+- `conformations_clustering/`: States clustering results, and if enabled, the split trajectory files and structure.
 
-The most important output files ares `clusters_of_coordinates.txt`, `conformations.txt`, and outputs in `conformations_clustering/` if `split_trajectory=1`.
+If you’re looking for the most critical outputs, focus on:
+* `clusters_of_coordinates.txt`
+* `conformations.txt`
+* `conformations_clustering/` (especially when `split_trajectory=1`)
 
 ---
 
 ## How Does CASIMODO Work?
+Understanding CASIMODO’s internal workflow will help you make the most of it.
 
 ### 1. Trajectory Loading
 
-CASIMODO uses **MDAnalysis** to load structure and trajectory files in supported formats.
+CASIMODO uses **MDAnalysis** to handle structure and trajectory files, which supports most common formats.
 
 ### 2. Time Filtering
 
@@ -130,27 +135,30 @@ Only frames after `time_zero` are kept. Frames are sampled at an interval define
 
 ### 3. Important Atom Selection
 
-Residues listed in the dictionary are marked as important. CASIMODO selects the atoms listed for each residue, with special handling for amino acids and nucleic acids.
+Important residues and atoms are selected based on your dictionary. If a residue is tagged as an amino acid or nucleic acid, CASIMODO will analyze its characteristic dihedral angles as well.
 
 ### 4. Coordinate Selection and Discretization
 
 #### a. Distances
 
-For each pair of residues, CASIMODO computes all pairwise distances between important atoms and retains the **minimum observed distance** over the trajectory, d_ij.
+For each pair of residues, CASIMODO computes all pairwise distances between important atoms and retains the **minimum observed distance** over the trajectory, `d_ij`.
 
-The distance is then:
-- Histogrammed using block average,
-- Smoothed using a kernel density estimator,
-- Discretized based on identified peaks and minima.
+If `d_ij` drops below `cutoff_distance` at any point, the distance is considered for discretization.
 
-Modes with integrated probability above `proba_cutoff` are retained.
+Discretization involves:
+* Smoothing the distance distribution using a Gaussian kernel
+* Detecting peaks and valleys
+* Selecting modes with integrated probabilities above `proba_cutoff`
+
+Only multimodal distances are retained.
 
 #### b. Dihedral Angles
 
-- **Amino acids**: φ (phi) and ψ (psi)
-- **Nucleic acids**: α, β, γ, δ, ε, ζ, χ
+For **Amino acids**: φ (phi) and ψ (psi)
 
-These are discretized in the same manner as distances.
+For **Nucleic acids**: α, β, γ, δ, ε, ζ, χ
+
+These are treated using the same selection and discretization process as distances.
 
 #### c. User-Defined Coordinates
 
