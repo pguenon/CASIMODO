@@ -2,28 +2,23 @@ import os
 import shutil
 import logging
 from datetime import datetime
+import io
+import sys
+from contextlib import redirect_stdout, redirect_stderr
 
 import numpy as np	
 
-from math import exp,log
-
-import scipy.stats as stats 
 from scipy.stats import t
-from scipy.ndimage import uniform_filter1d
 from scipy.spatial.distance import pdist, squareform
 
 from sklearn.neighbors import KernelDensity
-from sklearn.metrics import silhouette_score
-
-import optuna
 
 import matplotlib.pyplot as plt
 from matplotlib.patches import Rectangle
 
 import MDAnalysis as mda 
-from MDAnalysis.analysis import distances
 
-import hdbscan
+from dadapy import Data
 
 
 
@@ -76,8 +71,8 @@ def print_inputs(
     strucfile, trajfile, dic,
     time_zero, delta_time, size_block,
     cutoff_distance, delta_resid, proba_cutoff,
-    min_cluster_size_coordinates, min_samples_coordinates, cluster_selection_epsilon_coordinates,
-    min_cluster_size_conformations, min_samples_conformations, cluster_selection_epsilon_conformations,
+    Z_parameter_coordinates, halo_parameter_coordinates,
+    Z_parameter_conformations, halo_parameter_conformations,
     split_trajectory, cutoff_proba_conformations,
     coordinates_to_add, type_coordinates_to_add,residues_coordinates_to_add):
     """
@@ -95,12 +90,10 @@ def print_inputs(
     - cutoff_distance (float): Cutoff distance for contacts.
     - delta_resid (int): Delta residue for contact calculations.
     - proba_cutoff (float): Probability cutoff for contacts.
-    - min_cluster_size_coordinates (int): Minimum size of clusters for coordinate analysis.
-    - min_samples_coordinates (int): Minimum samples for coordinate clustering.
-    - cluster_selection_epsilon_coordinates (float): Epsilon for cluster selection in coordinate clustering.
-    - min_cluster_size_conformations (int): Minimum size of clusters for conformation extraction.
-    - min_samples_conformations (int): Minimum samples for conformation clustering.
-    - cluster_selection_epsilon_conformations (float): Epsilon for cluster selection in conformation clustering.
+    - Z_parameter_coordinates (float): Z parameter for clustering coordinates.
+    - halo_parameter_coordinates (int): Halo parameter for clustering coordinates.
+    - Z_parameter_conformations (float): Z parameter for clustering conformations.
+    - halo_parameter_conformations (int): Halo parameter for clustering conformations.
     - split_trajectory (bool): Whether to split the trajectory into blocks.
     - cutoff_proba_conformations (float): Probability cutoff for conformation extraction.
     - coordinates_to_add (list): List of additional coordinate files to include.
@@ -123,12 +116,10 @@ def print_inputs(
     logging.info("Cutoff distance: %.2f Angstroms", cutoff_distance)
     logging.info("Delta residue: %d", delta_resid)
     logging.info("Probability cutoff: %.5f", proba_cutoff)
-    logging.info("Minimum cluster size for coordinates: %d", min_cluster_size_coordinates)
-    logging.info("Minimum samples for coordinates: %d", min_samples_coordinates)
-    logging.info("Cluster selection epsilon for coordinates: %.2f", cluster_selection_epsilon_coordinates)
-    logging.info("Minimum cluster size for conformations: %d", min_cluster_size_conformations)
-    logging.info("Minimum samples for conformations: %d", min_samples_conformations)
-    logging.info("Cluster selection epsilon for conformations: %.2f", cluster_selection_epsilon_conformations)
+    logging.info("Z parameter for coordinates: %.2f", Z_parameter_coordinates)
+    logging.info("Halo parameter for coordinates: %d", halo_parameter_coordinates)
+    logging.info("Z parameter for conformations: %.2f", Z_parameter_conformations)
+    logging.info("Halo parameter for conformations: %d", halo_parameter_conformations)
     logging.info("Split trajectory: %s", split_trajectory)
     logging.info("Cutoff probability for conformations: %.5f", cutoff_proba_conformations)
     logging.info("Additional coordinates to add: %s", coordinates_to_add)
@@ -2098,7 +2089,6 @@ def plot_information_clustered(Information_matrix, reordered_labels, output_dir,
     plt.colorbar(im, label=label_data)
     plt.title(f'{label_data} Matrix with Cluster Boxes' if label_data else "Clustered Information Matrix")
 
-    print("Reordered labels:", reordered_labels)
     # Find cluster boundaries
     boundaries = []
     last_label = reordered_labels[0]
@@ -2294,10 +2284,61 @@ def get_variation_information(output_dir):
     logging.info("Variation information computed.")
 
 
-############# Function to plot hdbscan results ##########################
-def plot_hdbscan_results(dist_matrix,cluster_labels, output_dir, output_name, label_data=None, xlabel='X-axis', ylabel='Y-axis'):
+######################### Function to cluster using Advanced Density Peaks ##########################
+def density_peaks_clustering(distance_matrix, Z_parameter=1.65, halo_parameter=0):
     """
-    Plots the results of HDBSCAN clustering on the mutual information distance matrix.
+    Applies Density Peaks Clustering (ADP version) on a precomputed distance matrix.
+
+    Parameters
+    ----------
+    distance_matrix : np.ndarray of shape (n_samples, n_samples)
+        Symmetric pairwise distance matrix between conformations or data points.
+    
+    Z_parameter : float, default=1.65
+        Confidence level for the clustering decision threshold (used in ADP).
+        Typical values: 1.65 (≈ 95% confidence), 2.0 (≈ 97.5%), etc.
+
+    halo_parameter : int, default=0
+        If set to 1, identifies border points (halo) around clusters.
+
+    Returns
+    -------
+    cluster_labels : np.ndarray of shape (n_samples,)
+        Array of integer cluster labels for each data point.
+    """
+
+    # Get the number of data points (states/conformations)
+    n_states = np.shape(distance_matrix)[0]
+
+    # Dummy coordinates (not used, but required by DADApy's Data object)
+    x_dummy = np.zeros((n_states, 2), dtype=float)
+
+    # Create a buffer to capture stdout
+    buf = io.StringIO()
+
+    # Redirect stdout/stderr to the buffer
+    with redirect_stdout(buf), redirect_stderr(buf):
+        from dadapy import Data  # Import here in case needed dynamically
+        data = Data(coordinates=x_dummy, distances=distance_matrix, verbose=True)
+        data.compute_id_2NN()
+        data.compute_density_kstarNN()
+        data.compute_clustering_ADP_pure_python(Z=Z_parameter, halo=bool(halo_parameter))
+
+    # Log the captured output
+    output = buf.getvalue()
+    if output.strip():
+        logging.info("[DADApy output]\n" + output.strip())
+
+    # Return cluster labels
+    cluster_labels = data.cluster_assignment
+    return cluster_labels
+
+
+
+############# Function to plot clustering results ##########################
+def plot_clustering_results(dist_matrix,cluster_labels, output_dir, output_name, label_data=None, xlabel='X-axis', ylabel='Y-axis'):
+    """
+    Plots the results of clustering on the mutual information distance matrix.
 
     This function loads the cluster labels and distance matrix, then generates a scatter plot
     of the coordinates colored by their cluster labels. It also saves the plot to a file.
@@ -2312,7 +2353,7 @@ def plot_hdbscan_results(dist_matrix,cluster_labels, output_dir, output_name, la
     None. The plot is saved to disk.
     """
     
-    logging.info("\nPlotting HDBSCAN clustering results...")
+    logging.info("\nPlotting clustering results...")
 
     # Load cluster labels and distance matrix
     unique_labels= np.unique(cluster_labels)
@@ -2340,7 +2381,7 @@ def plot_hdbscan_results(dist_matrix,cluster_labels, output_dir, output_name, la
     plot_information_clustered(dist_reordered,reordered_labels, output_dir, output_name, label_data, xlabel=xlabel, ylabel=ylabel)
 
     
-    logging.info("HDBSCAN clustering results plotted and saved.")
+    logging.info("Clustering results plotted and saved.")
 
     return reordered_labels
     
@@ -2427,44 +2468,48 @@ def compute_information(output_dir):
     get_variation_information(output_dir)
 
 
-############ Function to cluster coordinates based on mutual information distance, using hdbscan ##############
-def cluster_coordinates(output_dir,coordinates_to_add,residues_coordinates_to_add, min_cluster_size, min_samples,cluster_selection_epsilon):
+############ Function to cluster coordinates based on mutual information distance, using Advanced Density Peaks ##############
+def cluster_coordinates(output_dir,coordinates_to_add,residues_coordinates_to_add, Z_parameter_coordinates,halo_parameter_coordinates):
     """
-    Clusters coordinates based on mutual information distance using HDBSCAN.
+    Clusters coordinates based on mutual information distance using Advanced Density Peaks.
 
-    This function loads the mutual information distance matrix, applies HDBSCAN clustering,
+    This function loads the mutual information distance matrix, applies Advanced Density Peaks clustering,
     and saves the resulting cluster labels to a file.
 
     Parameters:
     -----------
     output_dir : str
         Path to the directory containing the MI distance matrix.
-    min_cluster_size : int, optional
-        Minimum size of clusters to consider (default is 5).
-    min_samples : int, optional
-        Minimum number of samples in a neighborhood for a point to be considered a core point (default is 5).
+    coordinates_to_add : list of str
+        List of file paths to additional coordinates to be clustered.
+    residues_coordinates_to_add : list of str
+        List of residue identifiers corresponding to the additional coordinates.
+    Z_parameter_coordinates : float
+        Z parameter for the clustering algorithm, typically set to 1.65 for a 95    
+        confidence level.
+    halo_parameter_coordinates : int
+        Halo parameter for the clustering algorithm, typically set to 0 (no halo) or 1 (halo enabled).
 
     Returns:
     --------
     None. The cluster labels are saved to disk.
     """
 
-    logging.info("\nClustering coordinates using HDBSCAN...")
+    logging.info("\nClustering coordinates using Advanced Density Peaks...")
 
     # Load the mutual information distance matrix
     distance_matrix = np.load(os.path.join(output_dir, "analysis", "VI.npy"))
     normalized_distance_matrix = distance_matrix / np.max(distance_matrix)  # Normalize to [0, 1]
 
-    # Apply HDBSCAN clustering
-    clusterer = hdbscan.HDBSCAN(min_cluster_size=min_cluster_size, min_samples=min_samples,cluster_selection_epsilon=cluster_selection_epsilon, metric='precomputed')
-    cluster_labels = clusterer.fit_predict(normalized_distance_matrix)
+    #Apply Density Peaks Clustering
+    cluster_labels = density_peaks_clustering(distance_matrix, Z_parameter_coordinates, halo_parameter_coordinates)
 
     # Save the cluster labels to a file
     np.save(os.path.join(output_dir, "analysis", "cluster_labels.npy"), cluster_labels)
 
     logging.info("Clustering completed and labels saved.")
 
-    reordered_labels = plot_hdbscan_results(normalized_distance_matrix,cluster_labels, output_dir+'information_plots/', "VI_hdbscan", "Normalized variation of Information",xlabel="Coordinate Index", ylabel="Coordinate Index")
+    reordered_labels = plot_clustering_results(normalized_distance_matrix,cluster_labels, output_dir+'information_plots/', "VI_clustering", "Normalized variation of Information",xlabel="Coordinate Index", ylabel="Coordinate Index")
 
     coordinates,X_cuts,Labels=load_data_discretization(output_dir + "selected_coordinates.txt")
 
@@ -2561,7 +2606,7 @@ def compute_distances_between_states(states):
 def extract_frames_from_labels(output_dir, clusters_data, unique_states_clusters, all_clusters_labels, times_indices, proba_clusters, cutoff_proba_conformations):
     """
     Extracts the original frame indices corresponding to each conformation
-    within each cluster, based on HDBSCAN labels of unique states.
+    within each cluster, based on clustering labels of unique states.
 
     Parameters:
     -----------
@@ -2572,7 +2617,7 @@ def extract_frames_from_labels(output_dir, clusters_data, unique_states_clusters
     unique_states_clusters : list of ndarray
         Unique states (rows) found in each cluster.
     all_clusters_labels : list of ndarray
-        HDBSCAN labels of unique states in each cluster.
+        clustering labels of unique states in each cluster.
     times_indices : list or ndarray
         Mapping of indices to the original frame times.
 
@@ -2602,7 +2647,7 @@ def extract_frames_from_labels(output_dir, clusters_data, unique_states_clusters
             # Find which unique state this frame matches
             index_state = np.where((unique_states_clusters[i] == state).all(axis=1))[0][0]
 
-            # Get the HDBSCAN label for that unique state
+            # Get the clustering label for that unique state
             label_index = list(unique_labels).index(cluster_labels[index_state])
 
             # Add corresponding time index
@@ -2680,12 +2725,12 @@ def split_trajectory_by_conformations(output_dir, u_traj, frames_by_clusters,pro
 def get_most_probable_states(all_clusters_labels, unique_states_clusters, probabilities_unique_states_clusters,cutoff_proba_conformations):
     """
     For each cluster, identify the most probable state (discretized conformation)
-    within each sub-cluster (i.e., HDBSCAN-labeled conformation).
+    within each sub-cluster (i.e., clustering-labeled conformation).
 
     Parameters:
     -----------
     all_clusters_labels : list of ndarray
-        List of HDBSCAN label arrays, one per main cluster.
+        List of clustering label arrays, one per main cluster.
         Each array gives the label for each unique state within that cluster.
         Example shape: [n_main_clusters][n_states_in_cluster_i]
 
@@ -2700,7 +2745,7 @@ def get_most_probable_states(all_clusters_labels, unique_states_clusters, probab
     Returns:
     --------
     most_probable_states : list of list of ndarray
-        For each cluster, a list of the most probable state in each HDBSCAN sub-cluster (i.e., conformation).
+        For each cluster, a list of the most probable state in each clustering sub-cluster (i.e., conformation).
         Structure: [n_main_clusters][n_conformations_in_cluster_i]
 
     proba_most_probable_states : list of list of float
@@ -2723,7 +2768,7 @@ def get_most_probable_states(all_clusters_labels, unique_states_clusters, probab
             np.where(cluster_labels == label)[0] for label in unique_labels
         ]
 
-        # Loop through conformations (HDBSCAN sub-clusters)
+        # Loop through conformations (clustering sub-clusters)
         for j, ind_labels in enumerate(ind_labels_cluster):
             # Get the probabilities of the states in the current conformation
             proba_cluster_conf_j = probabilities_unique_states_clusters[i][ind_labels]
@@ -2851,53 +2896,10 @@ def write_conformations_to_file(most_probable_states, proba_most_probable_states
             file_out.write('\n')  # Blank line between clusters
 
 
-
-def evaluate_hdbscan_from_dist(dist_matrix, min_cluster_size, min_samples):
-    """
-    Evaluates clustering quality for a given distance matrix and HDBSCAN parameters.
-    Returns Silhouette score or -1 if clustering is invalid.
-    """
-    clusterer = hdbscan.HDBSCAN(
-        metric='precomputed',
-        min_cluster_size=min_cluster_size,
-        min_samples=min_samples,
-        cluster_selection_method ='leaf',
-    )
-    labels = clusterer.fit_predict(dist_matrix)
-
-    # Penalize trivial clustering
-    unique = set(labels)
-    if len(unique) <= 1 or unique == {-1}:
-        return -1.0
-
-    score = silhouette_score(dist_matrix, labels, metric='precomputed')
-    return score
-
-
-def optimize_hdbscan_parameters(dist_matrix, n_trials=50):
-    """
-    Runs Optuna optimization to find best HDBSCAN parameters for given distance matrix.
-    Returns best parameters and best score.
-    """
-
-    def objective(trial):
-        min_cluster_size = trial.suggest_int("min_cluster_size", 5, 100)
-        min_samples = trial.suggest_int("min_samples", 1, min_cluster_size)
-        return evaluate_hdbscan_from_dist(dist_matrix, min_cluster_size, min_samples)
-
-    study = optuna.create_study(direction="maximize")
-    study.optimize(objective, n_trials=n_trials)
-
-    return study.best_params, study.best_value
-
-
-
-
-
 ######################### Function to extract conformations from clusters ##########################
 def get_conformations_from_clusters(output_dir, u_traj,
-                                     min_cluster_size_conformations, min_samples_conformations,
-                                     cluster_selection_epsilon_conformations, split_trajectory,cutoff_proba_conformations,strucfile,trajfile, selected_resids):
+                                     Z_parameter_conformations,halo_parameter_conformations,
+                                     split_trajectory,cutoff_proba_conformations,strucfile,trajfile, selected_resids):
     """
     Extracts representative conformations from trajectory data based on hierarchical clustering.
     
@@ -2909,10 +2911,20 @@ def get_conformations_from_clusters(output_dir, u_traj,
         Trajectory universe for accessing conformational frames.
     times_indices : ndarray
         Mapping of trajectory time steps to frame indices.
-    min_cluster_size_conformations, min_samples_conformations, cluster_selection_epsilon_conformations : int or float
-        HDBSCAN clustering hyperparameters.
+    Z_parameter_conformations : float
+        Z parameter for density peaks clustering of conformations.
+    halo_parameter_conformations : int
+        Halo parameter for density peaks clustering of conformations.
     split_trajectory : bool
         Whether to save separate trajectory files for each final cluster.
+    cutoff_proba_conformations : float
+        Minimum probability threshold for a conformation to be considered significant.
+    strucfile : str
+        Path to the structure file (e.g., PDB) for the trajectory.
+    trajfile : str
+        Path to the trajectory file (e.g., DCD, XTC).
+    selected_resids : list of int
+        List of residue IDs to consider for trajectory splitting.
     """
     times_indices = np.load(output_dir + "arrays_npy/times_indices.npy")  # Load time indices for frames
     # Load top-level cluster assignments
@@ -2924,9 +2936,9 @@ def get_conformations_from_clusters(output_dir, u_traj,
 
     logging.info("\nExtracting conformations from clusters...")
 
-    # Split the discretized array based on top-level HDBSCAN clustering
+    # Split the discretized array based on top-level clustering clustering
     clusters_data = split_discretized_array_by_clusters(discretized_array, cluster_labels)
-    logging.info(f"Found {len(clusters_data)} clusters based on HDBSCAN labels.")
+    logging.info(f"Found {len(clusters_data)} clusters based on clustering labels.")
 
     # Extract unique conformational states and their probabilities within each cluster
     logging.info("Extracting unique states from clusters...")
@@ -2938,49 +2950,27 @@ def get_conformations_from_clusters(output_dir, u_traj,
     
     all_clusters_labels = []
     for i, dist_states in enumerate(distances_between_states):
+        
         logging.info(f"Cluster {i}: Found {len(unique_states_clusters[i])} unique states.")    
+        if len(unique_states_clusters[i]) >2 :
+
+            cluster_labels = density_peaks_clustering(dist_states, Z_parameter_conformations,halo_parameter_conformations)
 
 
-        """
-        # Perform HDBSCAN clustering on the distance matrix of conformations
-        clusterer = hdbscan.HDBSCAN(
-            min_cluster_size=min_cluster_size_conformations,
-            min_samples=min_samples_conformations,
-            cluster_selection_epsilon=cluster_selection_epsilon_conformations,
-            metric='precomputed',
-            allow_single_cluster=False, 
-            cluster_selection_method='eom',
-            algorithm='auto'
-        )
-        """
-        best_params, best_score = optimize_hdbscan_parameters(dist_states)
-        print("Best Parameters:", best_params)
-        print("Best Silhouette Score:", best_score)
-
-        print("Best parameters:", best_params)
-        print("Best silhouette score:", best_params)
-
-        clusterer = hdbscan.HDBSCAN(metric='precomputed',
-                    min_cluster_size=best_params['min_cluster_size'],
-                    min_samples=best_params['min_samples'],
-                    cluster_selection_method ='leaf',)
-
-        clusterer.fit(dist_states)
-        cluster_labels = clusterer.labels_
-
-        n_clusters = len(np.unique(cluster_labels)) - (1 if -1 in cluster_labels else 0)
-        logging.info(f"Cluster {i}: Found {n_clusters} clusters based on distances between states.")
-
-        # Plot and save the HDBSCAN results for this sub-cluster
-        _ = plot_hdbscan_results(
-            dist_states, cluster_labels,
-            output_dir + 'conformations_clustering/',
-            f"distances_between_states_cluster_{i}",
-            label_data="Normalized distance between states",
-            xlabel="State Index",
-            ylabel="State Index"
-        )
-        all_clusters_labels.append(cluster_labels)
+            # Plot and save the clustering results for this sub-cluster
+            _ = plot_clustering_results(
+                dist_states, cluster_labels,
+                output_dir + 'conformations_clustering/',
+                f"distances_between_states_cluster_{i}",
+                label_data="Normalized distance between states",
+                xlabel="State Index",
+                ylabel="State Index"
+            )
+            all_clusters_labels.append(cluster_labels)
+        else:
+            logging.info(f"Cluster {i} has only one unique state, skipping clustering.")
+            # If only one unique state, assign it to a single cluster
+            all_clusters_labels.append(unique_states_clusters[i])
     
     # Compute probabilities for each conformation cluster (after second-level clustering)
     proba_clusters = []
@@ -2996,8 +2986,10 @@ def get_conformations_from_clusters(output_dir, u_traj,
         selected_proba_conformations = proba_conformations[proba_conformations > cutoff_proba_conformations]
 
         logging.info(f"Conformations in cluster {i}: {selected_unique_labels}        -1 indicates noise")
-        logging.info(f"Probabilities of conformations: {selected_proba_conformations}")
-        logging.info("Total probability: %.5f" % np.sum(selected_proba_conformations))
+        
+        logging.info("Probabilities of conformations: %s", 
+                    ["%.3f" % p for p in selected_proba_conformations])
+        logging.info("Total probability: %.3f" % np.sum(selected_proba_conformations))
         proba_clusters.append(proba_conformations)
         
     # Extract the most probable states from each cluster 

@@ -58,21 +58,17 @@ delta_residue=3
 # to consider the local max as a significant peak
 proba_cutoff=0.01
 
-#Parameters for HDBSCAN clustering of the coordinates
-# Minimum size of clusters for HDBSCAN
-min_cluster_size_coordinates=5
-# Minimum samples for HDBSCAN
-min_samples_coordinates=40
-# Epsilon for cluster selection in HDBSCAN
-cluster_selection_epsilon_coordinates=0.0
+#Parameters for Advanced Density Peaks clustering of the coordinates
+# Z parameter for clustering coordinates
+Z_parameter_coordinates=3.0
+# Halo parameter for clustering coordinates (0=False or 1=True)
+halo_parameter_coordinates=1
 
-#Parameters for HDBSCAN clustering of the conformations
-# Minimum size of clusters for conformations extraction
-min_cluster_size_conformations=100
-# Minimum samples for conformations extraction
-min_samples_conformations=100
-# Epsilon for cluster selection in conformations extraction
-cluster_selection_epsilon_conformations=0.0
+#Parameters for Advanced Density Peaks clustering of the conformations
+# Z parameter for clustering conformations
+Z_parameter_conformations=3.0
+# Halo parameter for clustering conformations (0=False or 1=True)
+halo_parameter_conformations=0
 
 cutoff_proba_conformations=0.01  # Probability cutoff for conformations extraction
 
@@ -116,12 +112,10 @@ python CASIMODO_utils/run_CASIMODO.py \
   --cutoff_distance "${cutoff_distance}" \
   --delta_resid "${delta_residue}" \
   --proba_cutoff "${proba_cutoff}" \
-  --min_cluster_size_coordinates "${min_cluster_size_coordinates}" \
-  --min_samples_coordinates "${min_samples_coordinates}" \
-  --cluster_selection_epsilon_coordinates "${cluster_selection_epsilon_coordinates}"\
-  --min_cluster_size_conformations "${min_cluster_size_conformations}" \
-  --min_samples_conformations "${min_samples_conformations}" \
-  --cluster_selection_epsilon_conformations "${cluster_selection_epsilon_conformations}" \
+  --Z_parameter_coordinates "${Z_parameter_coordinates}" \
+  --halo_parameter_coordinates "${halo_parameter_coordinates}" \
+  --Z_parameter_conformations "${Z_parameter_conformations}" \
+  --halo_parameter_conformations "${halo_parameter_conformations}" \
   ${split_trajectory_flag} \
   --cutoff_proba_conformations "${cutoff_proba_conformations}" \
   --coordinates_to_add "${coordinates_to_add[@]}" \

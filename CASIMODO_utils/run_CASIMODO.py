@@ -29,13 +29,11 @@ def parse_arguments():
     parser.add_argument('--delta_resid', type=int, default=3, help='Residue separation threshold for contact filtering')
     parser.add_argument('--proba_cutoff', type=float, default=0.1, help='Probability cutoff for filtering dihedral regions')
     
-    parser.add_argument('--min_cluster_size_coordinates', type=int, default=5, help='Minimum size of clusters for HDBSCAN')
-    parser.add_argument('--min_samples_coordinates', type=int, default=40, help='Minimum samples for HDBSCAN')
-    parser.add_argument('--cluster_selection_epsilon_coordinates', type=float, default=0.0, help='Epsilon for cluster selection in HDBSCAN')
+    parser.add_argument('--Z_parameter_coordinates', type=float, default=3.0, help='Z parameter for clustering coordinates')
+    parser.add_argument('--halo_parameter_coordinates', type=int, default=1, help='Halo parameter for clustering coordinates (0 or 1)')
 
-    parser.add_argument('--min_cluster_size_conformations', type=int, default=5, help='Minimum size of clusters for conformations extraction')
-    parser.add_argument('--min_samples_conformations', type=int, default=40, help='Minimum samples for conformations extraction')
-    parser.add_argument('--cluster_selection_epsilon_conformations', type=float, default=0.0, help='Epsilon for cluster selection in conformations extraction')
+    parser.add_argument('--Z_parameter_conformations', type=float, default=3.0, help='Z parameter for clustering conformations')
+    parser.add_argument('--halo_parameter_conformations', type=int, default=0, help='Halo parameter for clustering conformations (0 or 1)')
 
     parser.add_argument('--cutoff_proba_conformations', type=float, default=0.001, help='Probability cutoff for conformations extraction')
     parser.add_argument('--split_trajectory', default=True, action=argparse.BooleanOptionalAction)
@@ -70,13 +68,11 @@ cutoff_distance = args.cutoff_distance
 delta_resid = args.delta_resid
 proba_cutoff = args.proba_cutoff
 
-min_cluster_size_coordinates = args.min_cluster_size_coordinates
-min_samples_coordinates = args.min_samples_coordinates
-cluster_selection_epsilon_coordinates = args.cluster_selection_epsilon_coordinates
+Z_parameter_coordinates = args.Z_parameter_coordinates
+halo_parameter_coordinates = args.halo_parameter_coordinates    
 
-min_cluster_size_conformations = args.min_cluster_size_conformations
-min_samples_conformations = args.min_samples_conformations
-cluster_selection_epsilon_conformations = args.cluster_selection_epsilon_conformations
+Z_parameter_conformations = args.Z_parameter_conformations
+halo_parameter_conformations = args.halo_parameter_conformations
 
 cutoff_proba_conformations = args.cutoff_proba_conformations
 split_trajectory = args.split_trajectory
@@ -133,8 +129,8 @@ print_inputs(
     strucfile, trajfile, dic,
     time_zero, delta_time, size_block,
     cutoff_distance, delta_resid, proba_cutoff,
-    min_cluster_size_coordinates, min_samples_coordinates, cluster_selection_epsilon_coordinates,
-    min_cluster_size_conformations, min_samples_conformations, cluster_selection_epsilon_conformations,
+    Z_parameter_coordinates, halo_parameter_coordinates,
+    Z_parameter_conformations, halo_parameter_conformations,
     split_trajectory, cutoff_proba_conformations,
     coordinates_to_add, type_coordinates_to_add,residues_coordinates_to_add
 )
@@ -210,13 +206,13 @@ if step_to_perform in ['all', 'discretize_coordinates']:
 if step_to_perform in ['all', 'cluster_coordinates']:
     cluster_coordinates(
         output_dir, coordinates_to_add, residues_coordinates_to_add,
-        min_cluster_size_coordinates, min_samples_coordinates,cluster_selection_epsilon_coordinates
+        Z_parameter_coordinates, halo_parameter_coordinates
         )
     
 if step_to_perform in ['all', 'get_conformations']:
     get_conformations_from_clusters(
     output_dir,u_traj, 
-    min_cluster_size_conformations, min_samples_conformations, cluster_selection_epsilon_conformations,
+    Z_parameter_conformations, halo_parameter_conformations,
     split_trajectory, cutoff_proba_conformations,strucfile,trajfile,selected_resids
     )
 
