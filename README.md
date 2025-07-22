@@ -26,7 +26,7 @@ You may also want to download the dictionnary file *dic_important_atoms_protein_
 As input files you need:
 * A structure file with a format recognized by MDAnalysis (.pdb, .gro etc)
 * A trajectory file with a format recognized by MDAnalysis (.trr, .xtc etc)
-* A dictionnary file that contains the list of the residue names in your simulation in the first column and the important atoms to study in each residue in the other columns. Optionnaly you may want to specify if a residue is an amino acid by adding the *@amino_acid* tag in the last column. Similarly you can specify if it is a nucleic acid with *@nucleic_acid_pyrimidine* and *@nucleic_acid_purine* tags.
+* A dictionnary file that contains the list of the important residue names in your simulation in the first column and the important atoms to study in each residue in the other columns. Optionnaly you may want to specify if a residue is an amino acid by adding the *@amino_acid* tag in the last column. Similarly you can specify if it is a nucleic acid with *@nucleic_acid_pyrimidine* and *@nucleic_acid_purine* tags.
 
 ### Running CASIMODO
 Before running the script please make sure to indicate the following parameters in the *submit_CASIMODO.sh* file:
@@ -44,8 +44,17 @@ Once all mandatory parameters above are set you need to run the *submit_CASIMODO
 ### Outputs
 Here is a list of all ouputs produced by CASIMODO:
 * *casimodo.log* this file contains is updated while the script is running and contains all the important information on the running.
+* *important_atoms.txt* contains the list of the important atoms that were found in each of the selected residues.
 * *selected_coordinates* is the list of the coordinates that were found to be multimodal by CASIMODO. The first column is the name of the coordinates then the next ones are organized like this: **label0** **cutoff0** **label1** **cutoff1** **label2** . The smaller labels are assigned to the larger probabilities.
-* 
+* *clusters_of_coordinates.txt* is the list of the clusters of coordinates that were found by the script, based on the variation of information, with the list of coordinates in each cluster.
+* *resids_in_clusters.txt* is the list of the residues involved in each cluster of coordinates. This file is usefull for a quick visualization of the clusters but should'nt replace the detailed analysis of the coordinates in clusters.
+* *conformations.txt* contains the list of the conformations that were found by CASIMODO for each cluster of coordinates. For each conformation, the probability of the conformation as well as the most probable state is printed.
+* *discretizing_npy/* is a directory containing all the numpy arrays computed by CASIMODO during the discretizing step.
+* *analysis_npy/* is a directory containing all the numpy arrays computed by CASIMODO during the analysis step.
+* *coordinates_data/* contains the time evolution files for all the coordinates selected by CASIMODO.
+* *coordinates_plots/* contains the distribution plots of all the coordinates selected by CASIMODO with discretizing cutoffs represented.
+* *information_plots/* contains the plots for the entropy, the mutual information, the variation of information and the variation of information clustered for the selected coordinates.
+* *conformations_clustering/* contains the plots for the clustering of states in each cluster of coordinates, as well as indexes for conformations in each cluster of coordinates and, if *split_trajectory*  is **True**, the splitted trajectories and a structure file with the same topology.
 
 ## How does CASIMODO work?
 

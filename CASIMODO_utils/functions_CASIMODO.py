@@ -331,8 +331,8 @@ def filter_times_and_indices(u_traj, time_zero, delta_time, output_dir):
     # Convert to NumPy arrays and save
     times = np.array(times)
     times_indices = np.array(times_indices)
-    np.save(output_dir + 'arrays_npy/times.npy', times)
-    np.save(output_dir + 'arrays_npy/times_indices.npy', times_indices)
+    np.save(output_dir + 'discretizing_npy/times.npy', times)
+    np.save(output_dir + 'discretizing_npy/times_indices.npy', times_indices)
 
     logging.info("Times and indices filtered.")
     return times, times_indices
@@ -1422,14 +1422,14 @@ def get_contacts(u_traj, important_atoms, selected_resids, time_zero, size_block
     """
 
     # Load time points and frame indices previously filtered and saved
-    times = np.load(output_dir + 'arrays_npy/times.npy')
-    times_indices = np.load(output_dir + 'arrays_npy/times_indices.npy')
+    times = np.load(output_dir + 'discretizing_npy/times.npy')
+    times_indices = np.load(output_dir + 'discretizing_npy/times_indices.npy')
 
     # Precompute important atom positions across trajectory
     positions_important_atoms = precompute_terminals(u_traj, important_atoms, selected_resids, times_indices)
 
     # Save precomputed positions to disk
-    save_positions(positions_important_atoms, output_dir + "arrays_npy/positions_important_atoms.npy")
+    save_positions(positions_important_atoms, output_dir + "discretizing_npy/positions_important_atoms.npy")
 
     # Compute and process distances between all valid residue pairs
     compute_all_distances(
@@ -1788,8 +1788,8 @@ def get_dihedrals_protein(u_traj, indices_aa, time_zero, size_block, proba_cutof
         return
     
     # Load time values and their corresponding frame indices
-    times = np.load(output_dir + 'arrays_npy/times.npy')
-    times_indices = np.load(output_dir + 'arrays_npy/times_indices.npy')
+    times = np.load(output_dir + 'discretizing_npy/times.npy')
+    times_indices = np.load(output_dir + 'discretizing_npy/times_indices.npy')
 
     # Step 1: Precompute backbone atom positions (N, C, and CA atoms)
     Positions_atoms_C, Positions_atoms_N, Positions_atoms_CA = precompute_backbone_protein(
@@ -1797,9 +1797,9 @@ def get_dihedrals_protein(u_traj, indices_aa, time_zero, size_block, proba_cutof
     )
 
     # Step 2: Save backbone atom positions to disk for future use
-    save_positions(Positions_atoms_C, output_dir + "arrays_npy/Positions_C_atoms.npy")
-    save_positions(Positions_atoms_N, output_dir + "arrays_npy/Positions_N_atoms.npy")
-    save_positions(Positions_atoms_CA, output_dir + "arrays_npy/Positions_CA_atoms.npy")
+    save_positions(Positions_atoms_C, output_dir + "discretizing_npy/Positions_C_atoms.npy")
+    save_positions(Positions_atoms_N, output_dir + "discretizing_npy/Positions_N_atoms.npy")
+    save_positions(Positions_atoms_CA, output_dir + "discretizing_npy/Positions_CA_atoms.npy")
 
     # Step 3: Compute all dihedral angles and write selected features
     compute_all_dihedrals_protein(indices_aa, Positions_atoms_C, Positions_atoms_N, Positions_atoms_CA, times, time_zero, size_block, proba_cutoff, output_dir + "selected_coordinates.txt", output_dir)
@@ -1832,8 +1832,8 @@ def get_dihedrals_nucleic_acids(u_traj, indices_na_pyrimidine,indices_na_purine,
         return
     
     # Load time values and their corresponding frame indices
-    times = np.load(output_dir + 'arrays_npy/times.npy')
-    times_indices = np.load(output_dir + 'arrays_npy/times_indices.npy')
+    times = np.load(output_dir + 'discretizing_npy/times.npy')
+    times_indices = np.load(output_dir + 'discretizing_npy/times_indices.npy')
 
     # Step 1: Precompute backbone atom positions (N, C, and CA atoms)
     Positions_atoms_P, Positions_atoms_O5p, Positions_atoms_C5p, Positions_atoms_O4p, Positions_atoms_C4p, Positions_atoms_C3p, Positions_atoms_O3p, Positions_atoms_C1p, Positions_atoms_Nbs, Positions_atoms_Cbs = precompute_backbone_nucleic_acids(
@@ -1841,16 +1841,16 @@ def get_dihedrals_nucleic_acids(u_traj, indices_na_pyrimidine,indices_na_purine,
     )   
 
     # Step 2: Save backbone atom positions to disk for future use
-    save_positions(Positions_atoms_P, output_dir + "arrays_npy/Positions_P_atoms.npy")
-    save_positions(Positions_atoms_O5p, output_dir + "arrays_npy/Positions_O5p_atoms.npy")
-    save_positions(Positions_atoms_C5p, output_dir + "arrays_npy/Positions_C5p_atoms.npy")
-    save_positions(Positions_atoms_O4p, output_dir + "arrays_npy/Positions_O4p_atoms.npy")
-    save_positions(Positions_atoms_C4p, output_dir + "arrays_npy/Positions_C4p_atoms.npy")
-    save_positions(Positions_atoms_C3p, output_dir + "arrays_npy/Positions_C3p_atoms.npy")
-    save_positions(Positions_atoms_O3p, output_dir + "arrays_npy/Positions_O3p_atoms.npy")
-    save_positions(Positions_atoms_C1p, output_dir + "arrays_npy/Positions_C1p_atoms.npy")
-    save_positions(Positions_atoms_Nbs, output_dir + "arrays_npy/Positions_Nbs_atoms.npy")
-    save_positions(Positions_atoms_Cbs, output_dir + "arrays_npy/Positions_Cbs_atoms.npy")
+    save_positions(Positions_atoms_P, output_dir + "discretizing_npy/Positions_P_atoms.npy")
+    save_positions(Positions_atoms_O5p, output_dir + "discretizing_npy/Positions_O5p_atoms.npy")
+    save_positions(Positions_atoms_C5p, output_dir + "discretizing_npy/Positions_C5p_atoms.npy")
+    save_positions(Positions_atoms_O4p, output_dir + "discretizing_npy/Positions_O4p_atoms.npy")
+    save_positions(Positions_atoms_C4p, output_dir + "discretizing_npy/Positions_C4p_atoms.npy")
+    save_positions(Positions_atoms_C3p, output_dir + "discretizing_npy/Positions_C3p_atoms.npy")
+    save_positions(Positions_atoms_O3p, output_dir + "discretizing_npy/Positions_O3p_atoms.npy")
+    save_positions(Positions_atoms_C1p, output_dir + "discretizing_npy/Positions_C1p_atoms.npy")
+    save_positions(Positions_atoms_Nbs, output_dir + "discretizing_npy/Positions_Nbs_atoms.npy")
+    save_positions(Positions_atoms_Cbs, output_dir + "discretizing_npy/Positions_Cbs_atoms.npy")
 
     indices_na= np.sort(indices_na_pyrimidine+indices_na_purine)
     # Step 3: Compute all dihedral angles and write selected features
@@ -1962,7 +1962,7 @@ def get_discretized_array(output_dir):
     logging.info("Discretization completed.")
 
     # Save the resulting discretized data as a .npy file
-    np.save(output_dir + "arrays_npy/discretized_array.npy", data_discretized)
+    np.save(output_dir + "discretizing_npy/discretized_array.npy", data_discretized)
 
 
 ########################### Function to compute frequencies of single and double contacts ##########################
@@ -2039,16 +2039,16 @@ def compute_frequencies(discretized_array):
 
 def get_frequencies(output_dir):
     # Load the discretized array from a .npy file located in the specified output directory
-    discretized_array = np.load(output_dir + "arrays_npy/discretized_array.npy")
+    discretized_array = np.load(output_dir + "discretizing_npy/discretized_array.npy")
     
     # Compute the single and double frequencies using a helper function 
     single_frequencies, double_frequencies = compute_frequencies(discretized_array)
     
     # Save the computed single frequencies to a file in the 'frequencies' subdirectory
-    np.save(output_dir + 'frequencies/frequencies_single.npy', single_frequencies)
+    np.save(output_dir + 'analysis_npy/frequencies_single.npy', single_frequencies)
     
     # Save the computed double frequencies to a file in the 'frequencies' subdirectory
-    np.save(output_dir + 'frequencies/frequencies_double.npy', double_frequencies)
+    np.save(output_dir + 'analysis_npy/frequencies_double.npy', double_frequencies)
 
 
 ########################### Function to plot mutual information matrix ##########################
@@ -2181,7 +2181,7 @@ def get_mutual_information(output_dir):
     logging.info("\nComputing mutual information...")
 
     # Load discretized coordinate array
-    discretized_array = np.load(os.path.join(output_dir, "arrays_npy/discretized_array.npy"))
+    discretized_array = np.load(os.path.join(output_dir, "discretizing_npy/discretized_array.npy"))
 
     # Load marginal and joint frequencies
     single_frequencies = np.load(os.path.join(output_dir, "frequencies", "frequencies_single.npy"))
@@ -2206,7 +2206,7 @@ def get_mutual_information(output_dir):
 ########################## Function to compute entropy  ##########################
 def get_entropy(output_dir):
     logging.info("\nComputing entropy...")
-    discretized_array=np.load(output_dir+"arrays_npy/discretized_array.npy")
+    discretized_array=np.load(output_dir+"discretizing_npy/discretized_array.npy")
     single_frequencies=np.load(output_dir+'frequencies/frequencies_single.npy')
     multiplicities=get_multiplicities(discretized_array)
     ncoord=len(multiplicities)
@@ -2219,7 +2219,7 @@ def get_entropy(output_dir):
             if probab_xi>0:
                 entropy[i]-=probab_xi*np.log(probab_xi)
 
-    np.save(output_dir+'analysis/entropy.npy', entropy)
+    np.save(output_dir+'analysis_npy/entropy.npy', entropy)
     logging.info("Entropy computed.")
 
     #plot the entropy values
@@ -2255,8 +2255,8 @@ def get_variation_information(output_dir):
     logging.info("\nComputing variation information...")
 
     # Load the mutual information matrix and entropy values
-    MI = np.load(os.path.join(output_dir, "analysis", "MI.npy"))
-    entropy = np.load(os.path.join(output_dir, "analysis", "entropy.npy"))
+    MI = np.load(os.path.join(output_dir, "analysis_npy", "MI.npy"))
+    entropy = np.load(os.path.join(output_dir, "analysis_npy", "entropy.npy"))
 
     # Compute the Variation Information matrix
     ncoord = len(entropy)
@@ -2276,7 +2276,7 @@ def get_variation_information(output_dir):
     np.fill_diagonal(VI, 0)
 
     # Save the VI matrix to a file
-    np.save(os.path.join(output_dir, "analysis", "VI.npy"), VI)
+    np.save(os.path.join(output_dir, "analysis_npy", "VI.npy"), VI)
 
     # Plot the VI matrix
     plot_information(VI, output_dir + 'information_plots/', "VI_matrix", label_data="Variation Information")
@@ -2498,14 +2498,14 @@ def cluster_coordinates(output_dir,coordinates_to_add,residues_coordinates_to_ad
     logging.info("\nClustering coordinates using Advanced Density Peaks...")
 
     # Load the mutual information distance matrix
-    distance_matrix = np.load(os.path.join(output_dir, "analysis", "VI.npy"))
+    distance_matrix = np.load(os.path.join(output_dir, "analysis_npy", "VI.npy"))
     normalized_distance_matrix = distance_matrix / np.max(distance_matrix)  # Normalize to [0, 1]
 
     #Apply Density Peaks Clustering
     cluster_labels = density_peaks_clustering(distance_matrix, Z_parameter_coordinates, halo_parameter_coordinates)
 
     # Save the cluster labels to a file
-    np.save(os.path.join(output_dir, "analysis", "cluster_labels.npy"), cluster_labels)
+    np.save(os.path.join(output_dir, "analysis_npy", "cluster_labels.npy"), cluster_labels)
 
     logging.info("Clustering completed and labels saved.")
 
@@ -2925,13 +2925,13 @@ def get_conformations_from_clusters(output_dir, u_traj,
     selected_resids : list of int
         List of residue IDs to consider for trajectory splitting.
     """
-    times_indices = np.load(output_dir + "arrays_npy/times_indices.npy")  # Load time indices for frames
+    times_indices = np.load(output_dir + "discretizing_npy/times_indices.npy")  # Load time indices for frames
     # Load top-level cluster assignments
-    cluster_labels = np.load(os.path.join(output_dir, "analysis", "cluster_labels.npy"))
+    cluster_labels = np.load(os.path.join(output_dir, "analysis_npy", "cluster_labels.npy"))
 
     # Load selected coordinates and the discretized representation
     coordinates, X_cuts, Labels = load_data_discretization(output_dir + "selected_coordinates.txt")
-    discretized_array = np.load(output_dir + "arrays_npy/discretized_array.npy")
+    discretized_array = np.load(output_dir + "discretizing_npy/discretized_array.npy")
 
     logging.info("\nExtracting conformations from clusters...")
 

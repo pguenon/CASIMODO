@@ -139,7 +139,7 @@ if step_to_perform in ['all', 'discretize_coordinates','get_conformations']:
 
 if step_to_perform == 'all' :
     subdirs = [
-    'arrays_npy',
+    'discretizing_npy',
     ]
     for subdir in subdirs:
         if os.path.exists(os.path.join(output_dir, subdir)):
@@ -168,9 +168,8 @@ if step_to_perform in ['all', 'discretize_coordinates']:
     subdirs = [
     'coordinates_data',
     'coordinates_plots',
-    'analysis',
-    'information_plots',
-    'frequencies',
+    'analysis_npy',
+    'information_plots'   
     ]
 
     for subdir in subdirs:
