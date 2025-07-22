@@ -32,7 +32,7 @@ Required Python packages:
 - `MDAnalysis`
 - `dadapy`
 
-Make sure to also download:
+Make sure to also download in your working directory:
 - The `CASIMODO_utils/` directory,
 - The job submission file `submit_CASIMODO.sh`,
 - (Optional) The reference file `dic_important_atoms_protein_nucleic_acids.txt` to help you create your own dictionary.
