@@ -143,12 +143,12 @@ Important residues and atoms are selected based on your dictionary. If a residue
 
 For each pair of residues, CASIMODO computes all pairwise distances between important atoms and retains the **minimum observed distance** over the trajectory, `d_ij`.
 
-If `d_ij` drops below `cutoff_distance` at any point, the distance is considered for discretization.
+If `d_ij` drops below `cutoff_distance` with a probability superior or equal to `proba_under_cutoff_distance`, the distance is considered for discretization.
 
 Discretization involves:
 * Smoothing the distance distribution using a Gaussian kernel
 * Detecting peaks and valleys
-* Selecting modes with integrated probabilities above `proba_cutoff`
+* Selecting modes with integrated probabilities above `mode_proba_cutoff`
 
 Only multimodal distances are retained.
 
@@ -224,8 +224,9 @@ Output is saved in `conformations.txt` and in `conformations_clustering/`.
 You may also adjust the following optional parameters in `submit_CASIMODO.sh` for more control: 
 - `delta_time`: Time step (ps) between frames. Defaults to your trajectory's native time step if set too low.
 - `cutoff_distance`: 	Distance threshold below which a coordinate is considered for analysis.
+- `proba_under_cutoff_distance`: Probability cutoff for the distance threshold.
 - `delta_residue`: Optional parameter (default = 1) that ignores distances between nearby residues in sequence.
-- `proba_cutoff`: Minimum integrated probability for a mode to be retained.
+- `mode_proba_cutoff`: Minimum integrated probability for a mode to be retained.
 - `cutoff_proba_conformations`: Minimum probability for a conformation to be retained.
 ---
 

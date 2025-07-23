@@ -80,14 +80,16 @@ delta_time=1.0
 
 #Parameters for contact analysis
 # Distance threshold (Å) — two atoms are considered in contact
-# if their distance is below this at least once
+# if their distance is under cutoff_distance with a probability superior or equal to proba_under_cutoff_distance
 cutoff_distance=5
+proba_under_cutoff_distance=0.01  
+
 # Ignore contacts between residues closer than this in the sequence
 delta_residue=1
 
 #Parameter for discretization
-# Probability cutoff for discretization
-proba_cutoff=0.01
+# Probability cutoff for selection of a mode
+mode_proba_cutoff=0.01
 
 # Probability cutoff for conformations extraction
 cutoff_proba_conformations=0.01  # Probability cutoff for conformations extraction
@@ -108,8 +110,9 @@ python CASIMODO_utils/run_CASIMODO.py \
   --time_zero "${time_zero}" \
   --size_block "${size_block}" \
   --cutoff_distance "${cutoff_distance}" \
+  --proba_under_cutoff_distance "${proba_under_cutoff_distance}" \
   --delta_resid "${delta_residue}" \
-  --proba_cutoff "${proba_cutoff}" \
+  --mode_proba_cutoff "${mode_proba_cutoff}" \
   --Z_parameter_coordinates "${Z_parameter_coordinates}" \
   --halo_parameter_coordinates "${halo_parameter_coordinates}" \
   --Z_parameter_conformations "${Z_parameter_conformations}" \

@@ -27,8 +27,9 @@ def parse_arguments():
     parser.add_argument('-dt', '--delta_time', type=float, default=1.0, help='Time (ps) between frames to consider')
 
     parser.add_argument('--cutoff_distance', type=int, default=5, help='Distance cutoff (A) to define contact')
+    parser.add_argument('--proba_under_cutoff_distance', type=float, default=0.01, help='Probability cutoff for filtering contacts')
     parser.add_argument('--delta_resid', type=int, default=1, help='Residue separation threshold for contact filtering')
-    parser.add_argument('--proba_cutoff', type=float, default=0.01, help='Probability cutoff for filtering modes')
+    parser.add_argument('--mode_proba_cutoff', type=float, default=0.01, help='Probability cutoff for filtering modes')
     
     parser.add_argument('--Z_parameter_coordinates', type=float, default=3.0, help='Z parameter for clustering coordinates')
     parser.add_argument('--halo_parameter_coordinates', type=int, default=1, help='Halo parameter for clustering coordinates (0 or 1)')
@@ -66,8 +67,9 @@ size_block = args.size_block
 delta_time = args.delta_time
 
 cutoff_distance = args.cutoff_distance
+proba_under_cutoff_distance = args.proba_under_cutoff_distance
 delta_resid = args.delta_resid
-proba_cutoff = args.proba_cutoff
+mode_proba_cutoff = args.mode_proba_cutoff
 
 Z_parameter_coordinates = args.Z_parameter_coordinates
 halo_parameter_coordinates = args.halo_parameter_coordinates    
@@ -123,7 +125,7 @@ print_inputs(
     step_to_perform, 
     strucfile, trajfile, dic,
     time_zero, delta_time, size_block,
-    cutoff_distance, delta_resid, proba_cutoff,
+    cutoff_distance, delta_resid, mode_proba_cutoff,
     Z_parameter_coordinates, halo_parameter_coordinates,
     Z_parameter_conformations, halo_parameter_conformations,
     split_trajectory, cutoff_proba_conformations,
@@ -188,24 +190,24 @@ if step_to_perform in ['all', 'discretize_coordinates']:
 
     get_contacts(
         u_traj, important_atoms, selected_resids, time_zero, size_block,
-        cutoff_distance, delta_resid, proba_cutoff, output_dir
+        cutoff_distance, proba_under_cutoff_distance, delta_resid, mode_proba_cutoff, output_dir
     )
     if len(indices_aa)!=0 :
         get_dihedrals_protein(
             u_traj, indices_aa, time_zero, size_block,
-            proba_cutoff, output_dir
+            mode_proba_cutoff, output_dir
         )
 
     if len(indices_na_pyrimidine) != 0 or len(indices_na_purine) != 0:
         get_dihedrals_nucleic_acids(
             u_traj, indices_na_pyrimidine, indices_na_purine, time_zero, size_block,
-            proba_cutoff, output_dir
+            mode_proba_cutoff, output_dir
         )
 
     add_coordinates(
         coordinates_to_add, type_coordinates_to_add,
         time_zero, size_block,
-        proba_cutoff,
+        mode_proba_cutoff,
         output_dir, 
     )
 
