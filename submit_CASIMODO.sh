@@ -43,13 +43,13 @@ split_trajectory=1 # 1 for True, 0 for False
 ##############################################
 #Parameters for Advanced Density Peaks clustering of the coordinates
 # Z parameter for clustering coordinates
-Z_parameter_coordinates=3.0
+Z_parameter_coordinates=1.0
 # Halo parameter for clustering coordinates (0=False or 1=True)
 halo_parameter_coordinates=1
 
 #Parameters for Advanced Density Peaks clustering of the conformations
 # Z parameter for clustering conformations
-Z_parameter_conformations=3.0
+Z_parameter_conformations=0.7
 # Halo parameter for clustering conformations (0=False or 1=True)
 halo_parameter_conformations=0
 
