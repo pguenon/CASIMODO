@@ -125,7 +125,7 @@ print_inputs(
     step_to_perform, 
     strucfile, trajfile, dic,
     time_zero, delta_time, size_block,
-    cutoff_distance, delta_resid, mode_proba_cutoff,
+    cutoff_distance, proba_under_cutoff_distance, delta_resid, mode_proba_cutoff,
     Z_parameter_coordinates, halo_parameter_coordinates,
     Z_parameter_conformations, halo_parameter_conformations,
     split_trajectory, cutoff_proba_conformations,
