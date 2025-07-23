@@ -2343,7 +2343,7 @@ def density_peaks_clustering(distance_matrix, Z_parameter=1.65, halo_parameter=0
         from dadapy import Data  # Import here in case needed dynamically
         data = Data(coordinates=x_dummy, distances=distance_matrix, verbose=True)
         data.compute_id_2NN()
-        data.compute_density_kstarNN()
+        data.compute_density_PAk()
         data.compute_clustering_ADP_pure_python(Z=Z_parameter, halo=bool(halo_parameter))
 
 
