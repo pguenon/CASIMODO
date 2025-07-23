@@ -784,8 +784,8 @@ def compute_hist_tot(times, data, num_blocks, y_min, y_max, delta_y, time_zero_p
         hist, bin_edges = compute_histogram(block_data, y_min, y_max, delta_y)
         HIST_TOT[i] = hist
 
-    # Compute bin centers
-    x = (bin_edges[:-1] + bin_edges[1:]) / 2
+        # Compute bin centers
+        x = (bin_edges[:-1] + bin_edges[1:]) / 2
     AVG = np.average(HIST_TOT, axis=0)
     STD = np.std(HIST_TOT, axis=0)
 
@@ -839,8 +839,8 @@ def get_avg_histogram(times, data, time_zero_ps, size_block_ps, coord_type):
         raise ValueError(f"Unsupported coordinate type: {coord_type}")
 
     # Compute number of blocks
-    num_blocks = int((times[-1] - time_zero_ps) / size_block_ps)
-
+    num_blocks = max(1,int((times[-1] - time_zero_ps) / size_block_ps))
+    
     y_max = max(data)
     y_min = min(data)
 
