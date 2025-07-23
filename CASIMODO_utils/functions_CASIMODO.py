@@ -19,6 +19,7 @@ from matplotlib.patches import Rectangle
 import MDAnalysis as mda 
 
 from dadapy import Data
+from dadapy.plot import plot_SLAn, plot_MDS, plot_matrix, get_dendrogram, plot_DecGraph
 
 
 
@@ -2097,29 +2098,37 @@ def plot_information_clustered(Information_matrix, reordered_labels, output_dir,
     # Plot the information matrix
     im = ax.imshow(Information_matrix, cmap='magma', interpolation='nearest')
     plt.colorbar(im, label=label_data)
-    plt.title(f'{label_data} Matrix with Cluster Boxes' if label_data else "Clustered Information Matrix")
+    plt.title(f'{label_data} Matrix with Cluster Boxes in white and noise in blue' if label_data else "Clustered Information Matrix")
 
     # Find cluster boundaries
     boundaries = []
     last_label = reordered_labels[0]
+    unique_labels= [last_label]  # Initialize with the first label
     start = 0
     for i, label in enumerate(reordered_labels):
         if label != last_label:
             boundaries.append((start, i))
             start = i
             last_label = label
+            unique_labels.append(label)  # Add new label to the list
 
     boundaries.append((start, len(reordered_labels)))  # Add the last block
-
     # Draw rectangles for each cluster
+    countclus=0
     for start, end in boundaries:
         size = end - start
+        ecolor='white'
+        label_clus=unique_labels[countclus]
+        if label_clus == -1:
+            ecolor='deepskyblue'
+        countclus+=1
+
         rect = Rectangle(
             (start - 0.5, start - 0.5),  # (x, y) of bottom-left corner
             size,                       # width
             size,                       # height
             linewidth=2,
-            edgecolor='white',
+            edgecolor=ecolor,
             facecolor='none'
         )
         ax.add_patch(rect)
@@ -2333,6 +2342,8 @@ def density_peaks_clustering(distance_matrix, Z_parameter=1.65, halo_parameter=0
         data.compute_id_2NN()
         data.compute_density_kstarNN()
         data.compute_clustering_ADP_pure_python(Z=Z_parameter, halo=bool(halo_parameter))
+
+
 
     # Log the captured output
     output = buf.getvalue()
@@ -2637,15 +2648,17 @@ def extract_frames_from_labels(output_dir, clusters_data, unique_states_clusters
         Frame indices for each conformation in each cluster.
         Structure: cluster → conformation → list of frame indices.
     """
-    
+
+    logging.info("Extracting frames from states...")
+
     frames_by_clusters = []
 
     for i, cluster_labels in enumerate(all_clusters_labels):
-        # Open output file for current cluster
-        output_file = open(f"{output_dir}conformations_clustering/frames_conformations_from_cluster_of_CV_{i}.ndx", 'w')
-
+        
+               
         unique_labels = np.unique(cluster_labels)
         nb_conformations = len(unique_labels)
+      
 
         # Prepare storage for frames belonging to each conformation
         frames_conformations = [[] for _ in range(nb_conformations)]
@@ -2663,6 +2676,16 @@ def extract_frames_from_labels(output_dir, clusters_data, unique_states_clusters
             # Add corresponding time index
             frames_conformations[label_index].append(times_indices[t])
 
+        frames_by_clusters.append(frames_conformations)
+
+        count_large_proba =len(np.where(proba_clusters[i] >= cutoff_proba_conformations)[0])
+        if count_large_proba <= 1:
+            logging.warning(f"Cluster {i} has no several conformations to process.")
+            continue
+        
+        # Open output file for current cluster
+        output_file = open(f"{output_dir}conformations_clustering/frames_conformations_from_cluster_of_CV_{i}.ndx", 'w')
+
         # Write conformations (excluding noise) to file
         for j in range(nb_conformations):
             proba_conformation= proba_clusters[i][j]
@@ -2676,7 +2699,8 @@ def extract_frames_from_labels(output_dir, clusters_data, unique_states_clusters
             output_file.write("\n")
 
         output_file.close()
-        frames_by_clusters.append(frames_conformations)
+    
+    logging.info("Frame extraction completed.")        
 
     return frames_by_clusters
 
@@ -2706,6 +2730,12 @@ def split_trajectory_by_conformations(output_dir, u_traj, frames_by_clusters,pro
 
     for i, frames_conformations in enumerate(frames_by_clusters):
         logging.info(f"Processing cluster {i}...")
+
+        count_large_proba =len(np.where(proba_clusters[i] >= cutoff_proba_conformations)[0])
+        if count_large_proba <= 1:
+            logging.warning(f"Cluster {i} has no several conformations to process.")
+            continue
+
         # Create directory for storing split trajectories from current cluster
         cluster_output_dir = os.path.join(output_dir, f"conformations_clustering/trajectories_cluster_{i}")
         if os.path.exists(cluster_output_dir):
@@ -2717,7 +2747,7 @@ def split_trajectory_by_conformations(output_dir, u_traj, frames_by_clusters,pro
             
             proba_conf = proba_clusters[i][j]
             
-            if len(frames) == 0 or proba_conf < cutoff_proba_conformations or unique_labels[j] == -1:
+            if len(frames) == 0 or proba_conf < cutoff_proba_conformations or unique_labels[j] == -1 :
                 continue  # Skip empty frames or low-probability conformations or noise
             
             logging.info(f"Writing conformation {unique_labels[j]} in cluster {i} with probability {proba_conf:.2f}...")
@@ -2962,10 +2992,10 @@ def get_conformations_from_clusters(output_dir, u_traj,
         
         logging.info(f"Cluster {i}: Found {len(unique_states_clusters[i])} unique states.")    
         if len(unique_states_clusters[i]) >2 :
-
+            n_unique_states = len(unique_states_clusters[i])
             cluster_labels = density_peaks_clustering(dist_states, Z_parameter_conformations,halo_parameter_conformations)
 
-
+         
             # Plot and save the clustering results for this sub-cluster
             _ = plot_clustering_results(
                 dist_states, cluster_labels,
