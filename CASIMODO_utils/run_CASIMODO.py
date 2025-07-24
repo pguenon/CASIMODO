@@ -31,11 +31,11 @@ def parse_arguments():
     parser.add_argument('--delta_resid', type=int, default=1, help='Residue separation threshold for contact filtering')
     parser.add_argument('--mode_proba_cutoff', type=float, default=0.01, help='Probability cutoff for filtering modes')
     
-    parser.add_argument('--Z_parameter_coordinates', type=float, default=3.0, help='Z parameter for clustering coordinates')
-    parser.add_argument('--halo_parameter_coordinates', type=int, default=1, help='Halo parameter for clustering coordinates (0 or 1)')
+    parser.add_argument('--method_clustering_coordinates', type=str, default='advanced_density_peaks', choices=['advanced_density_peaks', 'hdbscan', 'yacare'], help='Clustering method for coordinates')
+    parser.add_argument('--parameters_clustering_coordinates', nargs='*', type=float, default=[3.0, 1], help='Parameters for clustering coordinates (e.g., Z_parameter and halo_parameter)')
 
-    parser.add_argument('--Z_parameter_conformations', type=float, default=3.0, help='Z parameter for clustering conformations')
-    parser.add_argument('--halo_parameter_conformations', type=int, default=0, help='Halo parameter for clustering conformations (0 or 1)')
+    parser.add_argument('--method_clustering_conformations', type=str, default='advanced_density_peaks', choices=['advanced_density_peaks', 'hdbscan', 'yacare'], help='Clustering method for conformations')
+    parser.add_argument('--parameters_clustering_conformations', nargs='*', type=float, default=[3.0, 0], help='Parameters for clustering conformations (e.g., Z_parameter and halo_parameter)')
 
     parser.add_argument('--cutoff_proba_conformations', type=float, default=0.001, help='Probability cutoff for conformations extraction')
     parser.add_argument('--split_trajectory', type=int, default=1, choices=[0, 1], help='Whether to split the trajectory by conformations (1 for True, 0 for False)')
@@ -71,11 +71,11 @@ proba_under_cutoff_distance = args.proba_under_cutoff_distance
 delta_resid = args.delta_resid
 mode_proba_cutoff = args.mode_proba_cutoff
 
-Z_parameter_coordinates = args.Z_parameter_coordinates
-halo_parameter_coordinates = args.halo_parameter_coordinates    
+method_clustering_coordinates = args.method_clustering_coordinates
+parameters_clustering_coordinates = args.parameters_clustering_coordinates
 
-Z_parameter_conformations = args.Z_parameter_conformations
-halo_parameter_conformations = args.halo_parameter_conformations
+method_clustering_conformations = args.method_clustering_conformations
+parameters_clustering_conformations = args.parameters_clustering_conformations
 
 cutoff_proba_conformations = args.cutoff_proba_conformations
 split_trajectory_int = args.split_trajectory
@@ -126,8 +126,8 @@ print_inputs(
     strucfile, trajfile, dic,
     time_zero, delta_time, size_block,
     cutoff_distance, proba_under_cutoff_distance, delta_resid, mode_proba_cutoff,
-    Z_parameter_coordinates, halo_parameter_coordinates,
-    Z_parameter_conformations, halo_parameter_conformations,
+    method_clustering_coordinates, parameters_clustering_coordinates,
+    method_clustering_conformations, parameters_clustering_conformations,
     split_trajectory, cutoff_proba_conformations,
     coordinates_to_add, type_coordinates_to_add,residues_coordinates_to_add
 )
@@ -222,7 +222,7 @@ if step_to_perform in ['all', 'discretize_coordinates']:
 if step_to_perform in ['all', 'cluster_coordinates']:
     cluster_coordinates(
         output_dir, coordinates_to_add, residues_coordinates_to_add,
-        Z_parameter_coordinates, halo_parameter_coordinates
+        method_clustering_coordinates, parameters_clustering_coordinates
         )
     
 if step_to_perform in ['all', 'get_conformations']:
@@ -236,7 +236,7 @@ if step_to_perform in ['all', 'get_conformations']:
 
     get_conformations_from_clusters(
     output_dir,u_traj, 
-    Z_parameter_conformations, halo_parameter_conformations,
+    method_clustering_conformations, parameters_clustering_conformations,
     split_trajectory, cutoff_proba_conformations,strucfile,trajfile,selected_resids
     )
 

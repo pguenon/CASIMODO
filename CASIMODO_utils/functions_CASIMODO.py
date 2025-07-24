@@ -18,8 +18,7 @@ from matplotlib.patches import Rectangle
 
 import MDAnalysis as mda 
 
-from dadapy import Data
-from dadapy.plot import plot_SLAn, plot_MDS, plot_matrix, get_dendrogram, plot_DecGraph
+
 
 
 
@@ -72,8 +71,8 @@ def print_inputs(
     strucfile, trajfile, dic,
     time_zero, delta_time, size_block,
     cutoff_distance,proba_under_cutoff_distance, delta_resid, mode_proba_cutoff,
-    Z_parameter_coordinates, halo_parameter_coordinates,
-    Z_parameter_conformations, halo_parameter_conformations,
+    method_clustering_coordinates, parameters_clustering_coordinates,
+    method_clustering_conformations, parameters_clustering_conformations,
     split_trajectory, cutoff_proba_conformations,
     coordinates_to_add, type_coordinates_to_add,residues_coordinates_to_add):
     """
@@ -91,10 +90,10 @@ def print_inputs(
     - cutoff_distance (float): Cutoff distance for contacts.
     - delta_resid (int): Delta residue for contact calculations.
     - mode_proba_cutoff (float): Probability cutoff for contacts.
-    - Z_parameter_coordinates (float): Z parameter for clustering coordinates.
-    - halo_parameter_coordinates (int): Halo parameter for clustering coordinates.
-    - Z_parameter_conformations (float): Z parameter for clustering conformations.
-    - halo_parameter_conformations (int): Halo parameter for clustering conformations.
+    - method_clustering_coordinates (str): Clustering method for coordinates.
+    - parameters_clustering_coordinates (list): Parameters for the clustering method.
+    - method_clustering_conformations (str): Clustering method for conformations.
+    - parameters_clustering_conformations (list): Parameters for the clustering method.
     - split_trajectory (bool): Whether to split the trajectory into blocks.
     - cutoff_proba_conformations (float): Probability cutoff for conformation extraction.
     - coordinates_to_add (list): List of additional coordinate files to include.
@@ -117,10 +116,10 @@ def print_inputs(
     logging.info("Cutoff distance: %.2f Angstroms", cutoff_distance)
     logging.info("Delta residue: %d", delta_resid)
     logging.info("Probability cutoff: %.5f", mode_proba_cutoff)
-    logging.info("Z parameter for coordinates: %.2f", Z_parameter_coordinates)
-    logging.info("Halo parameter for coordinates: %d", halo_parameter_coordinates)
-    logging.info("Z parameter for conformations: %.2f", Z_parameter_conformations)
-    logging.info("Halo parameter for conformations: %d", halo_parameter_conformations)
+    logging.info("method clustering coordinates: %s", method_clustering_coordinates)
+    logging.info("Parameters clustering coordinates: %s", parameters_clustering_coordinates)
+    logging.info("method clustering conformations: %s", method_clustering_conformations)
+    logging.info("Parameters clustering conformations: %s", parameters_clustering_conformations)
     logging.info("Split trajectory: %s", split_trajectory)
     logging.info("Cutoff probability for conformations: %.5f", cutoff_proba_conformations)
     logging.info("Additional coordinates to add: %s", coordinates_to_add)
@@ -2340,8 +2339,8 @@ def density_peaks_clustering(distance_matrix, Z_parameter=1.65, halo_parameter=0
 
     # Redirect stdout/stderr to the buffer
     with redirect_stdout(buf), redirect_stderr(buf):
-        from dadapy import Data  # Import here in case needed dynamically
-        data = Data(coordinates=x_dummy, distances=distance_matrix, verbose=True)
+        import dadapy
+        data = dadapy.Data(coordinates=x_dummy, distances=distance_matrix, verbose=True)
         data.compute_id_2NN()
         data.compute_density_PAk()
         data.compute_clustering_ADP_pure_python(Z=Z_parameter, halo=bool(halo_parameter))
@@ -2357,6 +2356,49 @@ def density_peaks_clustering(distance_matrix, Z_parameter=1.65, halo_parameter=0
     cluster_labels = data.cluster_assignment
     return cluster_labels
 
+def hdbscan_clustering(distance_matrix, min_cluster_size=5, min_samples=5, cluster_selection_epsilon=0.0):
+    """
+    Applies HDBSCAN clustering on a precomputed distance matrix.
+
+    Parameters
+    ----------
+    distance_matrix : np.ndarray of shape (n_samples, n_samples)
+        Symmetric pairwise distance matrix between conformations or data points.
+    
+    min_cluster_size : int, default=5
+        Minimum size of clusters to be considered valid.
+    
+    min_samples : int, default=5
+        Minimum number of samples in a neighborhood for a point to be considered a core point.
+
+    Returns
+    -------
+    cluster_labels : np.ndarray of shape (n_samples,)
+        Array of integer cluster labels for each data point.
+    """
+    
+    import hdbscan
+
+    # Create HDBSCAN clusterer with specified parameters
+    clusterer = hdbscan.HDBSCAN(min_cluster_size=int(min_cluster_size), min_samples=int(min_samples),cluster_selection_epsilon=cluster_selection_epsilon, metric='precomputed')
+
+    # Fit the model to the distance matrix and get cluster labels
+    cluster_labels = clusterer.fit_predict(distance_matrix)
+
+    return cluster_labels
+
+def yacare_clustering(distance_matrix):
+    cluster_labels=[]
+    return cluster_labels
+
+def cluster_distances(distance_matrix, method_clustering, parameters_clustering) :
+    if method_clustering == 'advanced_density_peaks':
+        cluster_labels = density_peaks_clustering(distance_matrix, *parameters_clustering)
+    elif method_clustering == 'hdbscan':
+        cluster_labels = hdbscan_clustering(distance_matrix, *parameters_clustering)
+    elif method_clustering == 'yacare':
+        cluster_labels = yacare_clustering(distance_matrix, *parameters_clustering)
+    return cluster_labels
 
 
 ############# Function to plot clustering results ##########################
@@ -2493,7 +2535,7 @@ def compute_information(output_dir):
 
 
 ############ Function to cluster coordinates based on mutual information distance, using Advanced Density Peaks ##############
-def cluster_coordinates(output_dir,coordinates_to_add,residues_coordinates_to_add, Z_parameter_coordinates,halo_parameter_coordinates):
+def cluster_coordinates(output_dir,coordinates_to_add,residues_coordinates_to_add, method_clustering_coordinates, parameters_clustering_coordinates):
     """
     Clusters coordinates based on mutual information distance using Advanced Density Peaks.
 
@@ -2508,11 +2550,10 @@ def cluster_coordinates(output_dir,coordinates_to_add,residues_coordinates_to_ad
         List of file paths to additional coordinates to be clustered.
     residues_coordinates_to_add : list of str
         List of residue identifiers corresponding to the additional coordinates.
-    Z_parameter_coordinates : float
-        Z parameter for the clustering algorithm, typically set to 1.65 for a 95    
-        confidence level.
-    halo_parameter_coordinates : int
-        Halo parameter for the clustering algorithm, typically set to 0 (no halo) or 1 (halo enabled).
+    method_clustering_coordinates : str
+        Clustering method to use (e.g., 'advanced_density_peaks', 'hdbscan', 'yacare').
+    parameters_clustering_coordinates : list
+        Parameters for the clustering method, such as Z_parameter and halo_parameter for ADP.
 
     Returns:
     --------
@@ -2526,7 +2567,7 @@ def cluster_coordinates(output_dir,coordinates_to_add,residues_coordinates_to_ad
     normalized_distance_matrix = distance_matrix / np.max(distance_matrix)  # Normalize to [0, 1]
 
     #Apply Density Peaks Clustering
-    cluster_labels = density_peaks_clustering(distance_matrix, Z_parameter_coordinates, halo_parameter_coordinates)
+    cluster_labels = cluster_distances(distance_matrix, method_clustering_coordinates, parameters_clustering_coordinates) 
 
     # Save the cluster labels to a file
     np.save(os.path.join(output_dir, "analysis_npy", "cluster_labels.npy"), cluster_labels)
@@ -2940,7 +2981,7 @@ def write_conformations_to_file(all_cluster_labels,most_probable_states, proba_m
 
 ######################### Function to extract conformations from clusters ##########################
 def get_conformations_from_clusters(output_dir, u_traj,
-                                     Z_parameter_conformations,halo_parameter_conformations,
+                                     method_clustering_conformations, parameters_clustering_conformations,
                                      split_trajectory,cutoff_proba_conformations,strucfile,trajfile, selected_resids):
     """
     Extracts representative conformations from trajectory data based on hierarchical clustering.
@@ -2996,7 +3037,7 @@ def get_conformations_from_clusters(output_dir, u_traj,
         logging.info(f"Cluster {i}: Found {len(unique_states_clusters[i])} unique states.")    
         if len(unique_states_clusters[i]) >2 :
             n_unique_states = len(unique_states_clusters[i])
-            cluster_labels = density_peaks_clustering(dist_states, Z_parameter_conformations,halo_parameter_conformations)
+            cluster_labels = cluster_distances(dist_states, method_clustering_conformations, parameters_clustering_conformations)
 
          
             # Plot and save the clustering results for this sub-cluster

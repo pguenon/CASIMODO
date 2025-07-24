@@ -39,19 +39,23 @@ size_block=100000000. # size of each analysis block in ps, if you want only one 
 split_trajectory=1 # 1 for True, 0 for False
 
 ############################################## 
-# ADVANCED DENSITY PEAKS CLUSTERING SETTINGS #
+#           CLUSTERING SETTINGS              #
 ##############################################
-#Parameters for Advanced Density Peaks clustering of the coordinates
-# Z parameter for clustering coordinates
-Z_parameter_coordinates=1.0
-# Halo parameter for clustering coordinates (0=False or 1=True)
-halo_parameter_coordinates=1
+#Parameters for clustering of the coordinates
 
-#Parameters for Advanced Density Peaks clustering of the conformations
-# Z parameter for clustering conformations
-Z_parameter_conformations=0.7
-# Halo parameter for clustering conformations (0=False or 1=True)
-halo_parameter_conformations=0
+# Method for clustering coordinates (options: 'advanced_density_peaks', 'hdbscan', 'yacare')
+method_clustering_coordinates="advanced_density_peaks"
+
+# Parameters for clustering coordinates 
+# for 'advanced_density_peaks': (Z_parameter halo_parameter)   halo_parameter is 0=False or 1=True ;
+# for 'hdbscan': (min_cluster_size min_samples cluster_selection_epsilon)
+# for 'yacare': (min_cluster_size min_samples)
+parameters_clustering_coordinates=(1.65 1) 
+
+#Parameters for clustering of the conformations
+method_clustering_conformations="advanced_density_peaks"
+# Parameters for clustering conformations
+parameters_clustering_conformations=(0.7 0) 
 
 ##############################################
 #           OPTIONAL COORDINATES             #
@@ -113,10 +117,10 @@ python CASIMODO_utils/run_CASIMODO.py \
   --proba_under_cutoff_distance "${proba_under_cutoff_distance}" \
   --delta_resid "${delta_residue}" \
   --mode_proba_cutoff "${mode_proba_cutoff}" \
-  --Z_parameter_coordinates "${Z_parameter_coordinates}" \
-  --halo_parameter_coordinates "${halo_parameter_coordinates}" \
-  --Z_parameter_conformations "${Z_parameter_conformations}" \
-  --halo_parameter_conformations "${halo_parameter_conformations}" \
+  --method_clustering_coordinates "${method_clustering_coordinates}" \
+  --parameters_clustering_coordinates "${parameters_clustering_coordinates[@]}" \
+  --method_clustering_conformations "${method_clustering_conformations}" \
+  --parameters_clustering_conformations "${parameters_clustering_conformations[@]}" \
   --split_trajectory ${split_trajectory}\
   --cutoff_proba_conformations "${cutoff_proba_conformations}" \
   --coordinates_to_add "${coordinates_to_add[@]}" \

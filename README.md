@@ -87,14 +87,21 @@ Use the `step_to_perform` variable in the submission script to specify the step:
 * `"get_conformations"`: Reruns the clustering of states and identification of conformations.
 
 #### Parameters to adjust:
+For both the clustering of the coordinates and the clustering of the conformations you can choose a clustering method among `'advanced_density_peaks'`, `'hdbscan'` and `'yacare'` and assign it to the parameters `method_clustering_coordinates`and `method_clustering_conformations`. The method can be different for clustering coordinates and conformations.
 
-**For coordinate clustering**:
-- `Z_parameter_coordinates`: Lower values result in more refined clusters but may assign more coordinates to noise.
-- `halo_parameter_coordinates`: Set to `1` (recommended).
+You should then indicate the list of parameters you one to use for the clustering method you chose. To do so, you should enter the value of parameters one after the other with a withspace between successive parameters, and respecting the following orders.
 
-**For conformation clustering**:
-- `Z_parameter_conformations`: A lower value increases purity of conformations, at the cost of more discarded states.
-- `halo_parameter_conformations`: Set to `0` (recommended).
+The parameters to choose are the following ones, for more details about parameters please refer to litterature about the clustering methods:
+
+**For Advanced Density Peaks**:
+- `Z_parameter`: Lower values result in more refined clusters but may assign more coordinates to noise. Positive float.
+- `halo_parameter`: If `1` the noise is taken into account, if `0`it is not.
+
+**For hdbscan**:
+- `min_cluster_size`: minimal size of the cluster you want. Integer superior or equal to 2. 
+- `min_samples`: The higher it is, the purer the cluster. Usually choose it around the same value as `min_cluster_size`. Positive integer.
+- `cluster_selection_epsilon`: Distance between clusters to be merged, by default keep it to `0`. Positive float.
+
 
 You may need to experiment with these values to find a clustering result that best captures the behavior of your system.
 
