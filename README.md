@@ -87,7 +87,7 @@ Use the `step_to_perform` variable in the submission script to specify the step:
 * `"get_conformations"`: Reruns the clustering of states and identification of conformations.
 
 #### Parameters to adjust:
-For both the clustering of the coordinates and the clustering of the conformations you can choose a clustering method among `'advanced_density_peaks'`, `'hdbscan'` and `'yacare'` and assign it to the parameters `method_clustering_coordinates`and `method_clustering_conformations`. The method can be different for clustering coordinates and conformations.
+For both the clustering of the coordinates and the clustering of the conformations you can choose a clustering method among `'advanced_density_peaks'`, `'hdbscan'` and `'yacare'` (for now yacare is not activated) and assign it to the parameters `method_clustering_coordinates`and `method_clustering_conformations`. The method can be different for clustering coordinates and conformations.
 
 You should then indicate the list of parameters you one to use for the clustering method you chose. To do so, you should enter the value of parameters one after the other with a withspace between successive parameters, and respecting the following orders.
 
