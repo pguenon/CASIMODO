@@ -38,7 +38,7 @@ def parse_arguments():
     parser.add_argument('--parameters_clustering_conformations', nargs='*', type=float, default=[3.0, 0], help='Parameters for clustering conformations (e.g., Z_parameter and halo_parameter)')
     parser.add_argument('--cluster_of_coordinates_to_process', type=int, default=-1, help='Index of the cluster of coordinates to process (default: -1 for all clusters)')
 
-    parser.add_argument('--cutoff_len_states', type=int, default=10000, help='Cutoff for the number of states to consider in clustering states')
+    parser.add_argument('--cutoff_len_states', type=int, default=100000, help='Cutoff for the number of states to consider in clustering states')
 
     parser.add_argument('--cutoff_proba_conformations', type=float, default=0.001, help='Probability cutoff for conformations extraction')
     parser.add_argument('--split_trajectory', type=int, default=1, choices=[0, 1], help='Whether to split the trajectory by conformations (1 for True, 0 for False)')

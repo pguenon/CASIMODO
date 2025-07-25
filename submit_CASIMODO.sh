@@ -101,7 +101,7 @@ mode_proba_cutoff=0.01
 cutoff_proba_conformations=0.01  # Probability cutoff for conformations extraction
 
 #Cutoff number of states to consider in clustering states when searching for conformations
-cutoff_len_states=10000  # Cutoff for the number of states to consider in clustering states
+cutoff_len_states=100000  # Cutoff for the number of states to consider in clustering states
 
 ##############################################
 #            MAIN EXECUTION BLOCK            #

@@ -243,6 +243,7 @@ You may also adjust the following optional parameters in `submit_CASIMODO.sh` fo
 - `delta_residue`: Optional parameter (default = 1) that ignores distances between nearby residues in sequence.
 - `mode_proba_cutoff`: Minimum integrated probability for a mode to be retained.
 - `cutoff_proba_conformations`: Minimum probability for a conformation to be retained.
+- `cutoff_len_states`: During the clustering step to get conformations, the clustering can take a lot of time if there are many different states in the trajectory, this value caps the number of states to consider, starting with the states with the higher probability.
 ---
 
 ## License
