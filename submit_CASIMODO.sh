@@ -44,18 +44,20 @@ split_trajectory=1 # 1 for True, 0 for False
 #Parameters for clustering of the coordinates
 
 # Method for clustering coordinates (options: 'advanced_density_peaks', 'hdbscan', 'yacare')
-method_clustering_coordinates="advanced_density_peaks"
+method_clustering_coordinates="yacare"
 
 # Parameters for clustering coordinates 
 # for 'advanced_density_peaks': (Z_parameter halo_parameter)   halo_parameter is 0=False or 1=True ;
 # for 'hdbscan': (min_cluster_size min_samples cluster_selection_epsilon)
-# for 'yacare': (min_cluster_size min_samples)
-parameters_clustering_coordinates=(1.65 1) 
+# for 'yacare': (function_for_ratio threshold_variable amount_of_noise keep_no_noise) 
+parameters_clustering_coordinates=(1 2.0 2.0 0) 
 
 #Parameters for clustering of the conformations
-method_clustering_conformations="advanced_density_peaks"
+method_clustering_conformations="yacare"
 # Parameters for clustering conformations
-parameters_clustering_conformations=(0.7 0) 
+parameters_clustering_conformations=(2 0.5 0.0 1) 
+#Choose the cluster of coordinates to process
+cluster_of_coordinates_to_process=-1 # -1 for all clusters, 0 for first cluster, 1 for second cluster, etc.
 
 ##############################################
 #           OPTIONAL COORDINATES             #
@@ -98,6 +100,8 @@ mode_proba_cutoff=0.01
 # Probability cutoff for conformations extraction
 cutoff_proba_conformations=0.01  # Probability cutoff for conformations extraction
 
+#Cutoff number of states to consider in clustering states when searching for conformations
+cutoff_len_states=10000  # Cutoff for the number of states to consider in clustering states
 
 ##############################################
 #            MAIN EXECUTION BLOCK            #
@@ -121,10 +125,12 @@ python CASIMODO_utils/run_CASIMODO.py \
   --parameters_clustering_coordinates "${parameters_clustering_coordinates[@]}" \
   --method_clustering_conformations "${method_clustering_conformations}" \
   --parameters_clustering_conformations "${parameters_clustering_conformations[@]}" \
+  --cluster_of_coordinates_to_process "${cluster_of_coordinates_to_process}" \
   --split_trajectory ${split_trajectory}\
   --cutoff_proba_conformations "${cutoff_proba_conformations}" \
   --coordinates_to_add "${coordinates_to_add[@]}" \
   --type_coordinates_to_add "${type_coordinates_to_add[@]}" \
   --residues_coordinates_to_add "${residues_coordinates_to_add[@]}" \
+  --cutoff_len_states "${cutoff_len_states}"\
   
 

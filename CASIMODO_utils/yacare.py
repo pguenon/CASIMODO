@@ -4,30 +4,30 @@
 YACARE
 ==========
 
-This module implements the YACARE algorithm described in the article "Clustering data by reordering them" by Axel Descamps et al.
+This module implements the YACARE algorithm described in the article "Clustering and noise detection through optimal reordering and contextual analysis" by Axel Descamps et al.
 Eventhough it can be used in command line, it is advised to use it with the provided Jupyter notebook.
 This module has been written by Nicolas Chéron and Axel Descamps.
 """
 
-import numpy as np                                                     # type: ignore
-import matplotlib.pyplot as plt                                        # type: ignore
-import sklearn                                                         # type: ignore
-from sklearn import cluster                                            # type: ignore
-from sklearn.preprocessing import StandardScaler                       # type: ignore
-from sklearn.metrics import confusion_matrix                           # type: ignore
-from sklearn.metrics.cluster import adjusted_rand_score                # type: ignore
-from sklearn.metrics.cluster import adjusted_mutual_info_score         # type: ignore
-from sklearn.metrics.cluster import homogeneity_completeness_v_measure # type: ignore
-from sklearn.metrics.cluster import fowlkes_mallows_score              # type: ignore
-from sklearn.metrics.cluster import normalized_mutual_info_score       # type: ignore
-from sklearn.metrics.cluster import davies_bouldin_score               # type: ignore
-from sklearn.metrics import silhouette_score                           # type: ignore
+import numpy as np
+import matplotlib.pyplot as plt
+import sklearn
+from sklearn import cluster
+from sklearn.preprocessing import StandardScaler
+from sklearn.metrics import confusion_matrix
+from sklearn.metrics.cluster import adjusted_rand_score
+from sklearn.metrics.cluster import adjusted_mutual_info_score
+from sklearn.metrics.cluster import homogeneity_completeness_v_measure
+from sklearn.metrics.cluster import fowlkes_mallows_score
+from sklearn.metrics.cluster import normalized_mutual_info_score
+from sklearn.metrics.cluster import davies_bouldin_score
+from sklearn.metrics import silhouette_score
 from datetime import datetime
 import itertools
 import copy
 import sys
 
-print(f"We are using Python {sys.version[0:6]}, numpy {np.version.version}, sci-kit learn {sklearn.__version__}, yacare 0.99b from 2025-04-XXX.")
+print(f"We are using Python {sys.version[0:6]}, numpy {np.version.version}, sci-kit learn {sklearn.__version__}, yacare 0.99e from 2025-07-24.")
 print("For help on a given function, type for example help(yacare.perform_first_reordering).")
 
 class Variables:
@@ -35,6 +35,7 @@ class Variables:
     project_name = "_"
     file_name = "_"
     save_images = False
+    show_images = True
     raw_data = []
     distance_matrix = []
     num_elements = 0
@@ -524,26 +525,27 @@ def perform_first_reordering(variables, percentage_moving_square, vmax=-1):
     # Close the output file.
     summary_file.close()
 
-    # Plot the original and reordered matrices.
+    # Plot the original and reordered matrices. 
     plt.figure(figsize=(24, 12))
     plt.subplot(1, 2, 1)
-    plt.imshow(variables.distance_matrix, cmap='terrain', vmax=vmax)
-    cbar = plt.colorbar(shrink=0.75)
-    cbar.ax.tick_params(labelsize=16)
     plt.xticks(fontsize=16)
     plt.yticks(fontsize=16)
     plt.title('Original distance matrix', size=20)
-
-    plt.subplot(1, 2, 2)
-    plt.imshow(variables.reordered_matrix, cmap='terrain', vmax=vmax)
+    plt.imshow(variables.distance_matrix, cmap='terrain', vmax=vmax)
     cbar = plt.colorbar(shrink=0.75)
     cbar.ax.tick_params(labelsize=16)
+
+    plt.subplot(1, 2, 2)
     plt.xticks(fontsize=16)
     plt.yticks(fontsize=16)
     plt.title('Reordered distance matrix', size=20)
+    plt.imshow(variables.reordered_matrix, cmap='terrain', vmax=vmax)
+    cbar = plt.colorbar(shrink=0.75)
+    cbar.ax.tick_params(labelsize=16)
     if variables.save_images == True:
         plt.savefig(variables.project_name + "_Yacare_1-Matrix-FirstReordering.png", bbox_inches='tight', pad_inches=0.1, dpi=150)
-    ##plt.show()
+    if variables.show_images == True:
+        plt.show()
     plt.close()
 
     # Plot delta_D.
@@ -558,7 +560,8 @@ def perform_first_reordering(variables, percentage_moving_square, vmax=-1):
     plt.yticks(fontsize=14)
     if variables.save_images == True:
         plt.savefig(variables.project_name + "_Yacare_2-DeltaD.png", bbox_inches='tight', pad_inches=0.1, dpi=150)
-    #plt.show()
+    if variables.show_images == True:
+        plt.show()
     plt.close()
 
 ###########################################################
@@ -739,7 +742,8 @@ def choose_if_we_reorder_again(variables, indices=[], vmax=-1):
     plt.title('Best reordered distance matrix', size=20)
     if variables.save_images == True:
         plt.savefig(variables.project_name + "_Yacare_3-Matrix-BestReordered.png", bbox_inches='tight', pad_inches=0.1, dpi=150)
-    #plt.show()
+    if variables.show_images == True:
+        plt.show()
     plt.close()
 
     # Plot delta_D.
@@ -754,7 +758,8 @@ def choose_if_we_reorder_again(variables, indices=[], vmax=-1):
     plt.yticks(fontsize=14)
     if variables.save_images == True:
         plt.savefig(variables.project_name + "_Yacare_4-DeltaD-BestReordered.png", bbox_inches='tight', pad_inches=0.1, dpi=150)
-    #plt.show()
+    if variables.show_images == True:
+        plt.show()
     plt.close()
 
     # Close the output file.
@@ -830,7 +835,7 @@ def find_optimal_cutoff(variables, minimal_size_cluster, use_all_cutoff=True, fu
     # Print in the output file.
     summary_file = open(variables.project_name + "_Yacare_Summary.txt", "a")
     summary_file.write(f'The minimal cluster size is {variables.minimal_size_cluster}%.\n')
-    summary_file.write(f'The function to compute the sum of rations was the function number {function_for_ratio}.\n')
+    summary_file.write(f'The function to compute the sum of ratios was the function number {function_for_ratio}.\n')
     summary_file.write(f'The automated selected cut-off is {round(variables.selected_cutoff, 5)}. At this level, there are {len(variables.borders_of_clusters[np.argmax(variables.ratios)])} clusters.\n')
     summary_file.write('\n')
     summary_file.close()
@@ -847,7 +852,8 @@ def find_optimal_cutoff(variables, minimal_size_cluster, use_all_cutoff=True, fu
     plt.yticks(fontsize=14)
     if variables.save_images == True:
         plt.savefig(variables.project_name + "_Yacare_5-BestRatios.png", bbox_inches='tight', pad_inches=0.1, dpi=150)
-    #plt.show()
+    if variables.show_images == True:
+        plt.show()
     plt.close()
 
     # Plot delta_D with cutoff.
@@ -869,7 +875,8 @@ def find_optimal_cutoff(variables, minimal_size_cluster, use_all_cutoff=True, fu
     plt.yticks(fontsize=14)
     if variables.save_images == True:
         plt.savefig(variables.project_name + "_Yacare_6-DeltaD-WithClusters.png", bbox_inches='tight', pad_inches=0.1, dpi=150)
-    #plt.show()
+    if variables.show_images == True:
+        plt.show()
     plt.close()
 
 ###########################################################
@@ -937,7 +944,8 @@ def change_proposed_cutoff(variables):
     plt.yticks(fontsize=14)
     if variables.save_images == True:
         plt.savefig(variables.project_name + "_Yacare_6-DeltaD-WithClusters-ManuallyChanged.png", bbox_inches='tight', pad_inches=0.1, dpi=150)
-    #plt.show()
+    if variables.show_images == True:
+        plt.show()
     plt.close()
 
     # Close the output file.
@@ -1080,7 +1088,8 @@ def find_final_clusters(variables, vmax=-1):
     plt.title('Reordered distance matrix with clusters', size=20)
     if variables.save_images == True:
         plt.savefig(variables.project_name + "_Yacare_7-Matrix-ReorderedWithClusters.png", bbox_inches='tight', pad_inches=0.1, dpi=150)
-    #plt.show()
+    if variables.show_images == True:
+        plt.show()
     plt.close()
 
     print(f'At the cut-off {round(variables.selected_cutoff, 3)}, clusters include {round(float((100*np.sum(variables.size_clusters)/variables.num_elements)), 1)}% of the trajectory.')
@@ -1211,7 +1220,8 @@ def compare_clusters(variables, display_stddev = False, display_mean_distances =
     colorbar.ax.tick_params(labelsize=16)
     if variables.save_images == True:
         plt.savefig(variables.project_name + "_Yacare_8-CompareClusters.png", bbox_inches='tight', pad_inches=0.1, dpi=150)
-    #plt.show()
+    if variables.show_images == True:
+        plt.show()
     plt.close()
     
     average_mu_clusters = 0
@@ -1287,7 +1297,7 @@ def propose_list_for_concatenating_clusters(variables, threshold_variable, choic
     else:
         reordered_matrix_compare_clusters = variables.reordered_matrix
 
-    # We recompute the variables distance_inside_matrix_final and stddev_inside_matrix_final even if they were computed before, because it is fast and otherwise issues may arise when clustering is made several times.
+    # We recompute the variables distance_inside_matrix_final and stddev_inside_matrix_final even if they were computed before, because it is fast and to avoid any issues.
     # Compute the mean value of the distance in each cluster (in the diagonal) and in each out-of-diagonal rectangle.
     distance_inside_matrix = []
     stddev_inside_matrix = []
@@ -1333,7 +1343,8 @@ def propose_list_for_concatenating_clusters(variables, threshold_variable, choic
     plt.title('Decision matrix to merge clusters', size=20)
     if variables.save_images == True:
         plt.savefig(variables.project_name + "_Yacare_9-DecisionMatrixToMergeClusters.png", bbox_inches='tight', pad_inches=0.1, dpi=150)
-    #plt.show()
+    if variables.show_images == True:
+        plt.show()
     plt.close()
 
     # Look into the decision_matrix for each line, check when there are 1's without looking at already found clusters. Then remove empty lists.
@@ -1572,7 +1583,8 @@ def concatenate_clusters(variables, vmax=-1):
     plt.title('Reordered distance matrix with merged clusters', size=20)
     if variables.save_images == True:
         plt.savefig(variables.project_name + "_Yacare_10-Matrix-MergedClusters.png", bbox_inches='tight', pad_inches=0.1, dpi=150)
-    #plt.show()
+    if variables.show_images == True:
+        plt.show()
     plt.close()
 
 ###########################################################
@@ -1642,9 +1654,9 @@ def expand_clusters(variables, amount_of_noise, keep_no_noise=False, vmax=-1):
     summary_file = open(variables.project_name + "_Yacare_Summary.txt", "a")
 
     # Print current status.
-    print(f"There are currently (before rescuing from noise) {len(np.sort(variables.elements_outside_clusters))} elements in noise, i.e. {round(float((100*len(variables.elements_outside_clusters)/variables.num_elements)), 1)}% of the data.")
-    summary_file.write(f"There are currently (before rescuing from noise) {len(np.sort(variables.elements_outside_clusters))} elements in noise, i.e. {round(float((100*len(variables.elements_outside_clusters)/variables.num_elements)), 1)}% of the data.\n")
-    summary_file.write(f"The chosen amount of noise for rescuing data is {amount_of_noise}.\n")
+    print(f"There are currently (before expanding clusters) {len(np.sort(variables.elements_outside_clusters))} elements in noise, i.e. {round(float((100*len(variables.elements_outside_clusters)/variables.num_elements)), 1)}% of the data.")
+    summary_file.write(f"There are currently (before expanding clusters) {len(np.sort(variables.elements_outside_clusters))} elements in noise, i.e. {round(float((100*len(variables.elements_outside_clusters)/variables.num_elements)), 1)}% of the data.\n")
+    summary_file.write(f"The chosen amount of noise for expanding clusters is {amount_of_noise}.\n")
 
     # Make copies of noise.
     variables.elements_outside_clusters_extend_data = copy.deepcopy(variables.elements_outside_clusters)
@@ -1759,7 +1771,8 @@ def expand_clusters(variables, amount_of_noise, keep_no_noise=False, vmax=-1):
     plt.title('Reordered distance matrix with data from noise', size=20)
     if variables.save_images == True:
         plt.savefig(variables.project_name + "_Yacare_11-Matrix-WithNoise.png", bbox_inches='tight', pad_inches=0.1, dpi=150)
-    #plt.show()
+    if variables.show_images == True:
+        plt.show()
     plt.close()
 
     # Plot delta_D with cutoff.
@@ -1779,14 +1792,15 @@ def expand_clusters(variables, amount_of_noise, keep_no_noise=False, vmax=-1):
     plt.yticks(fontsize=14)
     if variables.save_images == True:
         plt.savefig(variables.project_name + "_Yacare_12-DeltaD-WithNoise.png", bbox_inches='tight', pad_inches=0.1, dpi=150)
-    #plt.show()
+    if variables.show_images == True:
+        plt.show()
     plt.close()
 
     # Print new status.
-    print(f"After rescue, there are now {len(np.sort(variables.elements_outside_clusters_extend_data))} elements in noise, i.e. {round(float((100*len(variables.elements_outside_clusters_extend_data)/variables.num_elements)), 1)}% of the data.")
+    print(f"After expansion, there are now {len(np.sort(variables.elements_outside_clusters_extend_data))} elements in noise, i.e. {round(float((100*len(variables.elements_outside_clusters_extend_data)/variables.num_elements)), 1)}% of the data.")
     print(f'The new representative structures are (indices start at 1): {variables.representative_structures_in_original_index_with_noise}.')
     print(f'The size of the clusters is respectively {size_clusters_with_noise}.')
-    summary_file.write(f"After rescue, there are now {len(np.sort(variables.elements_outside_clusters_extend_data))} elements in noise, i.e. {round(float((100*len(variables.elements_outside_clusters_extend_data)/variables.num_elements)), 1)}% of the data.\n")
+    summary_file.write(f"After expansion, there are now {len(np.sort(variables.elements_outside_clusters_extend_data))} elements in noise, i.e. {round(float((100*len(variables.elements_outside_clusters_extend_data)/variables.num_elements)), 1)}% of the data.\n")
     summary_file.write(f'The new representative structures are (indices start at 1): {variables.representative_structures_in_original_index_with_noise}.\n')
     summary_file.write(f'The size of the clusters is respectively {size_clusters_with_noise}.\n')
 
@@ -1837,6 +1851,9 @@ def compare_final_clusters(variables, display_stddev = False, display_mean_dista
             reordered_matrix_compare_final = variables.reordered_matrix_new_ordering
         else:
             reordered_matrix_compare_final = variables.reordered_matrix
+
+    if number_clusters_compare_final <  2 :
+        return
 
     # Compute the mean value of the distance in each cluster (in the diagonal) and in each out-of-diagonal rectangle.
     distance_inside_matrix = []
@@ -1920,7 +1937,8 @@ def compare_final_clusters(variables, display_stddev = False, display_mean_dista
     colorbar.ax.tick_params(labelsize=16)
     if variables.save_images == True:
         plt.savefig(variables.project_name + "_Yacare_13-CompareLastClusters.png", bbox_inches='tight', pad_inches=0.1, dpi=150)
-    #plt.show()
+    if variables.show_images == True:
+        plt.show()
     plt.close()
     
     average_mu_clusters = 0
@@ -1937,9 +1955,9 @@ def compare_final_clusters(variables, display_stddev = False, display_mean_dista
 
 def write_indices(variables):
     """
-    Write the indices of clusters, representative structures, and noise to files.
+    Write the indices of clusters, representative structures, labels, and noise to files.
 
-    This function writes the indices of elements inside clusters, representative structures, and noise elements to separate files.
+    This function writes the indices of elements inside clusters, the representative structures, the label for each element, and the noise elements into separate files.
     It also updates the variables object with the necessary data for writing.
 
     Parameters:
@@ -1981,7 +1999,7 @@ def write_indices(variables):
     # Note: The "+1" shift to convert from 0-based to 1-based indexing was added earlier when representative_structures_write_indices was created.
     structure_file = open(variables.project_name + "_Clustering_RepresentativeStructures.ndx", "w")
     for i in range(variables.number_clusters_write_indices):
-        structure_file.write(f"[ Cluster{i}_Representative ]\n")
+        structure_file.write(f"[ Cluster{i+1}_Centroid ]\n")
         structure_file.write(f"{representative_structures_write_indices[i]}\n")
     structure_file.close()
 
@@ -1990,7 +2008,7 @@ def write_indices(variables):
     # Loop through indices for clusters, write 10 per line, and the remaining ones on another line.
     # If there are 82 data in a cluster, len(elements_inside_clusters[i])//10 with give us 8, so the first loop is from 0 to 80 (excluding 80)
     for i in range(variables.number_clusters_write_indices):
-        index_file.write(f"[ Cluster{i} ]\n")
+        index_file.write(f"[ Cluster{i+1} ]\n")
         for j in range(0, 10*(len(variables.elements_inside_clusters_write_indices[i])//10), 10):
             for k in range(10):
                 index_file.write(f"{variables.elements_inside_clusters_write_indices[i][j+k]+1} ")
@@ -2025,6 +2043,23 @@ def write_indices(variables):
         noise_file.write(str(variables.elements_outside_clusters_write_indices[j]+1))
         noise_file.write("\n")
     noise_file.close()
+    
+    # Write a file with the index of cluster for each element.
+    labels_clusters_file  = open(variables.project_name + "_Clustering_Labels.txt", "w")
+    list_clustered_data = []
+    for i in range(variables.number_clusters_write_indices):
+        for j in range(len(variables.elements_inside_clusters_write_indices[i])):
+            list_clustered_data.append([variables.elements_inside_clusters_write_indices[i][j]+1, i+1])
+    for j in range(len(variables.elements_outside_clusters_write_indices)):
+        list_clustered_data.append([variables.elements_outside_clusters_write_indices[j]+1, variables.number_clusters_write_indices+1])
+    # The list is sorted using the index of the data, i.e. from 1 to N.
+    list_clustered_data_sorted = sorted(list_clustered_data, key=lambda x: x[0])
+    # We extract the index of the clusters for each data.
+    labels_clusters = [x[1] for x in list_clustered_data_sorted]
+    for j in range(0, len(labels_clusters)):
+        labels_clusters_file.write(str(labels_clusters[j]))
+        labels_clusters_file.write("\n")
+    labels_clusters_file.close()
 
     print("Files successfully written.")
 
@@ -2047,7 +2082,7 @@ def plot_confusion_matrix(variables, labels_true, transformation = {}, auto_reor
     None
     """
     
-    import seaborn as sns     # type: ignore
+    import seaborn as sns
     
     # Proceed only if we have written indices.
     if variables.writing_indices_has_been_done == 0:
@@ -2160,7 +2195,8 @@ def plot_confusion_matrix(variables, labels_true, transformation = {}, auto_reor
     #plt.title('Confusion matrix', size=20)
     if variables.save_images == True:
         plt.savefig(variables.project_name + "_Yacare_14-ConfusionMatrix.png", bbox_inches='tight', pad_inches=0.1, dpi=150)
-    #plt.show()
+    if variables.show_images == True:
+        plt.show()
     plt.close()   
 
     # Count the number of pure and uncut clusters. First condition is for the case with no noise, second condition is for the other case.
@@ -2204,7 +2240,7 @@ def plot_confusion_matrix_HDBSCAN(variables, labels_true, transformation = {}, a
     None
     """
     
-    import seaborn as sns     # type: ignore
+    import seaborn as sns
     
     # Get the same parameter as YACARE for the minimal number of elements in a cluster.
     min_cluster_size = int(variables.minimal_size_cluster*variables.num_elements/100)
@@ -2304,8 +2340,9 @@ def plot_confusion_matrix_HDBSCAN(variables, labels_true, transformation = {}, a
     plt.yticks(yticks, ylabels, fontsize=12)
     plt.title('Confusion matrix from HDBSCAN', size=20)
     if variables.save_images == True:
-        plt.savefig(variables.project_name + "_HDBSCAN_ConfusionMatrix.png", bbox_inches='tight', pad_inches=0.1, dpi=300)
-    #plt.show()
+        plt.savefig(variables.project_name + "_HDBSCAN_ConfusionMatrix.png", bbox_inches='tight', pad_inches=0.1, dpi=150)
+    if variables.show_images == True:
+        plt.show()
     plt.close()   
 
     # Count the number of pure and uncut clusters. First condition is for the case with no noise, second condition is for the other case.
@@ -2345,7 +2382,7 @@ def plot_confusion_matrix_OPTICS(variables, labels_true, transformation = {}, au
     None
     """
     
-    import seaborn as sns     # type: ignore
+    import seaborn as sns
 
     # Get the same parameter as YACARE for the minimal number of elements in a cluster.
     min_cluster_size = int(variables.minimal_size_cluster*variables.num_elements/100)
@@ -2445,8 +2482,9 @@ def plot_confusion_matrix_OPTICS(variables, labels_true, transformation = {}, au
     plt.yticks(yticks, ylabels, fontsize=12)
     plt.title('Confusion matrix from OPTICS', size=20)
     if variables.save_images == True:
-        plt.savefig(variables.project_name + "_OPTICS_ConfusionMatrix.png", bbox_inches='tight', pad_inches=0.1, dpi=300)
-    #plt.show()
+        plt.savefig(variables.project_name + "_OPTICS_ConfusionMatrix.png", bbox_inches='tight', pad_inches=0.1, dpi=150)
+    if variables.show_images == True:
+        plt.show()
     plt.close()
     
     # Count the number of pure and uncut clusters. First condition is for the case with no noise, second condition is for the other case.
@@ -2486,11 +2524,11 @@ def plot_confusion_matrix_kmeans(variables, labels_true, transformation = {}, au
     None
     """
         
-    from sklearn.manifold import MDS     # type: ignore
-    from sklearn.cluster import KMeans   # type: ignore
-    import seaborn as sns                # type: ignore
+    from sklearn.manifold import MDS     
+    from sklearn.cluster import KMeans   
+    import seaborn as sns
     
-    # Reduce the data to an euclidean space (of dimension n_components) if we started directly from a distance matrix Otherwise, use directly the data.
+    # Reduce the data to an euclidean space (of dimension n_components) if we started directly from a distance matrix. Otherwise, use directly the data.
     if variables.raw_data_is_distance_matrix == True:
         mds = MDS(n_components=n_components, dissimilarity="precomputed", random_state=42)
         dataToProcess = mds.fit_transform(variables.raw_data)
@@ -2564,8 +2602,9 @@ def plot_confusion_matrix_kmeans(variables, labels_true, transformation = {}, au
     plt.yticks(yticks, ylabels, fontsize=12)
     plt.title('Confusion matrix from k-Means', size=20)
     if variables.save_images == True:
-        plt.savefig(variables.project_name + "_kMeans_ConfusionMatrix.png", bbox_inches='tight', pad_inches=0.1, dpi=300)
-    #plt.show()
+        plt.savefig(variables.project_name + "_kMeans_ConfusionMatrix.png", bbox_inches='tight', pad_inches=0.1, dpi=150)
+    if variables.show_images == True:
+        plt.show()
     plt.close()
     
     # Count the number of pure clusters. 
@@ -2727,8 +2766,9 @@ def plot_confusion_matrix_density_peaks_decision_graph(variables, percent=0.5):
     plt.xlabel(r'$\rho$', fontsize=16)
     plt.ylabel(r'$\delta$', fontsize=16)
     if variables.save_images == True:
-        plt.savefig(variables.project_name + "_DensityPeaks_DecisionGraph.png", bbox_inches='tight', pad_inches=0.1,  dpi=300)
-    #plt.show()
+        plt.savefig(variables.project_name + "_DensityPeaks_DecisionGraph.png", bbox_inches='tight', pad_inches=0.1, dpi=150)
+    if variables.show_images == True:
+        plt.show()
     plt.close()
 
 ###########################################################
@@ -2752,7 +2792,7 @@ def plot_confusion_matrix_density_peaks(variables, labels_true, rhomin, deltamin
     None
     """
 
-    import seaborn as sns     # type: ignore
+    import seaborn as sns
     create_new_format, compute_rho, compute_delta, assign_clusters, identify_halo, extract_clusters = define_functions_for_density_peaks()
     
     # Assign clusters and identify halos.
@@ -2851,8 +2891,9 @@ def plot_confusion_matrix_density_peaks(variables, labels_true, rhomin, deltamin
     plt.yticks(yticks, ylabels, fontsize=12)
     plt.title('Confusion matrix from density peaks', size=20)
     if variables.save_images == True:
-        plt.savefig(variables.project_name + "_DensityPeaks_ConfusionMatrix.png", bbox_inches='tight', pad_inches=0.1, dpi=300)
-    #plt.show()
+        plt.savefig(variables.project_name + "_DensityPeaks_ConfusionMatrix.png", bbox_inches='tight', pad_inches=0.1, dpi=150)
+    if variables.show_images == True:
+        plt.show()
     plt.close()
 
     # Count the number of pure and uncut clusters. First condition is for the case with no noise, second condition is for the other case.
@@ -2874,163 +2915,7 @@ def plot_confusion_matrix_density_peaks(variables, labels_true, rhomin, deltamin
         
 ###########################################################
 
-def reduction_dataset(variables, percentage_moving_square=1.0, threshold=1.0):
-    """
-    Reduces the dataset by clustering similar elements and removing redundancy.
- 
-    Parameters:
-    variables (object): An object containing a distance matrix.
-    percentage_moving_square (float, optional): Percentage of the dataset to consider for the moving square. Default is 1.0.
-    threshold (float, optional): Threshold to determine significant clusters. Must be between 0.0 and 1.0. Default is 1.0.
- 
-    Returns:
-    list: A list of indices representing the reduced dataset. The output list is 0-based.
-    
-    Comments:
-    * To reduce of dataset for machine learning, the following lines can be used. For the example, here we assume that we have computed the similarities between two elements and not the distances (i.e. in the diagonal there are 1s and not 0s).
-    * The procedure is the following:
-      * We will try 500 different cut-offs, i.e. 500 values of $\Delta_d$ between the min and max.
-      * For each value of cut-off, we look for the clusters and keep the cendroids for each cluster. Here, a cluster can be made of a single point because what we really want is to remove the redundancy in the data.
-      * For each value of cut-off, we also store all the indices that are above the cut-off. This can be constrained with the threshold parameter to only store indices with a $\Delta_d$ that is not above min+treshold*(max-min). The idea is to avoid storing indices that may be too different from the others because they may represent a weird structure.
-      * We then merge all the indices (from centroids and above the cut-off), extract the corresponding submatrix, and compute its variance.
-      * We keep the cut-off that provides the highest variance, i.e. the highest difference between all indices. The corresponding indices are stored in the list indices_full_list_final, where indices are 0-based.
-      
-    """
-    
-    # Check the threshold is in the good range.
-    if not (0.0 <= threshold <= 1.0):
-        raise RuntimeError("The 'threshold' parameter must be between 0.0 and 1.0.")
-    
-    # Define number of data for the square moving along the diagonal. We divide by 2 because there will be size_moving_square data before and after the middle of the square.
-    num_elements, num_coords = np.shape(variables.distance_matrix)
-    size_moving_square = int((percentage_moving_square / 2) * num_elements // 100)
-
-    # If we have choosen a too low percentage_moving_square, we must be sure that size_moving_square is not 0.
-    if size_moving_square == 0:
-        size_moving_square = 1
-                
-    # Reorder the matrix.
-    reordered_matrix, indices_by_closest_element = reorder_matrix(variables.distance_matrix, starting_point=0)
-    
-    # Compute delta_diagonal by iterating over the matrix.
-    delta_diagonal = get_delta_diagonal(reordered_matrix, size_moving_square)
-    
-    # Initialize lists and define values.
-    subdivision_deltaD = 500
-    min_percentage_deltaD = 0
-    max_percentage_deltaD = 100
-    cutoff_list = []
-    cluster_borders = []
-    variance_of_reduced_matrix = []
-    size_of_reduced_matrix = []
-    amount_of_noise_in_reduced_matrix = []
-    
-    # Iterate over cutoff values. Inputs are percentages. We will try 'subdivision_deltaD' values (500 by default here, i.e. every 0.2% of the range).
-    for i in range(subdivision_deltaD + 1):
-        indices_to_try = []
-        
-        # Get the percentage of cutoff to look at.
-        percentage_cutoff = min_percentage_deltaD + (max_percentage_deltaD - min_percentage_deltaD) * i / subdivision_deltaD
-        # Get the cutoff value for the current iteration.
-        cutoff = np.min(delta_diagonal) + (np.max(delta_diagonal) - np.min(delta_diagonal)) * (percentage_cutoff / 100)
-        cutoff_list.append(cutoff)    
-        
-        # Identify indices below and above the cutoff.
-        indices_below_cutoff = [  k + size_moving_square for k in range(len(delta_diagonal)) if delta_diagonal[k] <= cutoff  ]
-        indices_above_cutoff = [  k + size_moving_square for k in range(len(delta_diagonal)) if cutoff < delta_diagonal[k] <= np.min(delta_diagonal) + (np.max(delta_diagonal) - np.min(delta_diagonal)) * threshold  ]
-
-        # Group consecutive indices from the reordered matrix into clusters.
-        clusters_indices = []
-        cluster_indiv = []
-        diff = np.diff(indices_below_cutoff)
-        for j in range(len(indices_below_cutoff) - 1):
-            # If two values in indices_below_cutoff follow each other, they are from the same cluster, and we add one to cluster_indiv.
-            if diff[j] == 1:
-                cluster_indiv.append(indices_below_cutoff[j])
-            # Else, add the last index to the cluster, add the list of indices from cluster_indiv to clusters_indices and reset cluster_indiv.
-            else:
-                cluster_indiv.append(indices_below_cutoff[j])
-                clusters_indices.append(np.array(cluster_indiv))
-                cluster_indiv = []
-        # Add the last cluster to the list.
-        clusters_indices.append(np.array(cluster_indiv))
-
-        # Define limits for each cluster.
-        # In the other functions from YACARE, the condition is if the size of the cluster is >= int((minimal_size_cluster / 100) * len(matrix)).
-        # Here we keep every point, even isolated, that are below cutoff because the idea is to remove redundancy in the data by keeping one element per cluster.
-        borders = [  [clust[0], clust[-1]] for clust in clusters_indices if len(clust) != 0 and (clust[-1] - clust[0] + 1) >= int(1)  ]
-        cluster_borders.append(borders)
-        
-        # Find the representative structure for each cluster.
-        for border in borders:
-            temporary_matrix = np.array(reordered_matrix[border[0]:border[1]+1, border[0]:border[1]+1])    #The +1 is here to include the last index
-            mean_row_from_temporary_matrix = np.mean(temporary_matrix, axis=0)
-            representative_structure_for_cluster = border[0] + np.argmin(mean_row_from_temporary_matrix)
-            indices_to_try.append(indices_by_closest_element[representative_structure_for_cluster])
-       
-        # Get the list of indices by merging the representative structure of each cluster and the elements above cutoff.
-        indices_full_list = indices_to_try + [ indices_by_closest_element[i] for i in indices_above_cutoff ]
-
-        # Get a reduced matrix.
-        reduced_matrix_temp = reordered_matrix[indices_full_list, :]
-        reduced_matrix = reduced_matrix_temp[:, indices_full_list]
-
-        # Get the amount of noise (i.e. points above cut-off) for each reduced matrix
-        amount_of_noise_in_reduced_matrix.append(round(len(indices_above_cutoff)/len(indices_full_list), 3))
-        
-        # Get the size and stddev of the reduced matrix.
-        # Taking directly the standard variance may be biased since it would take into account the diagonal which is made of 0s.
-        # We have NewVariance=OldVariance*(l*l)/(l*l-l)=OldVariance*l/(l-1) (where l is the size of the cluster).
-        #variance = np.std(reduced_matrix)**2
-        #variance = variance * len(indices_full_list) / (len(indices_full_list) - 1)
-        #variance_of_reduced_matrix.append(variance)
-        variance_of_reduced_matrix.append(np.std(reduced_matrix)**2)
-        size_of_reduced_matrix.append(len(reduced_matrix[0]))
-
-    # Get the variance of the reduced matrix in a np array, then find the cutoff that provided the highest variance.
-    variance_reduced_matrix = np.array(variance_of_reduced_matrix)
-    selected_cutoff = cutoff_list[int(np.argmax(variance_reduced_matrix))]
-
-    # Redo the same as above but only for the selected_cutoff.
-    # Get indices above and below cutoff
-    indices_below_cutoff = [  k + size_moving_square for k in range(len(delta_diagonal)) if delta_diagonal[k] <= selected_cutoff  ]
-    indices_above_cutoff = [  k + size_moving_square for k in range(len(delta_diagonal)) if selected_cutoff < delta_diagonal[k] <= np.min(delta_diagonal) + (np.max(delta_diagonal) - np.min(delta_diagonal)) * threshold   ]
-       
-    # Group consecutive indices from the reordered matrix into clusters.
-    indices_to_try = []
-    clusters_indices = []
-    cluster_indiv = []
-    diff = np.diff(indices_below_cutoff)
-    for j in range(len(indices_below_cutoff) - 1):
-        # If two values in indices_below_cutoff follow each other, they are from the same cluster, and we add one to cluster_indiv.
-        if diff[j] == 1:
-            cluster_indiv.append(indices_below_cutoff[j])
-        # Else, add the last index to the cluster, add the list of indices from cluster_indiv to clusters_indices and reset cluster_indiv.
-        else:
-            cluster_indiv.append(indices_below_cutoff[j])
-            clusters_indices.append(np.array(cluster_indiv))
-            cluster_indiv = []
-    # Add the last cluster to the list.
-    clusters_indices.append(np.array(cluster_indiv))
-
-    # Define limits for each cluster.
-    borders = [  [clust[0], clust[-1]] for clust in clusters_indices if len(clust) != 0 and (clust[-1] - clust[0] + 1) >= int(1)  ]
-
-    # Find the representative structure for each cluster.
-    for border in borders:
-        temporary_matrix = np.array(reordered_matrix[border[0]:border[1]+1, border[0]:border[1]+1])    #The +1 is here to include the last index
-        mean_row_from_temporary_matrix = np.mean(temporary_matrix, axis=0)
-        representative_structure_for_cluster = border[0] + np.argmin(mean_row_from_temporary_matrix)
-        indices_to_try.append(indices_by_closest_element[representative_structure_for_cluster])
-
-    # Conclude.
-    indices_full_list_final = indices_to_try + [indices_by_closest_element[i] for i in indices_above_cutoff]
-    print(f"The selected cut-off is {selected_cutoff} and corresponds to the index {np.argmax(variance_reduced_matrix)}, with {len(indices_full_list_final)} indices i.e. {round(100*size_of_reduced_matrix[selected_cutoff]/num_elements, 1)}% of the data. In the list, {round(100*amount_of_noise_in_reduced_matrix[selected_cutoff], 1)}% are from the noise.")
-    return indices_full_list_final
-
-###########################################################
-
-def autopilot(variables, project_name, file_name, save_images = False, percentage_moving_square = 1.0, indices=[], minimal_size_cluster = 2.0, function_for_ratio = 1, threshold_variable = 1.0, choice_merging_clusters = 3, amount_of_noise = 1.0, keep_no_noise = False):
+def autopilot(variables, project_name, file_name, save_images = False, show_images = True, percentage_moving_square = 1.0, indices=[], minimal_size_cluster = 2.0, function_for_ratio = 1, threshold_variable = 1.0, choice_merging_clusters = 3, amount_of_noise = 1.0, keep_no_noise = False):
     """
     Do everything automatically. For now we don't include as parameters: delimiter, comments, dtype, usecols, vmax, use_all_cutoff, display_stddev, display_mean_distances.
     
@@ -3056,6 +2941,7 @@ def autopilot(variables, project_name, file_name, save_images = False, percentag
     variables.project_name = project_name
     variables.file_name = file_name
     variables.save_images = save_images
+    variables.show_images = show_images
         
     load_data(variables, delimiter=",", comments=('#', '@'), dtype=np.float32, usecols=None)
 
@@ -3084,234 +2970,3 @@ def autopilot(variables, project_name, file_name, save_images = False, percentag
     write_indices(variables)
 
 ###########################################################
-
-# One idea is to expand cluster if a point from the noise is close to any point from a cluster. This function is here to try this idea.
-def expand_clusters_TEMP(variables, amount_of_noise, keep_no_noise=False, use_any_element=False, vmax=-1):
-    """
-    Expand clusters by rescuing data points from noise based on a specified threshold.
-
-    Parameters:
-    variables (Variables): An instance of the Variables class containing clustering data.
-    amount_of_noise (float): The threshold value used to determine if data points should be rescued from noise.
-    keep_no_noise (bool, optional): Whether to keep all data points as noise. Default is False.
-    vmax (int, optional): The maximum value for the color scale in the plots. Default is -1.
-    use_any_element (bool, optional): Whether to use any element from a cluster for distance comparison. Default is False.
-    
-    Returns:
-    None
-
-    Comments:
-    We will try here to expand cluster and "rescue" data.
-    * For each data in the noise, we will look to which cluster it is the closest (by comparing the distances between data from the noise and the centroid of clusters).
-    * We will then compare the distance between the element from the noise and its closest cluster to a threshold which is "mu+amount_of_noise*sigma" where mu and sigma are the mean distance and standard deviation from closest cluster.
-    * "amount_of_noise" is called beta in the article describing YACARE and this variable can be changed by the user. We propose 1.0 by default.
-    * To be strict on the quality of the cluster, you can avoid this step or choose amount_of_noise = 0.0, but you will keep a significant amount of noise. To put more data in clusters, choose a higher value for amount_of_noise (typically from 1.0 to 10.0).
-    * If you want to assign all the data in clusters because you know you have no noise, add "keep_no_noise = True" in the function (by default this parameter is set to False): the value of amount_of_noise will be ignored and this will provide the same result as setting it to infinity.
-    * If use_any_element is True, an element from the noise will be added to a cluster if the distance from the element in the noise to any element from the cluster is below a threshold.
-
-    """
-    
-    # Correct the default value of vmax.
-    vmax = vmax if vmax != -1 else np.max(variables.distance_matrix)
-
-    # Choose which data to work on.
-    if variables.merging_has_been_done == True:
-        variables.number_clusters_extend_data = copy.deepcopy(variables.number_clusters_with_merging)
-        elements_inside_clusters_extend_data = copy.deepcopy(variables.elements_inside_clusters_with_merging)
-        representative_structures_extend_data = copy.deepcopy(variables.representative_structures_in_original_index_with_merging)
-        reordered_matrix_extend_data = variables.reordered_matrix_with_merging
-        border_extend_data = copy.deepcopy(variables.borders_with_merging)
-    else:
-        variables.number_clusters_extend_data = copy.deepcopy(variables.number_clusters)
-        elements_inside_clusters_extend_data = copy.deepcopy(variables.elements_inside_clusters)
-        representative_structures_extend_data = copy.deepcopy(variables.representative_structures_in_original_index)
-        border_extend_data = copy.deepcopy(variables.borders)
-        if variables.reordering_has_been_done == True:
-            reordered_matrix_extend_data = variables.reordered_matrix_new_ordering
-        else:
-            reordered_matrix_extend_data = variables.reordered_matrix
-    variables.extending_data_has_been_done = True
-
-    # Compute the mean value of the distance in each cluster (in the diagonal) and in each out-of-diagonal rectangle. We need to do it again if merging was done.
-    distance_inside_matrix = []
-    stddev_inside_matrix = []
-    for i in range(variables.number_clusters_extend_data):
-        for j in range(variables.number_clusters_extend_data):
-            distance_inside_matrix.append(np.mean(reordered_matrix_extend_data[border_extend_data[i][0]:border_extend_data[i][1], border_extend_data[j][0]:border_extend_data[j][1]]))
-            stddev_inside_matrix.append(np.std(reordered_matrix_extend_data[border_extend_data[i][0]:border_extend_data[i][1], border_extend_data[j][0]:border_extend_data[j][1]]))
-    distance_inside_matrix_final = np.array(distance_inside_matrix).reshape(variables.number_clusters_extend_data, variables.number_clusters_extend_data)
-    stddev_inside_matrix_final = np.array(stddev_inside_matrix).reshape(variables.number_clusters_extend_data, variables.number_clusters_extend_data)
-    # For the clusters, taking the full mean and full stddev doesn't make sense because it would take into account the diagonal which is made of 0s.
-    # The current mean of clusters is {Sum_i Sum_j (d_ij)} / {l*l}, whereas we want {Sum_i Sum_j (d_ij)} / {l*l-l} (where l is the size of the cluster).
-    # Thus, we change the values with NewMean=OldMean*(l*l)/(l*l-l)=OldMean*l/(l-1). We do the same for the standard deviation.
-    for i in range(variables.number_clusters_extend_data):
-        cluster_size = border_extend_data[i][1]-border_extend_data[i][0]+1
-        distance_inside_matrix_final[i][i] = distance_inside_matrix_final[i][i]*cluster_size/(cluster_size-1)
-        stddev_inside_matrix_final[i][i] = np.sqrt((stddev_inside_matrix_final[i][i]**2)*cluster_size/(cluster_size-1))
-
-    # Print in the output file.
-    summary_file = open(variables.project_name + "_Yacare_Summary.txt", "a")
-
-    # Print current status.
-    print(f"There are currently (before rescuing from noise) {len(np.sort(variables.elements_outside_clusters))} elements in noise, i.e. {round(float((100*len(variables.elements_outside_clusters)/variables.num_elements)), 1)}% of the data.")
-    summary_file.write(f"There are currently (before rescuing from noise) {len(np.sort(variables.elements_outside_clusters))} elements in noise, i.e. {round(float((100*len(variables.elements_outside_clusters)/variables.num_elements)), 1)}% of the data.\n")
-    summary_file.write(f"The chosen amount of noise for rescuing data is {amount_of_noise}.\n")
-
-    # Make copies of noise.
-    variables.elements_outside_clusters_extend_data = copy.deepcopy(variables.elements_outside_clusters)
-
-    # Check if elements that are not in clusters have a distance to an element from a cluster or to the closest representative structure that is lower than mean+amount_of_noise*stddev.
-    elements_to_remove_from_noise = []
-    for i in variables.elements_outside_clusters_extend_data:
-        # THE PART BELOW HAS NOT BEEN REVIEWED AND IS WHAT HAS BEEN ADDED TO THE ORIGINAL FUNCTION.
-        if use_any_element == True:
-            # For each point in noise, get the distance to all elements in each cluster.
-            for j in range(variables.number_clusters_extend_data):
-                distances_to_cluster = variables.distance_matrix[i, variables.elements_inside_clusters_with_noise[j]]
-                if np.any(distances_to_cluster < (distance_inside_matrix_final[j][j] + amount_of_noise * stddev_inside_matrix_final[j][j])):
-                    elements_inside_clusters_extend_data[j].append(i)
-                    elements_to_remove_from_noise.append(i)
-                    break
-        ### END OF WHAT MUST BE REVIEWED
-        else: 
-            # For each point in noise, get the distance to the representative structure of all clusters.
-            distance_noise_point_to_centroid = []
-            for j in range(variables.number_clusters_extend_data):
-                distance_noise_point_to_centroid.append(variables.distance_matrix[representative_structures_extend_data[j]-1][i])
-            # Look if the lowest distance (to the closest cluster) is smaller than mean+amount_of_noise*stddev, and if yes store the value of the noise point.
-            closest_cluster = np.argmin(distance_noise_point_to_centroid)
-            lowest_distance = np.min(distance_noise_point_to_centroid)
-            cluster_mean = distance_inside_matrix_final[closest_cluster][closest_cluster]
-            cluster_stddev = stddev_inside_matrix_final[closest_cluster][closest_cluster]
-            threshold = cluster_mean + amount_of_noise * cluster_stddev
-            if keep_no_noise == True:
-                elements_inside_clusters_extend_data[closest_cluster].append(i)
-                elements_to_remove_from_noise.append(i)
-            elif lowest_distance < threshold:
-                elements_inside_clusters_extend_data[closest_cluster].append(i)
-                elements_to_remove_from_noise.append(i)
-    # Create a new clean list, and update the variable.
-    temp_list = [i for i in variables.elements_outside_clusters_extend_data if i not in elements_to_remove_from_noise]
-    variables.elements_outside_clusters_extend_data = temp_list
-
-    # New name of list.
-    variables.elements_inside_clusters_with_noise = elements_inside_clusters_extend_data
-
-    # Add the noise i.e. data which are not in a cluster.
-    elements_all_indices_with_noise = copy.deepcopy(variables.elements_inside_clusters_with_noise)
-    elements_all_indices_with_noise.append(variables.elements_outside_clusters_extend_data)
-
-    # Reorder the matrix to make clusters with some data extracted from noise (first the lines, then the columns).
-    # Was before: elements_all_indices_with_noise_list = [int(a) for a in np.concatenate(elements_all_indices_with_noise).ravel().tolist()]
-    elements_all_indices_with_noise_list = np.concatenate(elements_all_indices_with_noise).ravel().astype(int).tolist()
-    variables.reordered_matrix_with_noise = variables.distance_matrix[elements_all_indices_with_noise_list, :]
-    variables.reordered_matrix_with_noise = variables.reordered_matrix_with_noise[:, elements_all_indices_with_noise_list]
-
-    # Get new borders of clusters. We have a -1 to avoid looking at the noise.
-    variables.borders_with_noise = []
-    k = 0
-    for i in range(len(variables.elements_inside_clusters_with_noise)):
-        clust = variables.elements_inside_clusters_with_noise[i]
-        variables.borders_with_noise.append([k, k+len(clust)-1])
-        k = k + len(clust)
-
-    # Extract matrices for all clusters, based on boundaries.
-    clusters_with_noise = []
-    for brdr in variables.borders_with_noise:
-        cluster_temp = np.array(variables.reordered_matrix_with_noise[brdr[0]:brdr[1], brdr[0]:brdr[1]])
-        clusters_with_noise.append(cluster_temp)
-
-    # Initialize lists to store mean row values, size of clusters, the representative structure indices, and the representative structure indices from the raw data.
-    mean_distance_on_row_with_noise = []
-    size_clusters_with_noise = []
-    representative_structures_with_noise = []
-    variables.representative_structures_in_original_index_with_noise = []
-
-    # Loop over clusters to find the size for each cluster.
-    for i in range(variables.number_clusters_extend_data):
-        size_clusters_with_noise.append(len(variables.elements_inside_clusters_with_noise[i]))
-
-    # Loop over clusters to calculate the mean value of each row and the size for each cluster matrix.
-    for clust in clusters_with_noise:
-        mean_distance_on_row_with_noise.append(np.mean(clust, axis=0))
-
-    # Loop over mean_distance_on_row to determine representative structure indices based on mean row values.
-    for i in range(len(mean_distance_on_row_with_noise)):
-        representative_structures_with_noise.append(variables.borders_with_noise[i][0] + np.argmin(mean_distance_on_row_with_noise[i]))
-
-    # Loop over representative_structures to map representative structure indices to original indices.
-    for i in representative_structures_with_noise:
-        variables.representative_structures_in_original_index_with_noise.append(np.concatenate(variables.elements_inside_clusters_with_noise).ravel().tolist()[i]+1)
-
-    # Compute the final delta_diagonal by iterating over the reordered matrix.
-    delta_diagonal_final = get_delta_diagonal(variables.reordered_matrix_with_noise, variables.size_moving_square)
-
-    #############################
-
-    # Plot the original and reordered matrices.
-    plt.figure(figsize=(24, 12))
-    plt.subplot(1, 2, 1)
-    plt.imshow(reordered_matrix_extend_data, cmap='terrain', vmax=vmax)
-    cbar = plt.colorbar(shrink=0.75)
-    cbar.ax.tick_params(labelsize=16)
-    for i in range(len(border_extend_data)):
-        x0 = border_extend_data[i][0]
-        x1 = border_extend_data[i][1]
-        plt.axvline(x=x0, ymin=1-x0/variables.num_elements, ymax=1-x1/variables.num_elements, color='red')
-        plt.axvline(x=x1, ymin=1-x0/variables.num_elements, ymax=1-x1/variables.num_elements, color='red')
-        plt.axhline(y=x0, xmin=x0/variables.num_elements, xmax=x1/variables.num_elements, color='red')
-        plt.axhline(y=x1, xmin=x0/variables.num_elements, xmax=x1/variables.num_elements, color='red')
-    plt.xticks(fontsize=16)
-    plt.yticks(fontsize=16)
-    plt.title('Previous distance matrix', size=20)
-
-    plt.subplot(1, 2, 2)
-    plt.imshow(variables.reordered_matrix_with_noise, cmap='terrain', vmax=vmax)
-    cbar = plt.colorbar(shrink=0.75)
-    cbar.ax.tick_params(labelsize=16)
-    for i in range(len(variables.borders_with_noise)):
-        x0 = variables.borders_with_noise[i][0]
-        x1 = variables.borders_with_noise[i][1]
-        plt.axvline(x=x0, ymin=1-x0/variables.num_elements, ymax=1-x1/variables.num_elements, color='red')
-        plt.axvline(x=x1, ymin=1-x0/variables.num_elements, ymax=1-x1/variables.num_elements, color='red')
-        plt.axhline(y=x0, xmin=x0/variables.num_elements, xmax=x1/variables.num_elements, color='red')
-        plt.axhline(y=x1, xmin=x0/variables.num_elements, xmax=x1/variables.num_elements, color='red')
-    plt.xticks(fontsize=16)
-    plt.yticks(fontsize=16)
-    plt.title('Reordered distance matrix with data from noise', size=20)
-    if variables.save_images == True:
-        plt.savefig(variables.project_name + "_Yacare_11-Matrix-WithNoise.png", bbox_inches='tight', pad_inches=0.1, dpi=150)
-    #plt.show()
-    plt.close()
-
-    # Plot delta_D with cutoff.
-    color = itertools.cycle(('tab:blue', 'tab:orange', 'tab:green', 'tab:red', 'tab:purple', 'tab:brown', 'tab:pink', 'tab:gray', 'tab:olive', 'tab:cyan'))
-    plt.figure(figsize=(24, 6))
-    plt.subplot(1,1,1)
-    plt.plot(range(variables.size_moving_square, variables.num_elements - variables.size_moving_square), delta_diagonal_final)
-    plt.axhline(variables.selected_cutoff, color='gray', label='Cut-off', linewidth=0.5)
-    for i in range(0, len(variables.borders_with_noise)):
-        plt.axhline(xmin=(variables.borders_with_noise[i][0])/variables.num_elements, xmax=(variables.borders_with_noise[i][1])/variables.num_elements, y=variables.selected_cutoff, color=next(color), linewidth=3)
-    plt.xlabel('Index', size=18)
-    plt.ylabel(r'$\Delta_d$', size=18)
-    plt.legend(loc='upper left', fontsize=14)
-    plt.xlim(0, variables.num_elements)
-    plt.ylim(0,)
-    plt.xticks(fontsize=14)
-    plt.yticks(fontsize=14)
-    if variables.save_images == True:
-        plt.savefig(variables.project_name + "_Yacare_12-DeltaD-WithNoise.png", bbox_inches='tight', pad_inches=0.1, dpi=150)
-    #plt.show()
-    plt.close()
-
-    # Print new status.
-    print(f"After rescue, there are now {len(np.sort(variables.elements_outside_clusters_extend_data))} elements in noise, i.e. {round(float((100*len(variables.elements_outside_clusters_extend_data)/variables.num_elements)), 1)}% of the data.")
-    print(f'The new representative structures are (indices start at 1): {variables.representative_structures_in_original_index_with_noise}.')
-    print(f'The size of the clusters is respectively {size_clusters_with_noise}.')
-    summary_file.write(f"After rescue, there are now {len(np.sort(variables.elements_outside_clusters_extend_data))} elements in noise, i.e. {round(float((100*len(variables.elements_outside_clusters_extend_data)/variables.num_elements)), 1)}% of the data.\n")
-    summary_file.write(f'The new representative structures are (indices start at 1): {variables.representative_structures_in_original_index_with_noise}.\n')
-    summary_file.write(f'The size of the clusters is respectively {size_clusters_with_noise}.\n')
-
-    # Close the output file.
-    summary_file.write("\n")
-    summary_file.close()

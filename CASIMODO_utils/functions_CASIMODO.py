@@ -72,8 +72,8 @@ def print_inputs(
     time_zero, delta_time, size_block,
     cutoff_distance,proba_under_cutoff_distance, delta_resid, mode_proba_cutoff,
     method_clustering_coordinates, parameters_clustering_coordinates,
-    method_clustering_conformations, parameters_clustering_conformations,
-    split_trajectory, cutoff_proba_conformations,
+    method_clustering_conformations, parameters_clustering_conformations, cluster_of_coordinates_to_process,
+    split_trajectory, cutoff_proba_conformations, cutoff_len_states,
     coordinates_to_add, type_coordinates_to_add,residues_coordinates_to_add):
     """
     Prints the input parameters to the log file.
@@ -94,8 +94,10 @@ def print_inputs(
     - parameters_clustering_coordinates (list): Parameters for the clustering method.
     - method_clustering_conformations (str): Clustering method for conformations.
     - parameters_clustering_conformations (list): Parameters for the clustering method.
+    - cluster_of_coordinates_to_process (int): Index of the cluster of coordinates to process.
     - split_trajectory (bool): Whether to split the trajectory into blocks.
     - cutoff_proba_conformations (float): Probability cutoff for conformation extraction.
+    - cutoff_len_states (int): Cutoff for the number of states to consider in clustering states.
     - coordinates_to_add (list): List of additional coordinate files to include.
     - type_coordinates_to_add (list): List of types for the additional coordinates.
     - residues_coordinates_to_add (list): List of residues to consider for additional coordinates.
@@ -120,8 +122,10 @@ def print_inputs(
     logging.info("Parameters clustering coordinates: %s", parameters_clustering_coordinates)
     logging.info("method clustering conformations: %s", method_clustering_conformations)
     logging.info("Parameters clustering conformations: %s", parameters_clustering_conformations)
+    logging.info("Cluster of coordinates to process: %d", cluster_of_coordinates_to_process)
     logging.info("Split trajectory: %s", split_trajectory)
     logging.info("Cutoff probability for conformations: %.5f", cutoff_proba_conformations)
+    logging.info("Cutoff number of states: %d", cutoff_len_states)
     logging.info("Additional coordinates to add: %s", coordinates_to_add)
     logging.info("Types of additional coordinates: %s", type_coordinates_to_add)
     logging.info("Residues for additional coordinates: %s", residues_coordinates_to_add)
@@ -2354,6 +2358,7 @@ def density_peaks_clustering(distance_matrix, Z_parameter=1.65, halo_parameter=0
 
     # Return cluster labels
     cluster_labels = data.cluster_assignment
+
     return cluster_labels
 
 def hdbscan_clustering(distance_matrix, min_cluster_size=5, min_samples=5, cluster_selection_epsilon=0.0):
@@ -2387,8 +2392,64 @@ def hdbscan_clustering(distance_matrix, min_cluster_size=5, min_samples=5, clust
 
     return cluster_labels
 
-def yacare_clustering(distance_matrix):
-    cluster_labels=[]
+def yacare_clustering(distance_matrix,function_for_ratio=2,threshold_variable=0.5,amount_of_noise=0.0,keep_no_noise=1):
+    # Create a buffer to capture stdout
+    buf = io.StringIO()
+
+    # Redirect stdout/stderr to the buffer
+    with redirect_stdout(buf), redirect_stderr(buf):
+        import yacare
+        
+        save_images = False
+        show_images = False
+        percentage_moving_square = min(25,10*100.0 / distance_matrix.shape[0])  # Percentage of moving square for reordering
+        minimal_size_cluster = 0.000001
+        choice_merging_clusters = 3
+        keep_no_noise = bool(keep_no_noise)  # Convert to boolean
+
+        variables = yacare.Variables()
+        variables.distance_matrix = distance_matrix
+        variables.project_name = 'temp_yacare_clustering_CASIMODO'
+        variables.show_images = show_images
+        variables.save_images = save_images
+        variables.function_for_ratio = function_for_ratio
+        
+        yacare.perform_first_reordering(variables, percentage_moving_square = percentage_moving_square, vmax = -1)
+
+        yacare.find_optimal_cutoff(variables, minimal_size_cluster = minimal_size_cluster, use_all_cutoff = True, function_for_ratio = 1)
+        
+        yacare.find_final_clusters(variables, vmax=-1)
+        
+        yacare.propose_list_for_concatenating_clusters(variables, threshold_variable = threshold_variable, choice_merging_clusters = choice_merging_clusters)
+        
+        yacare.concatenate_clusters(variables, vmax = -1)
+
+        yacare.expand_clusters(variables, amount_of_noise = amount_of_noise, keep_no_noise = keep_no_noise, vmax = -1)
+        
+        yacare.compare_final_clusters(variables, display_stddev = True, display_mean_distances = True)
+        
+        yacare.write_indices(variables)
+
+        # Extract the data from our clustering. We write a list of list, which contains "index of the data, index of the cluster".
+        list_clustered_data = []
+        for i in range(variables.number_clusters_write_indices):
+            for j in range(len(variables.elements_inside_clusters_write_indices[i])):
+                list_clustered_data.append([variables.elements_inside_clusters_write_indices[i][j]+1, i])
+        for j in range(len(variables.elements_outside_clusters_write_indices)):
+            list_clustered_data.append([variables.elements_outside_clusters_write_indices[j]+1, -1])
+
+        # The list is sorted using the index of the data, i.e. from 1 to N.
+        list_clustered_data_sorted = sorted(list_clustered_data, key=lambda x: x[0])
+        # We extract the index of the clusters for each data.
+    # Log the captured output
+    output = buf.getvalue()
+    if output.strip():
+        logging.info("[DADApy output]\n" + output.strip())
+    cluster_labels = np.array([x[1] for x in list_clustered_data_sorted])
+    list_sufixes=['_Clustering_Clusters.ndx', '_Clustering_Labels.txt', '_Clustering_Noise.txt','_Clustering_ReorderedElements.txt','_Clustering_RepresentativeStructures.ndx','_Yacare_Summary.txt']
+    for sufix in list_sufixes :
+        os.remove(variables.project_name + sufix)  # Remove the temporary files created by Yacare
+    
     return cluster_labels
 
 def cluster_distances(distance_matrix, method_clustering, parameters_clustering) :
@@ -2624,7 +2685,7 @@ def split_discretized_array_by_clusters(discretized_array, cluster_labels):
 
     return clusters_data
 
-def get_unique_states_in_splitted_array(clusters_data):
+def get_unique_states_in_splitted_array(clusters_data,cutoff_len_states,cluster_of_coordinates_to_process):
     """
     Extracts unique states from each cluster's discretized data.
 
@@ -2640,14 +2701,31 @@ def get_unique_states_in_splitted_array(clusters_data):
     """
     unique_states = []
     probalities_unique_states = []
-    for cluster_data in clusters_data:
+    for i,cluster_data in enumerate(clusters_data):
+        if cluster_of_coordinates_to_process>=0 and i != cluster_of_coordinates_to_process:
+            probalities_unique_states.append([])
+            unique_states.append([]) 
+            continue
         unique_i,count_i= np.unique(cluster_data, axis=0, return_counts=True)
-        probalities_unique_states.append(count_i / cluster_data.shape[0])  # Normalize
+        proba_i= count_i / cluster_data.shape[0]  # Normalize counts to get probabilities
+        
+        sorted_proba_indices = np.argsort(proba_i)[::-1]  # Sort indices by probability in descending order
+        
+        unique_i = unique_i[sorted_proba_indices]  # Sort unique states by their probabilities
+        proba_i = proba_i[sorted_proba_indices]  # Sort counts accordingly
+        
+        #cumulative_proba = np.cumsum(proba_i) 
+        #cutoff_index = np.where(cumulative_proba >= cutoff_proba_filtering)[0][0]  # Find the index where cumulative probability exceeds the cutoff
+        
+        unique_i = unique_i[:cutoff_len_states]  # Keep only states up to the cutoff
+        proba_i = proba_i[:cutoff_len_states]
+
+        probalities_unique_states.append(proba_i) 
         unique_states.append(unique_i)
         
     return unique_states, probalities_unique_states
 
-def compute_distances_between_states(states):
+def compute_distances_between_states(states,cluster_of_coordinates_to_process):
     """
     Computes pairwise distances between unique states.
 
@@ -2655,6 +2733,8 @@ def compute_distances_between_states(states):
     -----------
     states : list of ndarray
         A list where each element is an array of unique states for a cluster.
+    cluster_of_coordinates_to_process : int
+        Index of the cluster to process (if > 0, only this cluster is processed).
 
     Returns:
     --------
@@ -2662,13 +2742,19 @@ def compute_distances_between_states(states):
         A list containing distance matrices for each cluster's unique states.
     """
     distances = []
-    for state in states:
+    for i,state in enumerate(states):
+        if cluster_of_coordinates_to_process>=0 and i != cluster_of_coordinates_to_process:
+            distances.append([])
+            continue
+
         dist_matrix = squareform(pdist(state, metric='hamming'))
-        dist_matrix = dist_matrix/ np.max(dist_matrix)  # Normalize distances to [0, 1]
+        if np.max(dist_matrix) != 0:
+            dist_matrix =dist_matrix/ np.max(dist_matrix)  
+
         distances.append(dist_matrix)
     return distances
 
-def extract_frames_from_labels(output_dir, clusters_data, unique_states_clusters, all_clusters_labels, times_indices, proba_clusters, cutoff_proba_conformations):
+def extract_frames_from_labels(output_dir, clusters_data, unique_states_clusters, all_clusters_labels, times_indices, proba_clusters, cutoff_proba_conformations,cluster_of_coordinates_to_process):
     """
     Extracts the original frame indices corresponding to each conformation
     within each cluster, based on clustering labels of unique states.
@@ -2685,6 +2771,12 @@ def extract_frames_from_labels(output_dir, clusters_data, unique_states_clusters
         clustering labels of unique states in each cluster.
     times_indices : list or ndarray
         Mapping of indices to the original frame times.
+    proba_clusters : list of ndarray
+        Probabilities of each conformation in each cluster.
+    cutoff_proba_conformations : float
+        Probability threshold to filter out low-probability conformations.
+    cluster_of_coordinates_to_process : int
+        Index of the cluster to process (if > 0, only this cluster is processed).
 
     Returns:
     --------
@@ -2698,6 +2790,9 @@ def extract_frames_from_labels(output_dir, clusters_data, unique_states_clusters
     frames_by_clusters = []
 
     for i, cluster_labels in enumerate(all_clusters_labels):
+        if cluster_of_coordinates_to_process > 0 and i != cluster_of_coordinates_to_process:
+            frames_by_clusters.append([])
+            continue
         
                
         unique_labels = np.unique(cluster_labels)
@@ -2712,13 +2807,14 @@ def extract_frames_from_labels(output_dir, clusters_data, unique_states_clusters
             state = clusters_data[i][t]  # Discretized state at frame t
 
             # Find which unique state this frame matches
-            index_state = np.where((unique_states_clusters[i] == state).all(axis=1))[0][0]
+            if state in unique_states_clusters[i]:
+                index_state = np.where((unique_states_clusters[i] == state).all(axis=1))[0][0]
 
-            # Get the clustering label for that unique state
-            label_index = list(unique_labels).index(cluster_labels[index_state])
+                # Get the clustering label for that unique state
+                label_index = list(unique_labels).index(cluster_labels[index_state])
 
-            # Add corresponding time index
-            frames_conformations[label_index].append(times_indices[t])
+                # Add corresponding time index
+                frames_conformations[label_index].append(times_indices[t])
 
         frames_by_clusters.append(frames_conformations)
 
@@ -2748,7 +2844,7 @@ def extract_frames_from_labels(output_dir, clusters_data, unique_states_clusters
 
     return frames_by_clusters
 
-def split_trajectory_by_conformations(output_dir, u_traj, frames_by_clusters,proba_clusters,cutoff_proba_conformations,all_clusters_labels,strucfile,trajfile,selected_resids):
+def split_trajectory_by_conformations(output_dir, u_traj, frames_by_clusters,proba_clusters,cutoff_proba_conformations,all_clusters_labels,strucfile,trajfile,selected_resids,cluster_of_coordinates_to_process):
     """
     Splits the trajectory into separate files for each identified conformation
     in each cluster, based on frame indices.
@@ -2773,6 +2869,9 @@ def split_trajectory_by_conformations(output_dir, u_traj, frames_by_clusters,pro
     atoms_selected.write(output_dir + "conformations_clustering/atoms_selected." + extension_struc)
 
     for i, frames_conformations in enumerate(frames_by_clusters):
+        if cluster_of_coordinates_to_process > 0 and i != cluster_of_coordinates_to_process:
+            logging.info(f"Skipping cluster {i} as it is not the one to process.")
+            continue
         logging.info(f"Processing cluster {i}...")
 
         count_large_proba =len(np.where(proba_clusters[i] >= cutoff_proba_conformations)[0])
@@ -2806,7 +2905,7 @@ def split_trajectory_by_conformations(output_dir, u_traj, frames_by_clusters,pro
             atoms_selected.write(output_file, frames=frames)
     logging.info("Trajectory splitting completed.")
 
-def get_most_probable_states(all_clusters_labels, unique_states_clusters, probabilities_unique_states_clusters,cutoff_proba_conformations):
+def get_most_probable_states(all_clusters_labels, unique_states_clusters, probabilities_unique_states_clusters,cutoff_proba_conformations,cluster_of_coordinates_to_process):
     """
     For each cluster, identify the most probable state (discretized conformation)
     within each sub-cluster (i.e., clustering-labeled conformation).
@@ -2826,6 +2925,11 @@ def get_most_probable_states(all_clusters_labels, unique_states_clusters, probab
         List of probability arrays corresponding to each unique state in each main cluster.
         Example shape: [n_main_clusters][n_unique_states_in_cluster_i]
 
+    cutoff_proba_conformations : float
+        Probability threshold to consider a conformation as valid.
+    cluster_of_coordinates_to_process : int
+        If greater than 0, only process the specified cluster of coordinates.
+
     Returns:
     --------
     most_probable_states : list of list of ndarray
@@ -2841,6 +2945,10 @@ def get_most_probable_states(all_clusters_labels, unique_states_clusters, probab
 
     # Loop through each main cluster
     for i, cluster_labels in enumerate(all_clusters_labels):
+        if cluster_of_coordinates_to_process > 0 and i != cluster_of_coordinates_to_process:
+            most_probable_states.append([])
+            proba_most_probable_states.append([])
+            continue
         most_probable_states_cluster = []
         proba_most_probable_states_cluster = []
 
@@ -2929,7 +3037,7 @@ def get_coordinates_in_clusters(output_dir):
 
     return clusters_coords
 
-def write_conformations_to_file(all_cluster_labels,most_probable_states, proba_most_probable_states, proba_clusters, output_dir, cutoff_proba_conformations):
+def write_conformations_to_file(all_cluster_labels,most_probable_states, proba_most_probable_states, proba_clusters, output_dir, cutoff_proba_conformations,cluster_of_coordinates_to_process):
     """
     Writes the most probable conformational states of each cluster to a human-readable text file.
 
@@ -2956,9 +3064,12 @@ def write_conformations_to_file(all_cluster_labels,most_probable_states, proba_m
     logging.info("\nWriting conformations to file...")
 
     # Open the output file for writing
-    with open(output_dir + "conformations.txt", 'w') as file_out:
-        # Loop over clusters
-        for i, cluster_states in enumerate(most_probable_states):
+    # Loop over clusters
+    for i, cluster_states in enumerate(most_probable_states):
+        if cluster_of_coordinates_to_process > 0 and i != cluster_of_coordinates_to_process:
+            continue
+        with open(output_dir + f"conformations_clustering/conformations_cluster_{i}.txt", 'w') as file_out:
+            
             file_out.write(f"[ Cluster {i} ]\n")
             unique_cluster_labels = np.unique(all_cluster_labels[i])
             # Loop over conformations within the cluster
@@ -2982,7 +3093,7 @@ def write_conformations_to_file(all_cluster_labels,most_probable_states, proba_m
 ######################### Function to extract conformations from clusters ##########################
 def get_conformations_from_clusters(output_dir, u_traj,
                                      method_clustering_conformations, parameters_clustering_conformations,
-                                     split_trajectory,cutoff_proba_conformations,strucfile,trajfile, selected_resids):
+                                     split_trajectory,cutoff_proba_conformations,strucfile,trajfile, selected_resids,cutoff_len_states, cluster_of_coordinates_to_process):
     """
     Extracts representative conformations from trajectory data based on hierarchical clustering.
     
@@ -3008,6 +3119,10 @@ def get_conformations_from_clusters(output_dir, u_traj,
         Path to the trajectory file (e.g., DCD, XTC).
     selected_resids : list of int
         List of residue IDs to consider for trajectory splitting.
+    cutoff_len_states : int
+        Maximum number of unique states to consider in each cluster.
+    cluster_of_coordinates_to_process : int
+        Index of the cluster of coordinates to process (if applicable).
     """
     times_indices = np.load(output_dir + "discretizing_npy/times_indices.npy")  # Load time indices for frames
     # Load top-level cluster assignments
@@ -3025,39 +3140,50 @@ def get_conformations_from_clusters(output_dir, u_traj,
 
     # Extract unique conformational states and their probabilities within each cluster
     logging.info("Extracting unique states from clusters...")
-    unique_states_clusters, probabilities_unique_states_clusters = get_unique_states_in_splitted_array(clusters_data)
+    unique_states_clusters, probabilities_unique_states_clusters = get_unique_states_in_splitted_array(clusters_data,cutoff_len_states, cluster_of_coordinates_to_process)
 
+    cumulative_proba = [np.sum(probabilities_unique_states_clusters[i]) for i in range(len(probabilities_unique_states_clusters))]
+    cumulative_proba = np.array(cumulative_proba)
+    logging.info(f"Total probability of unique states under cutoff_len_states in each cluster: {cumulative_proba}")
+    
     # Compute pairwise distances between unique states inside each cluster
     logging.info(f"Computing distances between unique states in each cluster...")
-    distances_between_states = compute_distances_between_states(unique_states_clusters)
+    distances_between_states = compute_distances_between_states(unique_states_clusters,cluster_of_coordinates_to_process)
     
     all_clusters_labels = []
     for i, dist_states in enumerate(distances_between_states):
+        if cluster_of_coordinates_to_process>=0 and i != cluster_of_coordinates_to_process:
+            all_clusters_labels.append([])
+            logging.info(f'Skip cluster {i} as it is not the one to process.')
+            continue
         
         logging.info(f"Cluster {i}: Found {len(unique_states_clusters[i])} unique states.")    
-        if len(unique_states_clusters[i]) >2 :
-            n_unique_states = len(unique_states_clusters[i])
+
+        n_unique_states = len(unique_states_clusters[i])
+        if n_unique_states <= 2**5:
+            cluster_labels = np.array([i for i in range(n_unique_states)])
+        else :
             cluster_labels = cluster_distances(dist_states, method_clustering_conformations, parameters_clustering_conformations)
 
-         
-            # Plot and save the clustering results for this sub-cluster
-            _ = plot_clustering_results(
-                dist_states, cluster_labels,
-                output_dir + 'conformations_clustering/',
-                f"distances_between_states_cluster_{i}",
-                label_data="Normalized distance between states",
-                xlabel="State Index",
-                ylabel="State Index"
-            )
-            all_clusters_labels.append(cluster_labels)
-        else:
-            logging.info(f"Cluster {i} has only one unique state, skipping clustering.")
-            # If only one unique state, assign it to a single cluster
-            all_clusters_labels.append(unique_states_clusters[i])
-    
+        
+        # Plot and save the clustering results for this sub-cluster
+        _ = plot_clustering_results(
+            dist_states, cluster_labels,
+            output_dir + 'conformations_clustering/',
+            f"distances_between_states_cluster_{i}",
+            label_data="Normalized distance between states",
+            xlabel="State Index",
+            ylabel="State Index"
+        )
+        all_clusters_labels.append(cluster_labels)
+
     # Compute probabilities for each conformation cluster (after second-level clustering)
     proba_clusters = []
     for i, cluster_labels in enumerate(all_clusters_labels):
+        
+        if cluster_of_coordinates_to_process>=0 and i != cluster_of_coordinates_to_process:
+            proba_clusters.append([])
+            continue
         unique_labels = np.unique(cluster_labels)
         proba_conformations = np.zeros(len(unique_labels), dtype=float)
 
@@ -3078,20 +3204,20 @@ def get_conformations_from_clusters(output_dir, u_traj,
     # Extract the most probable states from each cluster 
     logging.info("\nComputing most probable states in each cluster...")
     most_probable_states, proba_most_probable_states = get_most_probable_states(
-        all_clusters_labels, unique_states_clusters, probabilities_unique_states_clusters, cutoff_proba_conformations
+        all_clusters_labels, unique_states_clusters, probabilities_unique_states_clusters, cutoff_proba_conformations,cluster_of_coordinates_to_process
     )
 
     # Write representative conformations to file
-    write_conformations_to_file(all_clusters_labels,most_probable_states, proba_most_probable_states, proba_clusters, output_dir, cutoff_proba_conformations)
+    write_conformations_to_file(all_clusters_labels,most_probable_states, proba_most_probable_states, proba_clusters, output_dir, cutoff_proba_conformations,cluster_of_coordinates_to_process)
     logging.info("Conformations written to file.")
 
     # Extract original frame indices from final conformation labels
     frames_by_clusters = extract_frames_from_labels(
-        output_dir, clusters_data, unique_states_clusters, all_clusters_labels, times_indices,proba_clusters,cutoff_proba_conformations
+        output_dir, clusters_data, unique_states_clusters, all_clusters_labels, times_indices,proba_clusters,cutoff_proba_conformations,cluster_of_coordinates_to_process
     )
 
     # Optionally split trajectory files for each conformation cluster
     if split_trajectory:
-        split_trajectory_by_conformations(output_dir, u_traj, frames_by_clusters,proba_clusters,cutoff_proba_conformations,all_clusters_labels,strucfile,trajfile,selected_resids)
+        split_trajectory_by_conformations(output_dir, u_traj, frames_by_clusters,proba_clusters,cutoff_proba_conformations,all_clusters_labels,strucfile,trajfile,selected_resids,cluster_of_coordinates_to_process)
 
 

@@ -36,6 +36,9 @@ def parse_arguments():
 
     parser.add_argument('--method_clustering_conformations', type=str, default='advanced_density_peaks', choices=['advanced_density_peaks', 'hdbscan', 'yacare'], help='Clustering method for conformations')
     parser.add_argument('--parameters_clustering_conformations', nargs='*', type=float, default=[3.0, 0], help='Parameters for clustering conformations (e.g., Z_parameter and halo_parameter)')
+    parser.add_argument('--cluster_of_coordinates_to_process', type=int, default=-1, help='Index of the cluster of coordinates to process (default: -1 for all clusters)')
+
+    parser.add_argument('--cutoff_len_states', type=int, default=10000, help='Cutoff for the number of states to consider in clustering states')
 
     parser.add_argument('--cutoff_proba_conformations', type=float, default=0.001, help='Probability cutoff for conformations extraction')
     parser.add_argument('--split_trajectory', type=int, default=1, choices=[0, 1], help='Whether to split the trajectory by conformations (1 for True, 0 for False)')
@@ -76,6 +79,9 @@ parameters_clustering_coordinates = args.parameters_clustering_coordinates
 
 method_clustering_conformations = args.method_clustering_conformations
 parameters_clustering_conformations = args.parameters_clustering_conformations
+cluster_of_coordinates_to_process = args.cluster_of_coordinates_to_process 
+
+cutoff_len_states = args.cutoff_len_states
 
 cutoff_proba_conformations = args.cutoff_proba_conformations
 split_trajectory_int = args.split_trajectory
@@ -127,8 +133,8 @@ print_inputs(
     time_zero, delta_time, size_block,
     cutoff_distance, proba_under_cutoff_distance, delta_resid, mode_proba_cutoff,
     method_clustering_coordinates, parameters_clustering_coordinates,
-    method_clustering_conformations, parameters_clustering_conformations,
-    split_trajectory, cutoff_proba_conformations,
+    method_clustering_conformations, parameters_clustering_conformations, cluster_of_coordinates_to_process,
+    split_trajectory, cutoff_proba_conformations, cutoff_len_states,
     coordinates_to_add, type_coordinates_to_add,residues_coordinates_to_add
 )
 
@@ -229,15 +235,27 @@ if step_to_perform in ['all', 'get_conformations']:
     subdirs = [
     'conformations_clustering'
     ]
-    for subdir in subdirs:
+    if cluster_of_coordinates_to_process == -1 :
+        for subdir in subdirs:
+            if os.path.exists(os.path.join(output_dir, subdir)):
+                shutil.rmtree(os.path.join(output_dir, subdir))  # Remove existing directory  
+            os.mkdir(os.path.join(output_dir, subdir))
+    else:
+        subdir = 'conformations_clustering/trajectories_cluster_' + str(cluster_of_coordinates_to_process)
         if os.path.exists(os.path.join(output_dir, subdir)):
-            shutil.rmtree(os.path.join(output_dir, subdir))  # Remove existing directory  
-        os.mkdir(os.path.join(output_dir, subdir))
+            shutil.rmtree(os.path.join(output_dir, subdir))
+        file_png = 'conformations_clustering/distances_between_states_cluster_' + str(cluster_of_coordinates_to_process) + '.png'
+        file_ndx = 'conformations_clustering/frames_conformations_from_cluster_of_CV_' + str(cluster_of_coordinates_to_process) + '.ndx'
+        if os.path.exists(os.path.join(output_dir, file_png)):
+            os.remove(os.path.join(output_dir, file_png))
+        if os.path.exists(os.path.join(output_dir, file_ndx)):
+            os.remove(os.path.join(output_dir, file_ndx))
+
 
     get_conformations_from_clusters(
     output_dir,u_traj, 
     method_clustering_conformations, parameters_clustering_conformations,
-    split_trajectory, cutoff_proba_conformations,strucfile,trajfile,selected_resids
+    split_trajectory, cutoff_proba_conformations,strucfile,trajfile,selected_resids, cutoff_len_states, cluster_of_coordinates_to_process
     )
 
 print_ending_message(output_dir, step_to_perform)

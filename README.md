@@ -102,8 +102,16 @@ The parameters to choose are the following ones, for more details about paramete
 - `min_samples`: The higher it is, the purer the cluster. Usually choose it around the same value as `min_cluster_size`. Positive integer.
 - `cluster_selection_epsilon`: Distance between clusters to be merged, by default keep it to `0`. Positive float.
 
+**For Yacare**:
+- `function_for_ratio`: usually use `1` but if you're not satisfied with clustering results you can try `2`. 
+- `threshold_variable`: The lower this variable, the purer the inital clusters.
+- `amount_of_noise`: The higher it is, the more data will be removed from noise to be added to clusters.
+- `keep_no_noise`: If `0` you have noise, if `1` you have no noise.
 
 You may need to experiment with these values to find a clustering result that best captures the behavior of your system.
+
+When you get the conformations you could also want to rerun clustering on only one of the cluster of coordinates, to do so you can change `cluster_of_coordinates_to_process`. 
+If this parameter is set to `-1` then it will look for conformations in all the clusters of coordinates, it if is a positive integer, then it will only process the indicated cluster of coordinates.
 
 ### Output Files
 
