@@ -12,7 +12,7 @@ from CASIMODO_utils.functions_CASIMODO import *
 #######################################
 
 def parse_arguments():
-    parser = argparse.ArgumentParser(description='CASIMODO - Conformational Information & Dynamics Entropy Reader')
+    parser = argparse.ArgumentParser(description='CASIMODO - Conformational Analysis via Statistical Inference of MOlecular Dynamics Observables')
     
     parser.add_argument('--step_to_perform', type=str, default='all', help='Step to perform in the pipeline')
 
