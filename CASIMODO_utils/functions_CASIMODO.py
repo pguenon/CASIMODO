@@ -843,13 +843,14 @@ def get_avg_histogram(times, data, time_zero_ps, size_block_ps, coord_type):
 
     # Compute number of blocks
     num_blocks = max(1,int((times[-1] - time_zero_ps) / size_block_ps))
+    validated_size_block_ps = int((times[-1] - time_zero_ps) / num_blocks)
 
     y_max = max(data)
     y_min = min(data)
 
     # Compute histograms
     HIST_TOT, x, AVG, STD = compute_hist_tot(times, data, num_blocks, y_min, y_max, delta_y,
-                                             time_zero_ps, size_block_ps)
+                                             time_zero_ps, validated_size_block_ps)
 
     # Compute confidence intervals
     error_bars = compute_error_bars(STD, num_blocks)
