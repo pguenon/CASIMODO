@@ -383,7 +383,7 @@ def read_dictionary(dic):
                 logging.info(f"Skipping line: {line}")
     return important_atoms_dic, amino_acids, nucleic_acids_pyrimidine, nucleic_acids_purine
 
-def get_important_atoms_MDA(u_traj, important_atoms_dic):
+def get_important_atoms_MDA(u_traj, important_atoms_dic,step_to_perform):
     """
     Extracts definitions of important atoms from an MDAnalysis Universe.
 
@@ -425,15 +425,16 @@ def get_important_atoms_MDA(u_traj, important_atoms_dic):
             elif resname in nucleic_acids_purine:
                 indices_na_purine.append(resid)
         elif resname not in res_not_found:
-            logging.info(f"Residue {resname} not found in {important_atoms_dic}. Skipping it.")
+            if step_to_perform == 'all':
+                logging.info(f"Residue {resname} not found in {important_atoms_dic}. Skipping it.")
             res_not_found.append(resname)
-    
-    logging.info("\nSelected residues:")
-    for resid, resname in zip(selected_resids, selected_resnames):
-        if resid not in indices_aa:
-            logging.info(f" {resname} - {resid} ")
-        else:
-            logging.info(f" {resname} - {resid} (AA) ")
+    if step_to_perform == 'all':
+        logging.info("\nSelected residues:")
+        for resid, resname in zip(selected_resids, selected_resnames):
+            if resid not in indices_aa:
+                logging.info(f" {resname} - {resid} ")
+            else:
+                logging.info(f" {resname} - {resid} (AA) ")
 
     return important_atoms, selected_resids, selected_resnames, indices_aa, indices_na_pyrimidine, indices_na_purine
 
@@ -2983,8 +2984,6 @@ def get_most_probable_states(all_clusters_labels, unique_states_clusters, probab
                         f"{unique_states_clusters[i][ind_max_proba]} "
                         f"with probability {probabilities_unique_states_clusters[i][ind_max_proba]}"
                     )
-        logging.info("\n")
-
         # Append results for the current cluster
         most_probable_states.append(most_probable_states_cluster)
         proba_most_probable_states.append(proba_most_probable_states_cluster)

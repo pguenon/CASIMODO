@@ -169,7 +169,7 @@ if step_to_perform in ['all', 'discretize_coordinates', 'get_conformations']:
     if os.path.exists(important_atoms_file):
         os.remove(important_atoms_file)
     
-    important_atoms, selected_resids, selected_resnames, indices_aa, indices_na_pyrimidine, indices_na_purine = get_important_atoms_MDA(u_traj, dic)
+    important_atoms, selected_resids, selected_resnames, indices_aa, indices_na_pyrimidine, indices_na_purine = get_important_atoms_MDA(u_traj, dic,step_to_perform)
     save_important_atoms(important_atoms, selected_resids, selected_resnames, indices_aa, indices_na_pyrimidine, indices_na_purine, output_dir)
 
 
