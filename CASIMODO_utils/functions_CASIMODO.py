@@ -319,15 +319,20 @@ def filter_times_and_indices(u_traj, time_zero, delta_time, output_dir):
     times = []
     times_indices = []
     previous_progress = -1
-
+    delta_t_traj=u_traj.trajectory.dt
+    always_keep=False
+    if delta_time < delta_t_traj:
+        always_keep=True
+    logging.info(f"Trajectory time step: {delta_t_traj} ps")
     for ts in u_traj.trajectory:
         # Update progress bar
         previous_progress = plot_progress_bar(ts.frame, len(u_traj.trajectory), previous_progress)
-        
-        # Apply time filter
-        if ts.time >= time_zero and ts.time % delta_time == 0:
-            times.append(ts.time)
+        time_ts= ts.time
+        if always_keep or time_ts% delta_time < delta_t_traj/2:
+            times.append(time_ts)
             times_indices.append(ts.frame)
+            continue
+
 
     # Complete progress bar
     plot_progress_bar(len(u_traj.trajectory), len(u_traj.trajectory), previous_progress)
@@ -503,7 +508,7 @@ def precompute_terminals(u_traj, important_atoms, selected_resids, times_indices
     terminal_atom_selections = []
     for i in range(num_residues):
         terminal_atom_selections.append([
-            u_traj.select_atoms(f"resid {selected_resids[i]} and name {important_atoms[i][j]}")
+            u_traj.select_atoms(f"resnum {selected_resids[i]} and name {important_atoms[i][j]}")
             for j in range(len(important_atoms[i]))
         ])
 

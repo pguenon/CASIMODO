@@ -225,13 +225,13 @@ if step_to_perform in ['all', 'discretize_coordinates']:
 #           CLUSTERING STEP           #
 #######################################
 
-if step_to_perform in ['cluster_coordinates']:
+if step_to_perform in ['all','cluster_coordinates']:
     cluster_coordinates(
         output_dir, coordinates_to_add, residues_coordinates_to_add,
         method_clustering_coordinates, parameters_clustering_coordinates
         )
     
-if step_to_perform in ['get_conformations']:
+if step_to_perform in ['all','get_conformations']:
     subdirs = [
     'conformations_clustering'
     ]
