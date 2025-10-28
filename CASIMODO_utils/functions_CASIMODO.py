@@ -562,17 +562,17 @@ def precompute_backbone_protein(u_traj, indices_aa, times_indices):
 
     # Preselect atom groups for each backbone atom type
     atom_C_selections = [
-        u_traj.select_atoms(f"resid {indices_aa[i]} and name C")
+        u_traj.select_atoms(f"resnum {indices_aa[i]} and name C")
         for i in range(num_residues)
     ]
 
     atom_N_selections = [
-        u_traj.select_atoms(f"resid {indices_aa[i]} and name N")
+        u_traj.select_atoms(f"resnum {indices_aa[i]} and name N")
         for i in range(num_residues)
     ]
 
     atom_CA_selections = [
-        u_traj.select_atoms(f"resid {indices_aa[i]} and name CA")
+        u_traj.select_atoms(f"resnum {indices_aa[i]} and name CA")
         for i in range(num_residues)
     ]
 
@@ -635,58 +635,58 @@ def precompute_backbone_nucleic_acids(u_traj, indices_na_pyrimidine, indices_na_
 
     # Preselect atom groups for each backbone atom type
     atom_P_selections = [
-        u_traj.select_atoms(f"resid {indices_na[i]} and name P")
+        u_traj.select_atoms(f"resnum {indices_na[i]} and name P")
         for i in range(num_residues)
     ]
 
     atom_O5p_selections = [
-        u_traj.select_atoms(f"resid {indices_na[i]} and name O5'")
+        u_traj.select_atoms(f"resnum {indices_na[i]} and name O5'")
         for i in range(num_residues)
     ]
 
     atom_C5p_selections = [
-        u_traj.select_atoms(f"resid {indices_na[i]} and name C5'")
+        u_traj.select_atoms(f"resnum {indices_na[i]} and name C5'")
         for i in range(num_residues)
     ]
 
     atom_O4p_selections = [
-        u_traj.select_atoms(f"resid {indices_na[i]} and name O4'")
+        u_traj.select_atoms(f"resnum {indices_na[i]} and name O4'")
         for i in range(num_residues)
     ]
 
     atom_C4p_selections = [
-        u_traj.select_atoms(f"resid {indices_na[i]} and name C4'")
+        u_traj.select_atoms(f"resnum {indices_na[i]} and name C4'")
         for i in range(num_residues)
     ]
 
     atom_C3p_selections = [
-        u_traj.select_atoms(f"resid {indices_na[i]} and name C3'")
+        u_traj.select_atoms(f"resnum {indices_na[i]} and name C3'")
         for i in range(num_residues)
     ]
 
     atom_O3p_selections = [
-        u_traj.select_atoms(f"resid {indices_na[i]} and name O3'")
+        u_traj.select_atoms(f"resnum {indices_na[i]} and name O3'")
         for i in range(num_residues)
     ]
 
     atom_C1p_selections = [
-        u_traj.select_atoms(f"resid {indices_na[i]} and name C1'")
+        u_traj.select_atoms(f"resnum {indices_na[i]} and name C1'")
         for i in range(num_residues)
     ]
 
     atom_Nbs_selections = []
     for i in range(num_residues):
         if indices_na[i] in indices_na_pyrimidine:
-            atom_Nbs_selections.append(u_traj.select_atoms(f"resid {indices_na[i]} and name N1"))
+            atom_Nbs_selections.append(u_traj.select_atoms(f"resnum {indices_na[i]} and name N1"))
         elif indices_na[i] in indices_na_purine:
-            atom_Nbs_selections.append(u_traj.select_atoms(f"resid {indices_na[i]} and name N9"))
+            atom_Nbs_selections.append(u_traj.select_atoms(f"resnum {indices_na[i]} and name N9"))
 
     atom_Cbs_selections = []
     for i in range(num_residues):
         if indices_na[i] in indices_na_pyrimidine:
-            atom_Cbs_selections.append(u_traj.select_atoms(f"resid {indices_na[i]} and name C2"))
+            atom_Cbs_selections.append(u_traj.select_atoms(f"resnum {indices_na[i]} and name C2"))
         elif indices_na[i] in indices_na_purine:
-            atom_Cbs_selections.append(u_traj.select_atoms(f"resid {indices_na[i]} and name C4"))
+            atom_Cbs_selections.append(u_traj.select_atoms(f"resnum {indices_na[i]} and name C4"))
 
 
     # Initialize arrays to store positions of backbone atoms over time
@@ -2872,7 +2872,7 @@ def split_trajectory_by_conformations(output_dir, u_traj, frames_by_clusters,pro
 
     logging.info("\nSplitting trajectory by conformations...")
 
-    atoms_selected = u_traj.select_atoms(f"resid {' '.join(map(str, selected_resids))}")
+    atoms_selected = u_traj.select_atoms(f"resnum {' '.join(map(str, selected_resids))}")
     atoms_selected.write(output_dir + "conformations_clustering/atoms_selected." + extension_struc)
 
     for i, frames_conformations in enumerate(frames_by_clusters):
@@ -2908,7 +2908,7 @@ def split_trajectory_by_conformations(output_dir, u_traj, frames_by_clusters,pro
             )
 
             # Write selected frames to new trajectory file
-            atoms_selected = u_traj.select_atoms(f"resid {' '.join(map(str, selected_resids))}")
+            atoms_selected = u_traj.select_atoms(f"resnum {' '.join(map(str, selected_resids))}")
             atoms_selected.write(output_file, frames=frames)
     logging.info("Trajectory splitting completed.")
 
