@@ -1206,6 +1206,8 @@ def discretize_coordinate(y, delta_y, coordinate_type, times, time_zero, size_bl
 
     # Step 1: Smooth the coordinate distribution using KDE
     x_smooth, y_smooth = smooth_coordinate(y, delta_y)
+    if len(x_smooth)<2:
+        return
 
     # Step 2: Compute the average histogram and error bars from raw data
     data, filtered_data, x, AVG, error_bars, delta_y, coord_type, xlabel = get_avg_histogram(
