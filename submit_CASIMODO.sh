@@ -97,6 +97,9 @@ delta_residue=1
 # Probability cutoff for selection of a mode
 mode_proba_cutoff=0.01
 
+# Cutoff number of points to use for discretization
+cutoff_npoints_discretization=100000  # Maximum number of points to use for discretization
+
 # Probability cutoff for conformations extraction
 cutoff_proba_conformations=0.01  # Probability cutoff for conformations extraction
 
@@ -121,6 +124,7 @@ python CASIMODO_utils/run_CASIMODO.py \
   --proba_under_cutoff_distance "${proba_under_cutoff_distance}" \
   --delta_resid "${delta_residue}" \
   --mode_proba_cutoff "${mode_proba_cutoff}" \
+  --cutoff_npoints_discretization "${cutoff_npoints_discretization}" \
   --method_clustering_coordinates "${method_clustering_coordinates}" \
   --parameters_clustering_coordinates "${parameters_clustering_coordinates[@]}" \
   --method_clustering_conformations "${method_clustering_conformations}" \

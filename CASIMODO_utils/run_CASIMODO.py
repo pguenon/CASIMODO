@@ -30,6 +30,7 @@ def parse_arguments():
     parser.add_argument('--proba_under_cutoff_distance', type=float, default=0.01, help='Probability cutoff for filtering contacts')
     parser.add_argument('--delta_resid', type=int, default=1, help='Residue separation threshold for contact filtering')
     parser.add_argument('--mode_proba_cutoff', type=float, default=0.01, help='Probability cutoff for filtering modes')
+    parser.add_argument('--cutoff_npoints_discretization', type=int, default=100000, help='Maximum number of points to use for discretization')
     
     parser.add_argument('--method_clustering_coordinates', type=str, default='advanced_density_peaks', choices=['advanced_density_peaks', 'hdbscan', 'yacare'], help='Clustering method for coordinates')
     parser.add_argument('--parameters_clustering_coordinates', nargs='*', type=float, default=[3.0, 1], help='Parameters for clustering coordinates (e.g., Z_parameter and halo_parameter)')
@@ -73,6 +74,7 @@ cutoff_distance = args.cutoff_distance
 proba_under_cutoff_distance = args.proba_under_cutoff_distance
 delta_resid = args.delta_resid
 mode_proba_cutoff = args.mode_proba_cutoff
+cutoff_npoints_discretization = args.cutoff_npoints_discretization
 
 method_clustering_coordinates = args.method_clustering_coordinates
 parameters_clustering_coordinates = args.parameters_clustering_coordinates
@@ -131,7 +133,7 @@ print_inputs(
     step_to_perform, 
     strucfile, trajfile, dic,
     time_zero, delta_time, size_block,
-    cutoff_distance, proba_under_cutoff_distance, delta_resid, mode_proba_cutoff,
+    cutoff_distance, proba_under_cutoff_distance, delta_resid, mode_proba_cutoff, cutoff_npoints_discretization,
     method_clustering_coordinates, parameters_clustering_coordinates,
     method_clustering_conformations, parameters_clustering_conformations, cluster_of_coordinates_to_process,
     split_trajectory, cutoff_proba_conformations, cutoff_len_states,
@@ -196,26 +198,27 @@ if step_to_perform in ['all', 'discretize_coordinates']:
 
     get_contacts(
         u_traj, important_atoms, selected_resids, time_zero, size_block,
-        cutoff_distance, proba_under_cutoff_distance, delta_resid, mode_proba_cutoff, output_dir
+        cutoff_distance, proba_under_cutoff_distance, delta_resid, mode_proba_cutoff, output_dir,cutoff_npoints_discretization
     )
     if len(indices_aa)!=0 :
         get_dihedrals_protein(
             u_traj, indices_aa, time_zero, size_block,
-            mode_proba_cutoff, output_dir
+            mode_proba_cutoff, output_dir,cutoff_npoints_discretization
         )
 
     if len(indices_na_pyrimidine) != 0 or len(indices_na_purine) != 0:
         get_dihedrals_nucleic_acids(
             u_traj, indices_na_pyrimidine, indices_na_purine, time_zero, size_block,
-            mode_proba_cutoff, output_dir
+            mode_proba_cutoff, output_dir,cutoff_npoints_discretization
         )
-
-    add_coordinates(
-        coordinates_to_add, type_coordinates_to_add,
-        time_zero, size_block,
-        mode_proba_cutoff,
-        output_dir, 
-    )
+        
+    if len(coordinates_to_add) != 0:
+        add_coordinates(
+            coordinates_to_add, type_coordinates_to_add,
+            time_zero, size_block,
+            mode_proba_cutoff,
+            output_dir,cutoff_npoints_discretization 
+        )
 
     get_discretized_array(output_dir)
 
