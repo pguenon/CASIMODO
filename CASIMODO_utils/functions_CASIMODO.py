@@ -2863,7 +2863,7 @@ def extract_frames_from_labels(output_dir, clusters_data, unique_states_clusters
     frames_by_clusters = []
 
     for i, cluster_labels in enumerate(all_clusters_labels):
-        if cluster_of_coordinates_to_process > 0 and i != cluster_of_coordinates_to_process:
+        if cluster_of_coordinates_to_process >= 0 and i != cluster_of_coordinates_to_process:
             frames_by_clusters.append([])
             continue
         
@@ -2896,9 +2896,6 @@ def extract_frames_from_labels(output_dir, clusters_data, unique_states_clusters
                 frames_conformations[label_index].append(times_indices[t])
 
         frames_by_clusters.append(frames_conformations)
-        if len(proba_clusters[i]) ==0:
-            logging.warning(f"Cluster {i} has no conformations to process.")
-            continue
         
          # Check if there are enough conformations with high probability
         count_large_proba =len(np.where(proba_clusters[i] >= cutoff_proba_conformations)[0])
@@ -2952,7 +2949,7 @@ def split_trajectory_by_conformations(output_dir, u_traj, frames_by_clusters,pro
     atoms_selected.write(output_dir + "conformations_clustering/atoms_selected." + extension_struc)
 
     for i, frames_conformations in enumerate(frames_by_clusters):
-        if cluster_of_coordinates_to_process > 0 and i != cluster_of_coordinates_to_process:
+        if cluster_of_coordinates_to_process >= 0 and i != cluster_of_coordinates_to_process:
             logging.info(f"Skipping cluster {i} as it is not the one to process.")
             continue
         logging.info(f"Processing cluster {i}...")
@@ -3028,7 +3025,7 @@ def get_most_probable_states(all_clusters_labels, unique_states_clusters, probab
 
     # Loop through each main cluster
     for i, cluster_labels in enumerate(all_clusters_labels):
-        if cluster_of_coordinates_to_process > 0 and i != cluster_of_coordinates_to_process:
+        if cluster_of_coordinates_to_process >= 0 and i != cluster_of_coordinates_to_process:
             most_probable_states.append([])
             proba_most_probable_states.append([])
             continue
@@ -3147,7 +3144,7 @@ def write_conformations_to_file(all_cluster_labels,most_probable_states, proba_m
     # Open the output file for writing
     # Loop over clusters
     for i, cluster_states in enumerate(most_probable_states):
-        if cluster_of_coordinates_to_process > 0 and i != cluster_of_coordinates_to_process:
+        if cluster_of_coordinates_to_process >= 0 and i != cluster_of_coordinates_to_process:
             continue
         with open(output_dir + f"conformations_clustering/conformations_cluster_{i}.txt", 'w') as file_out:
             
