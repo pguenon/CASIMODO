@@ -2463,7 +2463,7 @@ def hdbscan_clustering(distance_matrix, min_cluster_size=5, min_samples=5, clust
 
     return cluster_labels
 
-def yacare_clustering(distance_matrix,function_for_ratio=2,threshold_variable=0.5,amount_of_noise=0.0,keep_no_noise=1):
+def yacare_clustering(distance_matrix,function_for_ratio=2,threshold_variable=0.5,amount_of_noise=0.0,keep_no_noise=1,size_moving_square=10.0):
     # Create a buffer to capture stdout
     buf = io.StringIO()
 
@@ -2473,8 +2473,8 @@ def yacare_clustering(distance_matrix,function_for_ratio=2,threshold_variable=0.
         
         save_images = False
         show_images = False
-        percentage_moving_square = min(20,5*100.0 / distance_matrix.shape[0])  # Percentage of moving square for reordering
-        minimal_size_cluster = 0.000001
+        percentage_moving_square = min(20,size_moving_square*100.0 / distance_matrix.shape[0])  # Percentage of moving square for reordering
+        minimal_size_cluster = 2*100/distance_matrix.shape[0]
         choice_merging_clusters = 3
         keep_no_noise = bool(keep_no_noise)  # Convert to boolean
 
@@ -2694,7 +2694,7 @@ def cluster_coordinates(output_dir,coordinates_to_add,residues_coordinates_to_ad
     None. The cluster labels are saved to disk.
     """
 
-    logging.info("\nClustering coordinates using Advanced Density Peaks...")
+    logging.info(f"\nClustering coordinates using {method_clustering_coordinates}...")
 
     # Load the mutual information distance matrix
     rajski_distance = np.load(os.path.join(output_dir, "analysis_npy", "Rajski_distance.npy"))
@@ -2896,7 +2896,11 @@ def extract_frames_from_labels(output_dir, clusters_data, unique_states_clusters
                 frames_conformations[label_index].append(times_indices[t])
 
         frames_by_clusters.append(frames_conformations)
-
+        if len(proba_clusters[i]) ==0:
+            logging.warning(f"Cluster {i} has no conformations to process.")
+            continue
+        
+         # Check if there are enough conformations with high probability
         count_large_proba =len(np.where(proba_clusters[i] >= cutoff_proba_conformations)[0])
         if count_large_proba <= 1:
             logging.warning(f"Cluster {i} has no several conformations to process.")
