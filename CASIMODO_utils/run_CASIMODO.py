@@ -198,10 +198,10 @@ if step_to_perform in ['all', 'discretize_coordinates']:
     if os.path.exists(selected_coordinates_file):
         os.remove(selected_coordinates_file)
 
-    #get_contacts(
-    #    u_traj, important_atoms, selected_resids, time_zero, size_block,
-    #    cutoff_distance, proba_under_cutoff_distance, delta_resid, prominence, output_dir,cutoff_npoints_discretization
-    #)
+    get_contacts(
+        u_traj, important_atoms, selected_resids, time_zero, size_block,
+        cutoff_distance, proba_under_cutoff_distance, delta_resid, prominence, output_dir,cutoff_npoints_discretization
+    )
     if len(indices_aa)!=0 :
         get_dihedrals_protein(
             u_traj, indices_aa, time_zero, size_block,
