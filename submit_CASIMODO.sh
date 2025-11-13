@@ -49,15 +49,15 @@ method_clustering_coordinates="yacare"
 # Parameters for clustering coordinates 
 # for 'advanced_density_peaks': (Z_parameter halo_parameter)   halo_parameter is 0=False or 1=True ;
 # for 'hdbscan': (min_cluster_size min_samples cluster_selection_epsilon)
-# for 'yacare': (function_for_ratio threshold_variable amount_of_noise keep_no_noise) 
-parameters_clustering_coordinates=(1 2.0 2.0 0) 
+# for 'yacare': (function_for_ratio threshold_variable amount_of_noise keep_no_noise size_moving_square) 
+parameters_clustering_coordinates=(2 0.1 0.4 0 7)
 
 #Parameters for clustering of the conformations
 method_clustering_conformations="yacare"
 # Parameters for clustering conformations
-parameters_clustering_conformations=(2 0.5 0.0 1) 
+parameters_clustering_conformations=(2 3 0 1 10)
 #Choose the cluster of coordinates to process
-cluster_of_coordinates_to_process=-1 # -1 for all clusters, 0 for first cluster, 1 for second cluster, etc.
+cluster_of_coordinates_to_process=15 # -1 for all clusters, 0 for first cluster, 1 for second cluster, etc.
 
 ##############################################
 #           OPTIONAL COORDINATES             #
@@ -94,14 +94,14 @@ proba_under_cutoff_distance=0.01
 delta_residue=1
 
 #Parameter for discretization
-# Probability cutoff for selection of a mode
-mode_proba_cutoff=0.01
+# Prominence for minima detection in discretization
+prominence=0.025  # Prominence parameter for minima detection in discretization
 
 # Cutoff number of points to use for discretization
 cutoff_npoints_discretization=100000  # Maximum number of points to use for discretization
 
 # Probability cutoff for conformations extraction
-cutoff_proba_conformations=0.01  # Probability cutoff for conformations extraction
+cutoff_proba_conformations=0.001  # Probability cutoff for conformations extraction
 
 #Cutoff number of states to consider in clustering states when searching for conformations
 cutoff_len_states=100000  # Cutoff for the number of states to consider in clustering states
@@ -123,7 +123,7 @@ python CASIMODO_utils/run_CASIMODO.py \
   --cutoff_distance "${cutoff_distance}" \
   --proba_under_cutoff_distance "${proba_under_cutoff_distance}" \
   --delta_resid "${delta_residue}" \
-  --mode_proba_cutoff "${mode_proba_cutoff}" \
+  --prominence "${prominence}" \
   --cutoff_npoints_discretization "${cutoff_npoints_discretization}" \
   --method_clustering_coordinates "${method_clustering_coordinates}" \
   --parameters_clustering_coordinates "${parameters_clustering_coordinates[@]}" \

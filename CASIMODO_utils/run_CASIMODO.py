@@ -29,7 +29,7 @@ def parse_arguments():
     parser.add_argument('--cutoff_distance', type=int, default=5, help='Distance cutoff (A) to define contact')
     parser.add_argument('--proba_under_cutoff_distance', type=float, default=0.01, help='Probability cutoff for filtering contacts')
     parser.add_argument('--delta_resid', type=int, default=1, help='Residue separation threshold for contact filtering')
-    parser.add_argument('--mode_proba_cutoff', type=float, default=0.01, help='Probability cutoff for filtering modes')
+    parser.add_argument('--prominence', type=float, default=0.025, help='Prominence for minima detection in discretization')
     parser.add_argument('--cutoff_npoints_discretization', type=int, default=100000, help='Maximum number of points to use for discretization')
     
     parser.add_argument('--method_clustering_coordinates', type=str, default='advanced_density_peaks', choices=['advanced_density_peaks', 'hdbscan', 'yacare'], help='Clustering method for coordinates')
@@ -73,7 +73,7 @@ delta_time = args.delta_time
 cutoff_distance = args.cutoff_distance
 proba_under_cutoff_distance = args.proba_under_cutoff_distance
 delta_resid = args.delta_resid
-mode_proba_cutoff = args.mode_proba_cutoff
+prominence = args.prominence
 cutoff_npoints_discretization = args.cutoff_npoints_discretization
 
 method_clustering_coordinates = args.method_clustering_coordinates
@@ -133,7 +133,7 @@ print_inputs(
     step_to_perform, 
     strucfile, trajfile, dic,
     time_zero, delta_time, size_block,
-    cutoff_distance, proba_under_cutoff_distance, delta_resid, mode_proba_cutoff, cutoff_npoints_discretization,
+    cutoff_distance, proba_under_cutoff_distance, delta_resid, prominence, cutoff_npoints_discretization,
     method_clustering_coordinates, parameters_clustering_coordinates,
     method_clustering_conformations, parameters_clustering_conformations, cluster_of_coordinates_to_process,
     split_trajectory, cutoff_proba_conformations, cutoff_len_states,
@@ -145,7 +145,7 @@ print_inputs(
 #       OPEN TRAJECTORY (if needed)   #
 #######################################
 
-if step_to_perform in ['all', 'discretize_coordinates','get_conformations']:
+if step_to_perform in ['all', 'discretize_coordinates','get_conformations','precompute_positions']:
     u_traj = open_trajectory(strucfile, trajfile)
 
 #######################################
@@ -166,7 +166,7 @@ if step_to_perform == 'all' :
 #        GET IMPORTANT ATOMS          #
 #######################################
 
-if step_to_perform in ['all', 'discretize_coordinates', 'get_conformations']:
+if step_to_perform in ['all', 'discretize_coordinates', 'get_conformations', 'precompute_positions']:
     important_atoms_file = os.path.join(output_dir, 'important_atoms.txt')
     if os.path.exists(important_atoms_file):
         os.remove(important_atoms_file)
@@ -174,6 +174,8 @@ if step_to_perform in ['all', 'discretize_coordinates', 'get_conformations']:
     important_atoms, selected_resids, selected_resnames, indices_aa, indices_na_pyrimidine, indices_na_purine = get_important_atoms_MDA(u_traj, dic,step_to_perform)
     save_important_atoms(important_atoms, selected_resids, selected_resnames, indices_aa, indices_na_pyrimidine, indices_na_purine, output_dir)
 
+if step_to_perform in ['all', 'precompute_positions']:
+    precompute_all_positions(u_traj, important_atoms, selected_resids,indices_aa,indices_na_pyrimidine,indices_na_purine, output_dir)
 
 #######################################
 #     DISCRETIZE CONFORMATIONS        #
@@ -196,27 +198,27 @@ if step_to_perform in ['all', 'discretize_coordinates']:
     if os.path.exists(selected_coordinates_file):
         os.remove(selected_coordinates_file)
 
-    get_contacts(
-        u_traj, important_atoms, selected_resids, time_zero, size_block,
-        cutoff_distance, proba_under_cutoff_distance, delta_resid, mode_proba_cutoff, output_dir,cutoff_npoints_discretization
-    )
+    #get_contacts(
+    #    u_traj, important_atoms, selected_resids, time_zero, size_block,
+    #    cutoff_distance, proba_under_cutoff_distance, delta_resid, prominence, output_dir,cutoff_npoints_discretization
+    #)
     if len(indices_aa)!=0 :
         get_dihedrals_protein(
             u_traj, indices_aa, time_zero, size_block,
-            mode_proba_cutoff, output_dir,cutoff_npoints_discretization
+            prominence, output_dir,cutoff_npoints_discretization
         )
 
     if len(indices_na_pyrimidine) != 0 or len(indices_na_purine) != 0:
         get_dihedrals_nucleic_acids(
             u_traj, indices_na_pyrimidine, indices_na_purine, time_zero, size_block,
-            mode_proba_cutoff, output_dir,cutoff_npoints_discretization
+            prominence, output_dir,cutoff_npoints_discretization
         )
         
     if len(coordinates_to_add) != 0:
         add_coordinates(
             coordinates_to_add, type_coordinates_to_add,
             time_zero, size_block,
-            mode_proba_cutoff,
+            prominence,
             output_dir,cutoff_npoints_discretization 
         )
 
