@@ -111,8 +111,8 @@ def print_inputs(
     Returns:
     - None
     """
-    logging.info("\n\n")
-    logging.info("Inputs:")
+    logging.info("\n")
+    logging.info("========= INPUT PARAMETERS =========")
     logging.info("Step to perform: %s", step_to_perform)
     logging.info("Output directory: %s", output_dir)
     logging.info("Position file: %s", strucfile)
@@ -136,6 +136,7 @@ def print_inputs(
     logging.info("Additional coordinates to add: %s", coordinates_to_add)
     logging.info("Types of additional coordinates: %s", type_coordinates_to_add)
     logging.info("Residues for additional coordinates: %s", residues_coordinates_to_add)
+    logging.info("===================================")
     
 
 ####################### PRINT ENDING MESSAGE #####################
