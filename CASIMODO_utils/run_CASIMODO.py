@@ -23,14 +23,20 @@ def parse_arguments():
     
 
     parser.add_argument('--time_zero', type=float, default=0., help='Time (ps) to start analysis')
-    parser.add_argument('--size_block', type=float, default=100000000., help='Size of block (ps) for analysis')
     parser.add_argument('-dt', '--delta_time', type=float, default=1.0, help='Time (ps) between frames to consider')
 
     parser.add_argument('--cutoff_distance', type=int, default=5, help='Distance cutoff (A) to define contact')
     parser.add_argument('--proba_under_cutoff_distance', type=float, default=0.01, help='Probability cutoff for filtering contacts')
     parser.add_argument('--delta_resid', type=int, default=1, help='Residue separation threshold for contact filtering')
-    parser.add_argument('--prominence', type=float, default=0.025, help='Prominence for minima detection in discretization')
+    
+    parser.add_argument('--prominence', type=float, default=0.01, help='Prominence for minima detection in discretization')
+    parser.add_argument('--smooth_factor', type=float, default=10.0, help='Smoothing factor for discretization larger values mean KDE closer to histogram')
+    parser.add_argument('--n_points_per_bin', type=int, default=1000, help='Number of points per bin for histogram discretization')
+    parser.add_argument('--min_bin_size_distances', type=float, default=0.05, help='Minimum distance between bins in discretization in Angstroms')
+    parser.add_argument('--min_bin_size_angles', type=float, default=0.5, help='Minimum distance between bins in discretization in degrees')
+    
     parser.add_argument('--cutoff_npoints_discretization', type=int, default=100000, help='Maximum number of points to use for discretization')
+
     
     parser.add_argument('--method_clustering_coordinates', type=str, default='advanced_density_peaks', choices=['advanced_density_peaks', 'hdbscan', 'yacare'], help='Clustering method for coordinates')
     parser.add_argument('--parameters_clustering_coordinates', nargs='*', type=float, default=[3.0, 1], help='Parameters for clustering coordinates (e.g., Z_parameter and halo_parameter)')
@@ -38,6 +44,8 @@ def parse_arguments():
     parser.add_argument('--method_clustering_conformations', type=str, default='advanced_density_peaks', choices=['advanced_density_peaks', 'hdbscan', 'yacare'], help='Clustering method for conformations')
     parser.add_argument('--parameters_clustering_conformations', nargs='*', type=float, default=[3.0, 0], help='Parameters for clustering conformations (e.g., Z_parameter and halo_parameter)')
     parser.add_argument('--cluster_of_coordinates_to_process', type=int, default=-1, help='Index of the cluster of coordinates to process (default: -1 for all clusters)')
+
+    parser.add_argument('--minimal_size_to_cluster', type=int, default=20, help='Minimal size to perform clustering (if number of states is below this value, no clustering is performed)')
 
     parser.add_argument('--cutoff_len_states', type=int, default=100000, help='Cutoff for the number of states to consider in clustering states')
 
@@ -64,17 +72,23 @@ step_to_perform = args.step_to_perform
 strucfile = args.struc
 trajfile = args.trj
 dic = args.dic
-output_dir = args.o_dir.rstrip('/') + '/'
+output_dir = args.o_dir
+if len(output_dir)>0 and output_dir[-1] != '/':
+    output_dir += '/'
 
 time_zero = args.time_zero
-size_block = args.size_block
 delta_time = args.delta_time
 
 cutoff_distance = args.cutoff_distance
 proba_under_cutoff_distance = args.proba_under_cutoff_distance
 delta_resid = args.delta_resid
 prominence = args.prominence
+smooth_factor = args.smooth_factor
+n_points_per_bin = args.n_points_per_bin
+min_bin_size_distances = args.min_bin_size_distances
+min_bin_size_angles = args.min_bin_size_angles
 cutoff_npoints_discretization = args.cutoff_npoints_discretization
+
 
 method_clustering_coordinates = args.method_clustering_coordinates
 parameters_clustering_coordinates = args.parameters_clustering_coordinates
@@ -82,6 +96,8 @@ parameters_clustering_coordinates = args.parameters_clustering_coordinates
 method_clustering_conformations = args.method_clustering_conformations
 parameters_clustering_conformations = args.parameters_clustering_conformations
 cluster_of_coordinates_to_process = args.cluster_of_coordinates_to_process 
+
+minimal_size_to_cluster = args.minimal_size_to_cluster
 
 cutoff_len_states = args.cutoff_len_states
 
@@ -118,7 +134,7 @@ if not os.path.exists(output_dir):
 ########################################
 #           INITIATE LOGGING            #
 ########################################
-initiate_logging(output_dir, step_to_perform)
+initiate_logging(output_dir, step_to_perform,cluster_of_coordinates_to_process)
 
 ########################################
 #           PRINT HEADER               #
@@ -132,10 +148,12 @@ print_inputs(
     output_dir, 
     step_to_perform, 
     strucfile, trajfile, dic,
-    time_zero, delta_time, size_block,
-    cutoff_distance, proba_under_cutoff_distance, delta_resid, prominence, cutoff_npoints_discretization,
+    time_zero, delta_time,
+    cutoff_distance, proba_under_cutoff_distance, delta_resid, prominence,smooth_factor,
+    cutoff_npoints_discretization, min_bin_size_distances, min_bin_size_angles,  n_points_per_bin,
     method_clustering_coordinates, parameters_clustering_coordinates,
     method_clustering_conformations, parameters_clustering_conformations, cluster_of_coordinates_to_process,
+    minimal_size_to_cluster,
     split_trajectory, cutoff_proba_conformations, cutoff_len_states,
     coordinates_to_add, type_coordinates_to_add,residues_coordinates_to_add
 )
@@ -199,30 +217,30 @@ if step_to_perform in ['all', 'discretize_coordinates']:
         os.remove(selected_coordinates_file)
 
     get_contacts(
-        u_traj, important_atoms, selected_resids, time_zero, size_block,
-        cutoff_distance, proba_under_cutoff_distance, delta_resid, prominence, output_dir,cutoff_npoints_discretization
+        u_traj, important_atoms, selected_resids, time_zero,
+        cutoff_distance, proba_under_cutoff_distance, delta_resid, prominence,smooth_factor, output_dir,cutoff_npoints_discretization, min_bin_size_distances, min_bin_size_angles, n_points_per_bin
     )
     if len(indices_aa)!=0 :
         get_dihedrals_protein(
-            u_traj, indices_aa, time_zero, size_block,
-            prominence, output_dir,cutoff_npoints_discretization
+            u_traj, indices_aa, time_zero,
+            prominence,smooth_factor, output_dir,cutoff_npoints_discretization, min_bin_size_distances, min_bin_size_angles, n_points_per_bin
         )
 
     if len(indices_na_pyrimidine) != 0 or len(indices_na_purine) != 0:
         get_dihedrals_nucleic_acids(
-            u_traj, indices_na_pyrimidine, indices_na_purine, time_zero, size_block,
-            prominence, output_dir,cutoff_npoints_discretization
+            u_traj, indices_na_pyrimidine, indices_na_purine, time_zero,
+            prominence,smooth_factor, output_dir,cutoff_npoints_discretization, min_bin_size_distances, min_bin_size_angles, n_points_per_bin
         )
         
     if len(coordinates_to_add) != 0:
         add_coordinates(
             coordinates_to_add, type_coordinates_to_add,
-            time_zero, size_block,
-            prominence,
-            output_dir,cutoff_npoints_discretization 
+            time_zero,
+            prominence,smooth_factor,
+            output_dir,cutoff_npoints_discretization, min_bin_size_distances, min_bin_size_angles, n_points_per_bin
         )
 
-    get_discretized_array(output_dir)
+    get_discretized_array(output_dir,time_zero)
 
     compute_information(output_dir)
 
@@ -233,7 +251,7 @@ if step_to_perform in ['all', 'discretize_coordinates']:
 if step_to_perform in ['all','cluster_coordinates']:
     cluster_coordinates(
         output_dir, coordinates_to_add, residues_coordinates_to_add,
-        method_clustering_coordinates, parameters_clustering_coordinates
+        method_clustering_coordinates, parameters_clustering_coordinates,minimal_size_to_cluster
         )
     
 if step_to_perform in ['all','get_conformations']:
@@ -260,7 +278,10 @@ if step_to_perform in ['all','get_conformations']:
     get_conformations_from_clusters(
     output_dir,u_traj, 
     method_clustering_conformations, parameters_clustering_conformations,
-    split_trajectory, cutoff_proba_conformations,strucfile,trajfile,selected_resids, cutoff_len_states, cluster_of_coordinates_to_process
+    split_trajectory, cutoff_proba_conformations,strucfile,trajfile,selected_resids, cutoff_len_states, cluster_of_coordinates_to_process,time_zero, minimal_size_to_cluster
     )
 
+if step_to_perform in ['all','plot_conformations_time']:
+    plot_conformations_as_function_of_time(output_dir, cluster_of_coordinates_to_process,time_zero)
+    
 print_ending_message(output_dir, step_to_perform)
