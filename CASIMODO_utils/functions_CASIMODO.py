@@ -2839,10 +2839,13 @@ def cluster_coordinates(output_dir,coordinates_to_add,residues_coordinates_to_ad
     # Load the mutual information distance matrix
     rajski_distance = np.load(os.path.join(output_dir, "analysis_npy", "Rajski_distance.npy"))
     n_coordinates= rajski_distance.shape[0]
+    #keep all in one cluster if not enough coordinates to cluster
     if n_coordinates<minimal_size_to_cluster:
-        cluster_labels=np.array([j for j in range(n_coordinates)])
-    #Apply Density Peaks Clustering
-    cluster_labels = cluster_distances(rajski_distance, method_clustering_coordinates, parameters_clustering_coordinates) 
+        cluster_labels=np.array([0 for j in range(n_coordinates)])
+    
+    #Apply clustering
+    else:
+        cluster_labels = cluster_distances(rajski_distance, method_clustering_coordinates, parameters_clustering_coordinates) 
 
     # Save the cluster labels to a file
     np.save(os.path.join(output_dir, "analysis_npy", "cluster_labels.npy"), cluster_labels)
@@ -3390,8 +3393,10 @@ def get_conformations_from_clusters(output_dir, u_traj,
         logging.info(f"Cluster {i}: Found {len(unique_states_clusters[i])} unique states.")    
 
         n_unique_states = len(unique_states_clusters[i])
+        # split into each state if not enough states to cluster
         if n_unique_states < minimal_size_to_cluster :
             cluster_labels = np.array([j for j in range(n_unique_states)])
+        # Apply clustering to the distance matrix of unique states
         else :
             cluster_labels = cluster_distances(dist_states, method_clustering_conformations, parameters_clustering_conformations)
 
