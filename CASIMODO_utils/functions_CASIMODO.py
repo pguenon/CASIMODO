@@ -13,10 +13,7 @@ from scipy.spatial.distance import pdist, squareform
 
 from sklearn.neighbors import KernelDensity
 
-from sklearn.mixture import GaussianMixture
-from scipy.stats import norm
 from scipy.sparse.csgraph import connected_components
-from scipy.ndimage import uniform_filter1d
 
 import matplotlib.pyplot as plt
 from matplotlib.patches import Rectangle
@@ -64,7 +61,6 @@ def initiate_logging(output_dir,step_to_perform,cluster_of_coordinates_to_proces
             format='%(message)s',     
             filemode='w' 
         )
-        logging.info("\n\n\n\n\n\n\n\n\n")
         logging.info("Logging initiated. Log file created at: %s", log_file)
         logging.info("Start time: %s", now.strftime("%Y-%m-%d %H:%M:%S"))
     
@@ -76,7 +72,6 @@ def initiate_logging(output_dir,step_to_perform,cluster_of_coordinates_to_proces
             format='%(message)s',     
             filemode='w' 
         )
-        logging.info("\n\n\n\n\n\n\n\n\n")
         logging.info("Logging initiated. Log file created at: %s", log_file)
         logging.info("Start time: %s", now.strftime("%Y-%m-%d %H:%M:%S"))
     
@@ -90,7 +85,6 @@ def initiate_logging(output_dir,step_to_perform,cluster_of_coordinates_to_proces
             format='%(message)s',     
             filemode='w' 
         )
-        logging.info("\n\n\n\n\n\n\n\n\n")
         logging.info("Logging initiated. Log file created at: %s", log_file)
         logging.info("Start time: %s", now.strftime("%Y-%m-%d %H:%M:%S"))
     
@@ -102,9 +96,8 @@ def initiate_logging(output_dir,step_to_perform,cluster_of_coordinates_to_proces
             filename=log_file,
             level=logging.INFO,
             format='%(message)s',     
-            filemode='a' 
+            filemode='w' 
         )
-        logging.info("\n\n\n\n\n\n\n\n\n")
         logging.info("Logging initiated for step: %s. Log file updated at: %s", step_to_perform, log_file)
         logging.info("Start time: %s", now.strftime("%Y-%m-%d %H:%M:%S"))
 
@@ -133,7 +126,7 @@ def print_header():
 def print_inputs(
     output_dir, 
     step_to_perform, 
-    strucfile, trajfile, dic,
+    topolfile, trajfile, dic,
     time_zero, delta_time,
     cutoff_distance,proba_under_cutoff_distance, delta_resid, prominence,smooth_factor, cutoff_npoints_discretization, min_bin_size_distances, min_bin_size_angles,  n_points_per_bin,
     method_clustering_coordinates, parameters_clustering_coordinates,
@@ -147,7 +140,7 @@ def print_inputs(
     Parameters:
     - output_dir (str): The directory where the log file is located.
     - step_to_perform (str): The step being performed, used for logging context.
-    - strucfile (str): Path to the position file (e.g., .psf, .gro, or .pdb).
+    - topolfile (str): Path to the topology file (e.g., .psf, .gro, or .pdb).
     - trajfile (str): Path to the trajectory file (e.g., .dcd, .xtc).
     - dic (str): Path to the dictionary file containing important atoms.
     - time_zero (float): Minimum time threshold for filtering frames.
@@ -180,7 +173,7 @@ def print_inputs(
     logging.info("========= INPUT PARAMETERS =========")
     logging.info("Step to perform: %s", step_to_perform)
     logging.info("Output directory: %s", output_dir)
-    logging.info("Position file: %s", strucfile)
+    logging.info("Topology file: %s", topolfile)
     logging.info("Trajectory file: %s", trajfile)
     logging.info("Dictionary file: %s", dic)
     logging.info("Time zero: %.2f ps", time_zero)
@@ -362,19 +355,19 @@ def get_multiplicities(discretized_array):
 
 
 ##################### OPENING TRAJECTORY #####################
-def open_trajectory(strucfile, trajfile):
+def open_trajectory(topolfile, trajfile):
     """
     Opens a molecular dynamics trajectory using MDAnalysis.
 
     Parameters:
-    - strucfile (str): The topology file (e.g., .psf, .gro, or .pdb) that describes the molecular structure.
+    - topolfile (str): The topology file (e.g., .psf, .gro, or .pdb) that describes the molecular structure.
     - trajfile (str): The trajectory file (e.g., .dcd, .xtc) containing atomic coordinates over time.
 
     Returns:
     - u_traj (MDAnalysis.Universe): An MDAnalysis Universe object representing the system and trajectory,
       which can be used for further analysis (e.g., atom selections, RMSD calculations, etc.).
     """
-    u_traj = mda.Universe(strucfile, trajfile)
+    u_traj = mda.Universe(topolfile, trajfile)
     return u_traj
 
 
@@ -2299,7 +2292,6 @@ def compute_frequencies(discretized_array):
                 double_frequencies[offset_j:offset_j+mult_j, offset_i:offset_i+mult_i] = joint_probs.T
 
             step += 1
-            
 
     plot_progress_bar(total_steps, total_steps, prev_progress)
     logging.info("Double frequencies computed.")
@@ -2398,93 +2390,51 @@ def plot_information_clustered(Information_matrix, reordered_labels, output_dir,
     plt.close()
 
 ########################## Function to compute mutual information between coordinates ##########################
-def mutual_information(discretized_array, multiplicities, single_frequencies, double_frequencies):
+def get_B_correction(output_dir):
     """
-    Compute the pairwise mutual information (MI) matrix for discretized coordinates.
-
+    Compute the bias correction for mutual information estimates.
     Parameters:
-    -----------
     discretized_array : ndarray (n_frames, n_coords)
         The discretized representation of the coordinates.
     multiplicities : array-like of int, shape (n_coords,)
         Number of discrete states (bins) for each coordinate.
-    single_frequencies : ndarray, shape (sum(multiplicities),)
-        Marginal probabilities for each discrete state across all coordinates.
-    double_frequencies : ndarray, shape (sum(multiplicities), sum(multiplicities))
-        Joint probabilities between all discrete state pairs.
-
     Returns:
-    --------
-    MI : ndarray, shape (n_coords, n_coords)
-        The mutual information matrix in bits.
+    correction : ndarray, shape (n_coords, n_coords)
+        The bias correction matrix for mutual information.
     """
+    discretized_array=np.load(output_dir+"discretizing_npy/discretized_array.npy")
+    single_frequencies=np.load(output_dir+'analysis_npy/frequencies_single.npy')
+    double_frequencies=np.load(output_dir+'analysis_npy/frequencies_double.npy')
+    multiplicities=get_multiplicities(discretized_array)
     n_frames, n_coords = discretized_array.shape
-    MI = np.zeros((n_coords, n_coords), dtype=float)
-    epsilon = 1e-12  # Small constant to prevent log(0)
-
-    # Precompute offsets for flattened state indexing
+    B_single = np.zeros((n_coords), dtype=float)
+    B_coupled = np.zeros((n_coords, n_coords), dtype=float)
     offsets = np.cumsum([0] + list(multiplicities[:-1]))
-
+    epsilon = 1e-12  # Small constant to prevent log(0)
+    
+    logging.info("Computing low data bias correction...")
     for i in range(n_coords):
         for xi in range(multiplicities[i]):
-            idx_i = offsets[i] + xi
-            p_xi = single_frequencies[idx_i]
-
-            if p_xi < epsilon:
-                continue  # skip very low probability states
-
-            for j in range(n_coords):
+            idx_i= offsets[i] + xi
+            pi= single_frequencies[idx_i]
+            if pi>epsilon :
+                B_single[i]+= 1
+            for j in range(i, n_coords):
                 for xj in range(multiplicities[j]):
-                    idx_j = offsets[j] + xj
-                    p_xj = single_frequencies[idx_j]
-                    p_xi_xj = double_frequencies[idx_i, idx_j]
-
-                    # Apply mutual information formula only if valid
-                    if p_xi_xj > epsilon and p_xj > epsilon:
-                        MI[i, j] += p_xi_xj * np.log(p_xi_xj / (p_xi * p_xj))  # in bits
-
-    return MI
-
-def get_mutual_information(output_dir):
-    """
-    Load discretized data and precomputed frequency tables from disk,
-    compute the mutual information (MI) matrix, and save the result.
-
-    Parameters:
-    -----------
-    output_dir : str
-        Path to the directory containing the results.
-    """
-    logging.info("\nComputing mutual information...")
-
-    # Load discretized coordinate array
-    discretized_array = np.load(os.path.join(output_dir, "discretizing_npy/discretized_array.npy"))
-
-    # Load marginal and joint frequencies
-    single_frequencies = np.load(os.path.join(output_dir, "analysis_npy", "frequencies_single.npy"))
-    double_frequencies = np.load(os.path.join(output_dir, "analysis_npy", "frequencies_double.npy"))
-
-    # Compute multiplicities: number of discrete bins for each coordinate
-    multiplicities = get_multiplicities(discretized_array)
-
-    # Compute mutual information matrix
-    MI = mutual_information(discretized_array, multiplicities, single_frequencies, double_frequencies)
-
-    # Save the result to output directory
-    output_path = os.path.join(output_dir, "analysis_npy")
-    os.makedirs(output_path, exist_ok=True)  # Ensure output directory exists
-    np.save(os.path.join(output_path, "MI.npy"), MI)
-
-    logging.info("Mutual information computed.")
-    # Plot the mutual information matrix
-    plot_information(MI, output_dir + 'information_plots/', "MI", label_data="Mutual Information")
-
+                    idx_j= offsets[j] + xj
+                    pij= double_frequencies[idx_i, idx_j]
+                    if pij>epsilon :
+                        B_coupled[i,j]+= 1
+            B_coupled[j,i]=B_coupled[i,j]
+    logging.info("Low data bias correction computed.")
+    return B_single, B_coupled, n_frames
 
 ########################## Function to compute entropy  ##########################
 def get_entropy(output_dir):
     logging.info("\nComputing entropy...")
     discretized_array=np.load(output_dir+"discretizing_npy/discretized_array.npy")
     single_frequencies=np.load(output_dir+'analysis_npy/frequencies_single.npy')
+    double_frequencies=np.load(output_dir+'analysis_npy/frequencies_double.npy')
     multiplicities=get_multiplicities(discretized_array)
     ncoord=len(multiplicities)
     entropy=np.zeros((ncoord),dtype=float)
@@ -2508,57 +2458,22 @@ def get_entropy(output_dir):
     plt.tight_layout()
     plt.savefig(output_dir + 'information_plots/entropy.png', dpi=200)
     plt.close()
-    
-
-######################### Function to compute Variation Information ##########################
-def get_variation_information(output_dir):
-    """
-    Computes the Variation Information (VI) matrix from the mutual information (MI) matrix and the entropy.
-
-    The VI matrix is computed as:
-    VI(i, j) = H(i) + H(j) - 2 * MI(i, j)
-    where H(i) and H(j) are the entropies of coordinates i and j, respectively.
-
-    Parameters:
-    -----------
-    output_dir : str
-        Path to the directory containing the MI matrix and entropy values.
-    
-    Returns:
-    --------
-    None. The VI matrix is saved to disk.
-    """
-    
-    logging.info("\nComputing variation information...")
-
-    # Load the mutual information matrix and entropy values
-    MI = np.load(os.path.join(output_dir, "analysis_npy", "MI.npy"))
-    entropy = np.load(os.path.join(output_dir, "analysis_npy", "entropy.npy"))
-
-    # Compute the Variation Information matrix
-    ncoord = len(entropy)
-    VI = np.zeros((ncoord, ncoord), dtype=float)
-
+    logging.info('\nComputing coupled entropy...')
+    offsets = np.cumsum([0] + list(multiplicities[:-1]))
+    coupled_entropy=np.zeros((ncoord,ncoord),dtype=float)
     for i in range(ncoord):
-        for j in range(ncoord):
-            VI[i, j] = entropy[i] + entropy[j] - 2 * MI[i, j]
-    # Ensure VI is non-negative (can happen if MI is too high)
-    min_VI = np.min(VI)
-    if min_VI < 0:
-        VI -= min_VI  # Shift to make minimum zero
+        for xi in range(multiplicities[i]):
+            idx_i= offsets[i] + xi
+            for j in range(ncoord):
+                for xj in range(multiplicities[j]):
+                    idx_j= offsets[j] + xj
+                    proba_xixj=double_frequencies[idx_i, idx_j]
+                    if proba_xixj>0:
+                        coupled_entropy[i,j]-=proba_xixj*np.log(proba_xixj)
+    np.save(output_dir+'analysis_npy/coupled_entropy.npy', coupled_entropy)
+    plot_information(coupled_entropy, output_dir + 'information_plots/', "coupled_entropy", label_data="Coupled Entropy")   
+    logging.info("Coupled Entropy computed.")
 
-    # Ensure the VI matrix is symmetric
-    VI = (VI + VI.T) / 2
-    # Ensure diagonal elements are zero (no self-information)
-    np.fill_diagonal(VI, 0)
-
-    # Save the VI matrix to a file
-    np.save(os.path.join(output_dir, "analysis_npy", "VI.npy"), VI)
-
-    # Plot the VI matrix
-    plot_information(VI, output_dir + 'information_plots/', "VI", label_data="Variation of Information")
-
-    logging.info("Variation information computed.")
 
 ######################## Function to compute Rajski distance ##########################
 def get_rajski_distance(output_dir):
@@ -2580,14 +2495,26 @@ def get_rajski_distance(output_dir):
     """
     
     logging.info("\nComputing Rajski distance...")
-    variation_of_information = np.load(os.path.join(output_dir, "analysis_npy", "VI.npy"))
-    mutual_information = np.load(os.path.join(output_dir, "analysis_npy", "MI.npy"))
     entropy= np.load(os.path.join(output_dir, "analysis_npy", "entropy.npy"))
-    denominator_matrix= np.zeros(mutual_information.shape,dtype=float)
-    for i in range(mutual_information.shape[0]):
-        for j in range(mutual_information.shape[1]):
-            denominator_matrix[i,j]= (entropy[i]+entropy[j]- mutual_information[i,j])
-    rajski_distance= variation_of_information/denominator_matrix
+    coupled_entropy= np.load(os.path.join(output_dir, "analysis_npy", "coupled_entropy.npy"))
+    single_frequencies=np.load(os.path.join(output_dir, "analysis_npy", "frequencies_single.npy"))
+    double_frequencies=np.load(os.path.join(output_dir, "analysis_npy", "frequencies_double.npy"))
+    B_single, B_coupled, n_frames = get_B_correction(output_dir)
+    
+
+    ncoord=len(entropy)
+    rajski_distance=np.zeros((ncoord,ncoord),dtype=float)
+    for i in range(ncoord):
+        entropy_i=entropy[i]+(B_single[i]-1)/(2*n_frames)
+        for j in range(i,ncoord):
+            entropy_j=entropy[j]+(B_single[j]-1)/(2*n_frames)
+            coupled_entropy_ij=coupled_entropy[i,j]+(B_coupled[i,j]-1)/(2*n_frames)
+            mutual_information_ij=entropy_i+entropy_j-coupled_entropy_ij
+            if coupled_entropy_ij>0:
+                rajski_distance[i,j]=1.0 - mutual_information_ij/coupled_entropy_ij
+            else:
+                rajski_distance[i,j]=1.0
+            rajski_distance[j,i]=rajski_distance[i,j]
     np.save(os.path.join(output_dir, "analysis_npy", "Rajski_distance.npy"), rajski_distance)
 
     plot_information(rajski_distance, output_dir + 'information_plots/', "rajski_distance", label_data="Rajski Distance")
@@ -2877,9 +2804,7 @@ def compute_information(output_dir):
     """
     
     get_frequencies(output_dir)
-    get_mutual_information(output_dir)
     get_entropy(output_dir)
-    get_variation_information(output_dir)
     get_rajski_distance(output_dir)
 
 
@@ -2913,7 +2838,6 @@ def cluster_coordinates(output_dir,coordinates_to_add,residues_coordinates_to_ad
 
     # Load the mutual information distance matrix
     rajski_distance = np.load(os.path.join(output_dir, "analysis_npy", "Rajski_distance.npy"))
-    MI = np.load(os.path.join(output_dir, "analysis_npy", "MI.npy"))
     n_coordinates= rajski_distance.shape[0]
     if n_coordinates<minimal_size_to_cluster:
         cluster_labels=np.array([j for j in range(n_coordinates)])
@@ -2926,7 +2850,6 @@ def cluster_coordinates(output_dir,coordinates_to_add,residues_coordinates_to_ad
     logging.info("Clustering completed and labels saved.")
 
     reordered_labels = plot_clustering_results(rajski_distance,cluster_labels, output_dir+'information_plots/', "rajski_distance_clustering", "Rajski distance",xlabel="Coordinate Index", ylabel="Coordinate Index")
-    _ = plot_clustering_results(MI,cluster_labels, output_dir+'information_plots/', "MI_clustering", "Mutual Information",xlabel="Coordinate Index", ylabel="Coordinate Index")
     coordinates,X_cuts,Labels=load_data_discretization(output_dir + "selected_coordinates.txt")
 
     # Extract clusters and write to file
@@ -3149,7 +3072,7 @@ def extract_frames_from_labels(output_dir, clusters_data, unique_states_clusters
 
     return frames_by_clusters
 
-def split_trajectory_by_conformations(output_dir, u_traj, frames_by_clusters,proba_clusters,cutoff_proba_conformations,all_clusters_labels,strucfile,trajfile,selected_resids,cluster_of_coordinates_to_process):
+def split_trajectory_by_conformations(output_dir, u_traj, frames_by_clusters,proba_clusters,cutoff_proba_conformations,all_clusters_labels,topolfile,trajfile,selected_resids,cluster_of_coordinates_to_process):
     """
     Splits the trajectory into separate files for each identified conformation
     in each cluster, based on frame indices.
@@ -3165,13 +3088,13 @@ def split_trajectory_by_conformations(output_dir, u_traj, frames_by_clusters,pro
         containing sublists of frame indices for each conformation.
         Structure: cluster → conformation → frame indices.
     """
-    extension_struc = strucfile.split('.')[-1]
+    extension_topol = topolfile.split('.')[-1]
     extension_traj = trajfile.split('.')[-1]
 
     logging.info("\nSplitting trajectory by conformations...")
 
     atoms_selected = u_traj.select_atoms(f"resnum {' '.join(map(str, selected_resids))}")
-    atoms_selected.write(output_dir + "conformations_clustering/atoms_selected." + extension_struc)
+    atoms_selected.write(output_dir + "conformations_clustering/atoms_selected." + extension_topol)
 
     for i, frames_conformations in enumerate(frames_by_clusters):
         if cluster_of_coordinates_to_process >= 0 and i != cluster_of_coordinates_to_process:
@@ -3396,7 +3319,7 @@ def write_conformations_to_file(all_cluster_labels,most_probable_states, proba_m
 ######################### Function to extract conformations from clusters ##########################
 def get_conformations_from_clusters(output_dir, u_traj,
                                      method_clustering_conformations, parameters_clustering_conformations,
-                                     split_trajectory,cutoff_proba_conformations,strucfile,trajfile, selected_resids,cutoff_len_states, cluster_of_coordinates_to_process,time_zero,minimal_size_to_cluster):
+                                     split_trajectory,cutoff_proba_conformations,topolfile,trajfile, selected_resids,cutoff_len_states, cluster_of_coordinates_to_process,time_zero,minimal_size_to_cluster):
     """
     Extracts representative conformations from trajectory data based on hierarchical clustering.
     
@@ -3416,8 +3339,8 @@ def get_conformations_from_clusters(output_dir, u_traj,
         Whether to save separate trajectory files for each final cluster.
     cutoff_proba_conformations : float
         Minimum probability threshold for a conformation to be considered significant.
-    strucfile : str
-        Path to the structure file (e.g., PDB) for the trajectory.
+    topolfile : str
+        Path to the topology file (e.g., PDB) for the trajectory.
     trajfile : str
         Path to the trajectory file (e.g., DCD, XTC).
     selected_resids : list of int
@@ -3525,7 +3448,7 @@ def get_conformations_from_clusters(output_dir, u_traj,
 
     # Optionally split trajectory files for each conformation cluster
     if split_trajectory:
-        split_trajectory_by_conformations(output_dir, u_traj, frames_by_clusters,proba_clusters,cutoff_proba_conformations,all_clusters_labels,strucfile,trajfile,selected_resids,cluster_of_coordinates_to_process)
+        split_trajectory_by_conformations(output_dir, u_traj, frames_by_clusters,proba_clusters,cutoff_proba_conformations,all_clusters_labels,topolfile,trajfile,selected_resids,cluster_of_coordinates_to_process)
 
 ################### Function to plot conformations as function of time ##########################
 def plot_conformations_as_function_of_time(output_dir, cluster_of_coordinates_to_process,time_zero):

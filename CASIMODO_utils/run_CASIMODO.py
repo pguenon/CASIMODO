@@ -16,7 +16,7 @@ def parse_arguments():
     
     parser.add_argument('--step_to_perform', type=str, default='all', help='Step to perform in the pipeline')
 
-    parser.add_argument('-struc', type=str, required=True, help='Path to GRO structure file')
+    parser.add_argument('-topol', type=str, required=True, help='Path to topology file')
     parser.add_argument('-trj', type=str, required=True, help='Path to trajector/y file')
     parser.add_argument('-dic', type=str, default='dic_important_atoms_protein.txt', help='Path to important atoms dictionary')
     parser.add_argument('--o_dir', type=str, default='results/', help='Output directory')
@@ -69,7 +69,7 @@ args = parse_arguments()
 
 step_to_perform = args.step_to_perform
 
-strucfile = args.struc
+topolfile = args.topol
 trajfile = args.trj
 dic = args.dic
 output_dir = args.o_dir
@@ -120,7 +120,7 @@ residues_coordinates_to_add = args.residues_coordinates_to_add
 #     CHECK INPUT FILE EXISTENCE      #
 #######################################
 
-for path in [strucfile, trajfile, dic]:
+for path in [topolfile, trajfile, dic]:
     if not os.path.exists(path):
         print(f"Error: File '{path}' does not exist.")
         exit(1)
@@ -147,7 +147,7 @@ print_header()
 print_inputs(
     output_dir, 
     step_to_perform, 
-    strucfile, trajfile, dic,
+    topolfile, trajfile, dic,
     time_zero, delta_time,
     cutoff_distance, proba_under_cutoff_distance, delta_resid, prominence,smooth_factor,
     cutoff_npoints_discretization, min_bin_size_distances, min_bin_size_angles,  n_points_per_bin,
@@ -164,7 +164,7 @@ print_inputs(
 #######################################
 
 if step_to_perform in ['all', 'discretize_coordinates','get_conformations','precompute_positions']:
-    u_traj = open_trajectory(strucfile, trajfile)
+    u_traj = open_trajectory(topolfile, trajfile)
 
 #######################################
 #         TIME FILTERING              #
@@ -241,11 +241,12 @@ if step_to_perform in ['all', 'discretize_coordinates']:
         )
 
     get_discretized_array(output_dir,time_zero)
-
     compute_information(output_dir)
 
+    
+
 #######################################
-#           CLUSTERING STEP           #
+#           CLUSTERING STEPS           #
 #######################################
 
 if step_to_perform in ['all','cluster_coordinates']:
@@ -278,7 +279,7 @@ if step_to_perform in ['all','get_conformations']:
     get_conformations_from_clusters(
     output_dir,u_traj, 
     method_clustering_conformations, parameters_clustering_conformations,
-    split_trajectory, cutoff_proba_conformations,strucfile,trajfile,selected_resids, cutoff_len_states, cluster_of_coordinates_to_process,time_zero, minimal_size_to_cluster
+    split_trajectory, cutoff_proba_conformations,topolfile,trajfile,selected_resids, cutoff_len_states, cluster_of_coordinates_to_process,time_zero, minimal_size_to_cluster
     )
 
 if step_to_perform in ['all','plot_conformations_time']:
