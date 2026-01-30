@@ -2512,6 +2512,10 @@ def get_rajski_distance(output_dir):
             mutual_information_ij=entropy_i+entropy_j-coupled_entropy_ij
             if coupled_entropy_ij>0:
                 rajski_distance[i,j]=1.0 - mutual_information_ij/coupled_entropy_ij
+                if rajski_distance[i,j]<0.0:
+                    rajski_distance[i,j]=0.0
+                if rajski_distance[i,j]>1.0:
+                    rajski_distance[i,j]=1.0
             else:
                 rajski_distance[i,j]=1.0
             rajski_distance[j,i]=rajski_distance[i,j]
@@ -2547,13 +2551,16 @@ def density_peaks_clustering(distance_matrix, Z_parameter=1.65, halo_parameter=0
 
     # Get the number of data points (states/conformations)
     n_states = np.shape(distance_matrix)[0]
+    eps = 1e-12
+    distance_matrix = distance_matrix.copy()
+    distance_matrix[distance_matrix == 0.0] = eps
+    np.fill_diagonal(distance_matrix, 0.0)
 
     # Dummy coordinates (not used, but required by DADApy's Data object)
     x_dummy = np.zeros((n_states, 2), dtype=float)
-
+  
     # Create a buffer to capture stdout
     buf = io.StringIO()
-
     # Redirect stdout/stderr to the buffer
     with redirect_stdout(buf), redirect_stderr(buf):
         import dadapy
