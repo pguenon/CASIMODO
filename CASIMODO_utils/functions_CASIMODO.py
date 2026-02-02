@@ -21,6 +21,8 @@ from matplotlib.colors import ListedColormap, BoundaryNorm
 
 import MDAnalysis as mda 
 
+import networkx as nx
+
 import matplotlib
 matplotlib.use('Agg')
 
@@ -2672,52 +2674,58 @@ def yacare_clustering(distance_matrix,function_for_ratio=2,threshold_variable=0.
     
     return cluster_labels
 
-def ward_clustering(
-    distance_matrix,
-    jump_quantile=0.95,
-    min_cluster_size=5,
-):
+def ward_clustering(distance_matrix, max_d=1.0):
     """
-    Noise-aware Ward clustering:
-    - Detects noise via merge-distance jumps
-    - Cuts before noise-dominated merges
-    - Marks tiny residual clusters as noise
+    Applies Ward hierarchical clustering on a precomputed distance matrix.
+    Parameters
+    ----------
+    distance_matrix : np.ndarray of shape (n_samples, n_samples)
+        Symmetric pairwise distance matrix between conformations or data points.
+    max_d : float, default=1.0
+        The maximum distance threshold to cut the dendrogram for forming flat clusters.
+    Returns
+    -------
+    cluster_labels : np.ndarray of shape (n_samples,)
+        Array of integer cluster labels for each data point.
     """
-
-    import numpy as np
     from scipy.cluster.hierarchy import linkage, fcluster
     from scipy.spatial.distance import squareform
+    import numpy as np
 
-    print("Performing noise-aware Ward clustering...")
-
-    # --- Ensure condensed distance format ---
+    # Ensure condensed distance format
     if distance_matrix.ndim == 2:
         if not np.allclose(np.diag(distance_matrix), 0):
             raise ValueError("Distance matrix diagonal must be zero.")
         distance_matrix = squareform(distance_matrix, checks=False)
 
-    # --- Ward linkage ---
-    Z = linkage(distance_matrix, method="ward")
+    Z = linkage(distance_matrix, method='ward')
+    cluster_labels = fcluster(Z, max_d, criterion='distance')
 
-    # --- Detect noise onset from merge distances ---
-    merge_distances = Z[:, 2]
+    return cluster_labels
 
-    # Robust threshold: high quantile of merge distances
-    max_d = np.quantile(merge_distances, jump_quantile)
+def kmeans_clustering(data, n_clusters=3, random_state=0):
+    """
+    Applies KMeans clustering on the given data.
+    Parameters
+    ----------
+    data : np.ndarray of shape (n_samples, n_features)
+        The input data to cluster.
+    n_clusters : int, default=3
+        The number of clusters to form.
+    random_state : int, default=0
+        Random seed for reproducibility.
+    Returns
+    -------
+    cluster_labels : np.ndarray of shape (n_samples,)
+        Array of integer cluster labels for each data point.
+    """
+    from sklearn.cluster import KMeans
 
-    # --- Initial clustering ---
-    labels = fcluster(Z, max_d, criterion="distance")
-
-    # --- Mark only pathological small clusters as noise ---
-    final_labels = labels.copy()
-    unique_labels, counts = np.unique(labels, return_counts=True)
-
-    for lbl, cnt in zip(unique_labels, counts):
-        if cnt < min_cluster_size:
-            final_labels[labels == lbl] = -1
-
-    return final_labels
-
+    n_clusters = int(n_clusters)
+    kmeans = KMeans(n_clusters=n_clusters, random_state=random_state, n_init=10)
+    kmeans.fit(data)
+      
+    return kmeans.labels_
 
 def cluster_distances(distance_matrix, method_clustering, parameters_clustering) :
     if method_clustering == 'advanced_density_peaks':
@@ -2728,6 +2736,8 @@ def cluster_distances(distance_matrix, method_clustering, parameters_clustering)
         cluster_labels = yacare_clustering(distance_matrix, *parameters_clustering)
     elif method_clustering == 'ward':
         cluster_labels = ward_clustering(distance_matrix, *parameters_clustering)
+    elif method_clustering == 'kmeans':
+        cluster_labels = kmeans_clustering(distance_matrix, *parameters_clustering)
     return cluster_labels
 
 
@@ -2763,7 +2773,16 @@ def plot_clustering_results(dist_matrix,cluster_labels, output_dir, output_name,
             continue
         sub_mi = dist_matrix[np.ix_(indices, indices)]
         mi_sums = sub_mi.sum(axis=1)
-        order = indices[np.argsort(mi_sums)]  # descending
+        first_index = np.argmin(mi_sums)
+        order= [first_index]
+        while len(order) < len(indices):
+            last_index = order[-1]
+            remaining_indices = list(set(range(len(indices))) - set(order))
+            distances_to_last = sub_mi[last_index, remaining_indices]
+            next_index = remaining_indices[np.argmin(distances_to_last)]
+            order.append(next_index)
+        order = indices[order]
+        #order = indices[np.argsort(mi_sums)]  # descending
         sorted_indices.extend(order)
 
     # Add noise at the end
@@ -3537,7 +3556,6 @@ def plot_conformations_as_function_of_time(output_dir, cluster_of_coordinates_to
     conformations_by_cluster = []
 
     for i in unique_labels:
-        print(f"Processing cluster {i} for time plot...")
         ndx_file = output_dir + f"conformations_clustering/frames_conformations_from_cluster_of_CV_{i}.ndx"
         if not os.path.exists(ndx_file):
             logging.warning(f"Ndx file for cluster {i} not found. Skipping plot.")
@@ -3573,7 +3591,6 @@ def plot_conformations_as_function_of_time(output_dir, cluster_of_coordinates_to
         for j in range(n_conformations):
             values_by_conformation[i][j] = round(delta_colors * j) 
             conformations_by_cluster[i][conformations_by_cluster[i] == j] = values_by_conformation[i][j]
-    print(values_by_conformation)
     plt.figure(figsize=(10, 6))
     im = plt.imshow(
         conformations_by_cluster,
