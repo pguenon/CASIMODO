@@ -3575,25 +3575,27 @@ def plot_conformations_as_function_of_time(output_dir, cluster_of_coordinates_to
     num_clusters = len(conformations_by_cluster)
     max_number_of_colors = max([int(np.max(conf)) for conf in conformations_by_cluster if len(conf) > 0]) + 1
     #create a colormap with enough colors
-    base_colors = plt.cm.rainbow(np.linspace(0, 1, max_number_of_colors))
+    base_colors = plt.cm.Greys(np.linspace(0, 1, max_number_of_colors))
     cmap = ListedColormap(base_colors[:max_number_of_colors])
     # Discrete boundaries centered on integer indices
     bounds = np.arange(-0.5, max_number_of_colors + 0.5, 1)
     norm = BoundaryNorm(bounds, cmap.N)
 
+    conformations_by_cluster_colored =np.copy(conformations_by_cluster)
     # X-axis uses real times
     extent = [float(times[0]), float(times[-1]), 0, num_clusters]
     values_by_conformation = {}
     for i in range(num_clusters):
         values_by_conformation[i] = {}
-        n_conformations = len(np.unique(conformations_by_cluster[i]))
+        labels_cluster_i = np.unique(conformations_by_cluster[i])
+        n_conformations = len(labels_cluster_i)
         delta_colors = max_number_of_colors / (n_conformations - 1) if n_conformations > 1 else 0
         for j in range(n_conformations):
             values_by_conformation[i][j] = round(delta_colors * j) 
-            conformations_by_cluster[i][conformations_by_cluster[i] == j] = values_by_conformation[i][j]
+            conformations_by_cluster_colored[i][conformations_by_cluster[i] ==labels_cluster_i[j] ] = values_by_conformation[i][j]
     plt.figure(figsize=(10, 6))
     im = plt.imshow(
-        conformations_by_cluster,
+        conformations_by_cluster_colored,
         cmap=cmap,
         norm=norm,
         aspect='auto',
@@ -3613,3 +3615,24 @@ def plot_conformations_as_function_of_time(output_dir, cluster_of_coordinates_to
     plt.close()
     logging.info("Conformational time plot saved.")
 
+    correlation_matrix = np.corrcoef(conformations_by_cluster)
+    correlation_matrix = np.nan_to_num(correlation_matrix)  # Replace NaNs with 0 for plotting
+    correlation_matrix =np.abs(correlation_matrix)
+    print(correlation_matrix)
+    plt.figure(figsize=(8, 6))
+    plt.imshow(correlation_matrix, cmap='magma', aspect='auto')
+    #add a horizontal line on the colorbar at the max out of diagonal value except 1
+    #num_clusters = correlation_matrix.shape[0]
+    #max_off_diagonal = np.max(correlation_matrix - np.eye(num_clusters))
+    cbar = plt.colorbar(label='Absolute Pearson Correlation Coefficient')
+    #cbar.ax.axhline(y=max_off_diagonal, color='w', linestyle='-', linewidth=3,label='Max off-diagonal correlation')
+    #cbar.ax.legend()
+    plt.clim(0, 1)
+    plt.xticks(np.arange(num_clusters), unique_labels)
+    plt.yticks(np.arange(num_clusters), unique_labels)
+    plt.xlabel('Cluster of Coordinates Index')
+    plt.ylabel('Cluster of Coordinates Index')
+    plt.tight_layout()
+    plt.savefig(output_dir + "conformations_clustering/correlation_conformations_between_clusters.png", dpi=300)
+    plt.close()
+    logging.info("Correlation plot between clusters saved.")
