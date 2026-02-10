@@ -38,10 +38,10 @@ def parse_arguments():
     parser.add_argument('--cutoff_npoints_discretization', type=int, default=100000, help='Maximum number of points to use for discretization')
 
     
-    parser.add_argument('--method_clustering_coordinates', type=str, default='advanced_density_peaks', choices=['advanced_density_peaks', 'hdbscan', 'yacare','ward','kmeans'], help='Clustering method for coordinates')
+    parser.add_argument('--method_clustering_coordinates', type=str, default='advanced_density_peaks', choices=['advanced_density_peaks', 'hdbscan', 'yacare','ward','k-means'], help='Clustering method for coordinates')
     parser.add_argument('--parameters_clustering_coordinates', nargs='*', type=float, default=[3.0, 1], help='Parameters for clustering coordinates (e.g., Z_parameter and halo_parameter)')
 
-    parser.add_argument('--method_clustering_conformations', type=str, default='advanced_density_peaks', choices=['advanced_density_peaks', 'hdbscan', 'yacare','ward','kmeans'], help='Clustering method for conformations')
+    parser.add_argument('--method_clustering_conformations', type=str, default='advanced_density_peaks', choices=['advanced_density_peaks', 'hdbscan', 'yacare','ward','k-means'], help='Clustering method for conformations')
     parser.add_argument('--parameters_clustering_conformations', nargs='*', type=float, default=[3.0, 0], help='Parameters for clustering conformations (e.g., Z_parameter and halo_parameter)')
     parser.add_argument('--cluster_of_coordinates_to_process', type=int, default=-1, help='Index of the cluster of coordinates to process (default: -1 for all clusters)')
 

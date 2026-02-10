@@ -2350,7 +2350,7 @@ def plot_information_clustered(Information_matrix, reordered_labels, output_dir,
     # Plot the information matrix
     im = ax.imshow(Information_matrix, cmap='magma', interpolation='nearest')
     plt.colorbar(im, label=label_data)
-    plt.title(f'{label_data} Matrix with Cluster Boxes in white and noise in blue' if label_data else "Clustered Information Matrix")
+    plt.title(f'{label_data} Matrix with Cluster Boxes in green and noise in blue' if label_data else "Clustered Information Matrix")
 
     # Find cluster boundaries
     boundaries = []
@@ -2736,7 +2736,7 @@ def cluster_distances(distance_matrix, method_clustering, parameters_clustering)
         cluster_labels = yacare_clustering(distance_matrix, *parameters_clustering)
     elif method_clustering == 'ward':
         cluster_labels = ward_clustering(distance_matrix, *parameters_clustering)
-    elif method_clustering == 'kmeans':
+    elif method_clustering == 'k-means':
         cluster_labels = kmeans_clustering(distance_matrix, *parameters_clustering)
     return cluster_labels
 
@@ -3618,9 +3618,11 @@ def plot_conformations_as_function_of_time(output_dir, cluster_of_coordinates_to
     correlation_matrix = np.corrcoef(conformations_by_cluster)
     correlation_matrix = np.nan_to_num(correlation_matrix)  # Replace NaNs with 0 for plotting
     correlation_matrix =np.abs(correlation_matrix)
-    print(correlation_matrix)
+
+    print("Correlation matrix between clusters of coordinates:\n", correlation_matrix)
+
     plt.figure(figsize=(8, 6))
-    plt.imshow(correlation_matrix, cmap='magma', aspect='auto')
+    plt.imshow(correlation_matrix, cmap='magma', aspect='equal')
     #add a horizontal line on the colorbar at the max out of diagonal value except 1
     #num_clusters = correlation_matrix.shape[0]
     #max_off_diagonal = np.max(correlation_matrix - np.eye(num_clusters))
@@ -3633,6 +3635,6 @@ def plot_conformations_as_function_of_time(output_dir, cluster_of_coordinates_to
     plt.xlabel('Cluster of Coordinates Index')
     plt.ylabel('Cluster of Coordinates Index')
     plt.tight_layout()
-    plt.savefig(output_dir + "conformations_clustering/correlation_conformations_between_clusters.png", dpi=300)
+    plt.savefig(output_dir + "conformations_clustering/correlation_conformations_between_clusters.pdf", dpi=300)
     plt.close()
     logging.info("Correlation plot between clusters saved.")
