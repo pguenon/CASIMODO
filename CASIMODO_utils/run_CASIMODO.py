@@ -14,7 +14,7 @@ from CASIMODO_utils.functions_CASIMODO import *
 def parse_arguments():
     parser = argparse.ArgumentParser(description='CASIMODO - Conformational Analysis via Statistical Inference of MOlecular Dynamics Observables')
     
-    parser.add_argument('--step_to_perform', type=str, default='all', help='Step to perform in the pipeline')
+    parser.add_argument('--step_to_perform', type=str, default='all', choices=['all','discretize_coordinates','cluster_coordinates','get_conformations','plot_conformations_time'] , help='Step to perform in the pipeline')
 
     parser.add_argument('-topol', type=str, required=True, help='Path to topology file')
     parser.add_argument('-trj', type=str, required=True, help='Path to trajector/y file')
