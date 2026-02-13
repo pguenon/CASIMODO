@@ -37,7 +37,11 @@ def parse_arguments():
     
     parser.add_argument('--cutoff_npoints_discretization', type=int, default=100000, help='Maximum number of points to use for discretization')
 
-    
+    parser.add_argument('--save_data', type=int, default=1, choices=[0, 1], help='Whether to save data (1 for True, 0 for False)')
+    parser.add_argument('--save_all_plots', type=int, default=0, choices=[0, 1], help='Whether to save all plots (1 for True, 0 for False)')
+    parser.add_argument('--extension_plots', type=str, default='png', choices=['png', 'pdf', 'svg'], help='File extension for saved plots')
+    parser.add_argument('--resolution_plots', type=int, default=200, help='Resolution (dpi) for saved plots')
+
     parser.add_argument('--method_clustering_coordinates', type=str, default='advanced_density_peaks', choices=['advanced_density_peaks', 'hdbscan', 'yacare','ward','k-means'], help='Clustering method for coordinates')
     parser.add_argument('--parameters_clustering_coordinates', nargs='*', type=float, default=[3.0, 1], help='Parameters for clustering coordinates (e.g., Z_parameter and halo_parameter)')
 
@@ -67,54 +71,60 @@ args = parse_arguments()
 #        VARIABLE INITIALIZATION      #
 #######################################
 
-step_to_perform = args.step_to_perform
-
-topolfile = args.topol
-trajfile = args.trj
-dic = args.dic
 output_dir = args.o_dir
 if len(output_dir)>0 and output_dir[-1] != '/':
     output_dir += '/'
 
-time_zero = args.time_zero
-delta_time = args.delta_time
-
-cutoff_distance = args.cutoff_distance
-proba_under_cutoff_distance = args.proba_under_cutoff_distance
-delta_resid = args.delta_resid
-prominence = args.prominence
-smooth_factor = args.smooth_factor
-n_points_per_bin = args.n_points_per_bin
-min_bin_size_distances = args.min_bin_size_distances
-min_bin_size_angles = args.min_bin_size_angles
-cutoff_npoints_discretization = args.cutoff_npoints_discretization
-
-
-method_clustering_coordinates = args.method_clustering_coordinates
-parameters_clustering_coordinates = args.parameters_clustering_coordinates
-
-method_clustering_conformations = args.method_clustering_conformations
-parameters_clustering_conformations = args.parameters_clustering_conformations
-cluster_of_coordinates_to_process = args.cluster_of_coordinates_to_process 
-
-minimal_size_to_cluster = args.minimal_size_to_cluster
-
-cutoff_len_states = args.cutoff_len_states
-
-cutoff_proba_conformations = args.cutoff_proba_conformations
 split_trajectory_int = args.split_trajectory
-
 # Convert split_trajectory to boolean
 if split_trajectory_int not in [0, 1]:
     raise ValueError("split_trajectory must be 0 (False) or 1 (True).") 
 split_trajectory = bool(split_trajectory_int)
 
-coordinates_to_add = args.coordinates_to_add
-type_coordinates_to_add = args.type_coordinates_to_add
-residues_coordinates_to_add = args.residues_coordinates_to_add
+save_data = bool(args.save_data)
+save_all_plots = bool(args.save_all_plots)
 
+config={
+    'step_to_perform': args.step_to_perform,
+    'topolfile': args.topol,
+    'trajfile': args.trj,
+    'dic': args.dic,
+    'output_dir': output_dir,
+    'time_zero': args.time_zero,
+    'delta_time': args.delta_time,
+    'cutoff_distance': args.cutoff_distance,
+    'proba_under_cutoff_distance': args.proba_under_cutoff_distance,
+    'delta_resid': args.delta_resid,
+    'prominence': args.prominence,
+    'smooth_factor': args.smooth_factor,
+    'n_points_per_bin': args.n_points_per_bin,
+    'min_bin_size_distances': args.min_bin_size_distances,
+    'min_bin_size_angles': args.min_bin_size_angles,
+    'cutoff_npoints_discretization': args.cutoff_npoints_discretization,
+    'save_data': save_data,
+    'save_all_plots': save_all_plots,
+    'extension_plots': args.extension_plots,
+    'resolution_plots': args.resolution_plots,
+    'method_clustering_coordinates': args.method_clustering_coordinates,
+    'parameters_clustering_coordinates': args.parameters_clustering_coordinates,
+    'method_clustering_conformations': args.method_clustering_conformations,
+    'parameters_clustering_conformations': args.parameters_clustering_conformations,
+    'cluster_of_coordinates_to_process': args.cluster_of_coordinates_to_process,
+    'minimal_size_to_cluster': args.minimal_size_to_cluster,
+    'cutoff_len_states': args.cutoff_len_states,
+    'cutoff_proba_conformations': args.cutoff_proba_conformations,
+    'split_trajectory': split_trajectory,
+    'coordinates_to_add': args.coordinates_to_add,
+    'type_coordinates_to_add': args.type_coordinates_to_add,
+    'residues_coordinates_to_add': args.residues_coordinates_to_add
+}
 
-
+step_to_perform = config['step_to_perform']
+topolfile = config['topolfile']
+trajfile = config['trajfile']
+dic = config['dic']
+coordinates_to_add = config['coordinates_to_add']
+cluster_of_coordinates_to_process = config['cluster_of_coordinates_to_process']
 
 #######################################
 #     CHECK INPUT FILE EXISTENCE      #
@@ -134,7 +144,7 @@ if not os.path.exists(output_dir):
 ########################################
 #           INITIATE LOGGING            #
 ########################################
-initiate_logging(output_dir, step_to_perform,cluster_of_coordinates_to_process)
+initiate_logging(config)
 
 ########################################
 #           PRINT HEADER               #
@@ -144,19 +154,7 @@ print_header()
 #######################################
 #         PRINT INPUTS                #
 #######################################
-print_inputs(
-    output_dir, 
-    step_to_perform, 
-    topolfile, trajfile, dic,
-    time_zero, delta_time,
-    cutoff_distance, proba_under_cutoff_distance, delta_resid, prominence,smooth_factor,
-    cutoff_npoints_discretization, min_bin_size_distances, min_bin_size_angles,  n_points_per_bin,
-    method_clustering_coordinates, parameters_clustering_coordinates,
-    method_clustering_conformations, parameters_clustering_conformations, cluster_of_coordinates_to_process,
-    minimal_size_to_cluster,
-    split_trajectory, cutoff_proba_conformations, cutoff_len_states,
-    coordinates_to_add, type_coordinates_to_add,residues_coordinates_to_add
-)
+print_inputs(config)
 
 
 #######################################
@@ -164,7 +162,7 @@ print_inputs(
 #######################################
 
 if step_to_perform in ['all', 'discretize_coordinates','get_conformations','precompute_positions']:
-    u_traj = open_trajectory(topolfile, trajfile)
+    u_traj = open_trajectory(config)
 
 #######################################
 #         TIME FILTERING              #
@@ -178,7 +176,7 @@ if step_to_perform == 'all' :
         if os.path.exists(os.path.join(output_dir, subdir)):
             shutil.rmtree(os.path.join(output_dir, subdir))  # Remove existing directory  
         os.mkdir(os.path.join(output_dir, subdir))
-    times, times_indices = filter_times_and_indices(u_traj, time_zero, delta_time, output_dir)
+    times, times_indices = filter_times_and_indices(u_traj,config)
 
 #######################################
 #        GET IMPORTANT ATOMS          #
@@ -189,11 +187,11 @@ if step_to_perform in ['all', 'discretize_coordinates', 'get_conformations', 'pr
     if os.path.exists(important_atoms_file):
         os.remove(important_atoms_file)
     
-    important_atoms, selected_resids, selected_resnames, indices_aa, indices_na_pyrimidine, indices_na_purine = get_important_atoms_MDA(u_traj, dic,step_to_perform)
-    save_important_atoms(important_atoms, selected_resids, selected_resnames, indices_aa, indices_na_pyrimidine, indices_na_purine, output_dir)
+    important_atoms, selected_resids, selected_resnames, indices_aa, indices_na_pyrimidine, indices_na_purine = get_important_atoms_MDA(u_traj, config)
+    save_important_atoms(important_atoms, selected_resids, selected_resnames, indices_aa, indices_na_pyrimidine, indices_na_purine, config)
 
 if step_to_perform in ['all', 'precompute_positions']:
-    precompute_all_positions(u_traj, important_atoms, selected_resids,indices_aa,indices_na_pyrimidine,indices_na_purine, output_dir)
+    precompute_all_positions(u_traj, important_atoms, selected_resids,indices_aa,indices_na_pyrimidine,indices_na_purine, config)
 
 #######################################
 #     DISCRETIZE CONFORMATIONS        #
@@ -216,32 +214,19 @@ if step_to_perform in ['all', 'discretize_coordinates']:
     if os.path.exists(selected_coordinates_file):
         os.remove(selected_coordinates_file)
 
-    get_contacts(
-        u_traj, important_atoms, selected_resids, time_zero,
-        cutoff_distance, proba_under_cutoff_distance, delta_resid, prominence,smooth_factor, output_dir,cutoff_npoints_discretization, min_bin_size_distances, min_bin_size_angles, n_points_per_bin
-    )
+    get_contacts(u_traj, important_atoms, selected_resids, config)
+    
     if len(indices_aa)!=0 :
-        get_dihedrals_protein(
-            u_traj, indices_aa, time_zero,
-            prominence,smooth_factor, output_dir,cutoff_npoints_discretization, min_bin_size_distances, min_bin_size_angles, n_points_per_bin
-        )
+        get_dihedrals_protein(u_traj, indices_aa, config)
 
     if len(indices_na_pyrimidine) != 0 or len(indices_na_purine) != 0:
-        get_dihedrals_nucleic_acids(
-            u_traj, indices_na_pyrimidine, indices_na_purine, time_zero,
-            prominence,smooth_factor, output_dir,cutoff_npoints_discretization, min_bin_size_distances, min_bin_size_angles, n_points_per_bin
-        )
+        get_dihedrals_nucleic_acids(u_traj, indices_na_pyrimidine, indices_na_purine, config)
         
     if len(coordinates_to_add) != 0:
-        add_coordinates(
-            coordinates_to_add, type_coordinates_to_add,
-            time_zero,
-            prominence,smooth_factor,
-            output_dir,cutoff_npoints_discretization, min_bin_size_distances, min_bin_size_angles, n_points_per_bin
-        )
+        add_coordinates(config)
 
-    get_discretized_array(output_dir,time_zero)
-    compute_information(output_dir)
+    get_discretized_array(config)
+    compute_information(config)
 
     
 
@@ -250,10 +235,7 @@ if step_to_perform in ['all', 'discretize_coordinates']:
 #######################################
 
 if step_to_perform in ['all','cluster_coordinates']:
-    cluster_coordinates(
-        output_dir, coordinates_to_add, residues_coordinates_to_add,
-        method_clustering_coordinates, parameters_clustering_coordinates,minimal_size_to_cluster
-        )
+    cluster_coordinates(config)
     
 if step_to_perform in ['all','get_conformations']:
     subdirs = [
@@ -276,13 +258,9 @@ if step_to_perform in ['all','get_conformations']:
             os.remove(os.path.join(output_dir, file_ndx))
 
 
-    get_conformations_from_clusters(
-    output_dir,u_traj, 
-    method_clustering_conformations, parameters_clustering_conformations,
-    split_trajectory, cutoff_proba_conformations,topolfile,trajfile,selected_resids, cutoff_len_states, cluster_of_coordinates_to_process,time_zero, minimal_size_to_cluster
-    )
+    get_conformations_from_clusters(u_traj,selected_resids,config)
 
 if step_to_perform in ['all','plot_conformations_time']:
-    plot_conformations_as_function_of_time(output_dir, cluster_of_coordinates_to_process,time_zero)
+    plot_conformations_as_function_of_time(config)
     
-print_ending_message(output_dir, step_to_perform)
+print_ending_message(config)

@@ -32,7 +32,7 @@ matplotlib.use('Agg')
 
 
 ###################### INITIATE LOGGING #####################
-def initiate_logging(output_dir,step_to_perform,cluster_of_coordinates_to_process):
+def initiate_logging(config):
     """
     Initializes logging to a file in the specified output directory.
 
@@ -43,7 +43,9 @@ def initiate_logging(output_dir,step_to_perform,cluster_of_coordinates_to_proces
     - None
     """
     now= datetime.now()
-   
+    step_to_perform = config['step_to_perform']
+    output_dir = config['output_dir']
+    cluster_of_coordinates_to_process = config['cluster_of_coordinates_to_process']
     if step_to_perform == 'all':
         log_file = os.path.join(output_dir, 'casimodo.log')
         logging.basicConfig(
@@ -92,8 +94,6 @@ def initiate_logging(output_dir,step_to_perform,cluster_of_coordinates_to_proces
     
     elif step_to_perform == "plot_conformations_time" :
         log_file = os.path.join(output_dir, 'casimodo_plot_conformations_time.log')
-        if cluster_of_coordinates_to_process >=0:
-            log_file = os.path.join(output_dir, f'casimodo_plot_conformations_time_cluster_{cluster_of_coordinates_to_process}.log')
         logging.basicConfig(
             filename=log_file,
             level=logging.INFO,
@@ -125,96 +125,18 @@ def print_header():
 
 
 ####################### PRINT INPUTS #####################
-def print_inputs(
-    output_dir, 
-    step_to_perform, 
-    topolfile, trajfile, dic,
-    time_zero, delta_time,
-    cutoff_distance,proba_under_cutoff_distance, delta_resid, prominence,smooth_factor, cutoff_npoints_discretization, min_bin_size_distances, min_bin_size_angles,  n_points_per_bin,
-    method_clustering_coordinates, parameters_clustering_coordinates,
-    method_clustering_conformations, parameters_clustering_conformations, cluster_of_coordinates_to_process,
-    minimal_size_to_cluster,
-    split_trajectory, cutoff_proba_conformations, cutoff_len_states,
-    coordinates_to_add, type_coordinates_to_add,residues_coordinates_to_add):
-    """
-    Prints the input parameters to the log file.
-
-    Parameters:
-    - output_dir (str): The directory where the log file is located.
-    - step_to_perform (str): The step being performed, used for logging context.
-    - topolfile (str): Path to the topology file (e.g., .psf, .gro, or .pdb).
-    - trajfile (str): Path to the trajectory file (e.g., .dcd, .xtc).
-    - dic (str): Path to the dictionary file containing important atoms.
-    - time_zero (float): Minimum time threshold for filtering frames.
-    - delta_time (float): Time step interval for selecting frames.
-    - cutoff_distance (float): Cutoff distance for contacts.
-    - delta_resid (int): Delta residue for contact calculations.
-    - prominence (float): Prominence for minima detection in discretization.
-    - smooth_factor (float): Smoothing factor for discretization.
-    - cutoff_npoints_discretization (int): Maximum number of points to use for discretization.
-    - min_bin_size_distances (float): Minimum distance between bins in discretization in Angstroms.
-    - min_bin_size_angles (float): Minimum distance between bins in discretization in degrees.
-    - n_points_per_bin (int): Number of points per bin for histogram calculations.
-    - method_clustering_coordinates (str): Clustering method for coordinates.
-    - parameters_clustering_coordinates (list): Parameters for the clustering method.
-    - method_clustering_conformations (str): Clustering method for conformations.
-    - parameters_clustering_conformations (list): Parameters for the clustering method.
-    - cluster_of_coordinates_to_process (int): Index of the cluster of coordinates to process.
-    - minimal_size_to_cluster (int): Minimal size to perform clustering.
-    - split_trajectory (bool): Whether to split the trajectory into blocks.
-    - cutoff_proba_conformations (float): Probability cutoff for conformation extraction.
-    - cutoff_len_states (int): Cutoff for the number of states to consider in clustering states.
-    - coordinates_to_add (list): List of additional coordinate files to include.
-    - type_coordinates_to_add (list): List of types for the additional coordinates.
-    - residues_coordinates_to_add (list): List of residues to consider for additional coordinates.
-
-    Returns:
-    - None
-    """
+def print_inputs(config):
     logging.info("\n")
     logging.info("========= INPUT PARAMETERS =========")
-    logging.info("Step to perform: %s", step_to_perform)
-    logging.info("Output directory: %s", output_dir)
-    logging.info("Topology file: %s", topolfile)
-    logging.info("Trajectory file: %s", trajfile)
-    logging.info("Dictionary file: %s", dic)
-    logging.info("Time zero: %.2f ps", time_zero)
-    logging.info("Delta time: %.2f ps", delta_time)
-    logging.info("Cutoff distance: %.2f Angstroms", cutoff_distance)
-    logging.info("Delta residue: %d", delta_resid)
-    logging.info("Prominence for minima detection: %.5f", prominence)
-    logging.info("Smoothing factor for discretization: %.2f", smooth_factor)
-    logging.info("Cutoff number of points for discretization: %d", cutoff_npoints_discretization)
-    logging.info("Minimum bin size for distances: %.3f Angstroms", min_bin_size_distances)
-    logging.info("Minimum bin size for angles: %.3f degrees", min_bin_size_angles)
-    logging.info("Number of points per bin for histogram: %d", n_points_per_bin)
-    logging.info("method clustering coordinates: %s", method_clustering_coordinates)
-    logging.info("Parameters clustering coordinates: %s", parameters_clustering_coordinates)
-    logging.info("method clustering conformations: %s", method_clustering_conformations)
-    logging.info("Parameters clustering conformations: %s", parameters_clustering_conformations)
-    logging.info("Cluster of coordinates to process: %d", cluster_of_coordinates_to_process)
-    logging.info("Minimal size to perform clustering: %d", minimal_size_to_cluster)
-    logging.info("Split trajectory: %s", split_trajectory)
-    logging.info("Cutoff probability for conformations: %.5f", cutoff_proba_conformations)
-    logging.info("Cutoff number of states: %d", cutoff_len_states)
-    logging.info("Additional coordinates to add: %s", coordinates_to_add)
-    logging.info("Types of additional coordinates: %s", type_coordinates_to_add)
-    logging.info("Residues for additional coordinates: %s", residues_coordinates_to_add)
+    for key, value in config.items():
+        logging.info(f"{key}: {value}")
     logging.info("===================================")
     
 
 ####################### PRINT ENDING MESSAGE #####################
-def print_ending_message(output_dir, step_to_perform):
-    """
-    Prints a message indicating the completion of the analysis.
-
-    Parameters:
-    - output_dir (str): The directory where the results are saved.
-    - step_to_perform (str): The step that was performed, used for logging context.
-
-    Returns:
-    - None
-    """
+def print_ending_message(config):
+    output_dir = config['output_dir']
+    step_to_perform = config['step_to_perform']
     now= datetime.now()
     logging.info("\n\n")
     logging.info("Analysis complete at %s", now.strftime("%Y-%m-%d %H:%M:%S"))
@@ -293,21 +215,9 @@ def open_data_coordinate(namefile):
         data = np.loadtxt(f)
     return data
 
-def load_data_discretization(output_selected_coordinates):
-    """
-    Loads discretization data from a file and extracts:
-    - coordinate names
-    - cut points for discretization (minima)
-    - corresponding labels for each region
-
-    Parameters:
-    - output_selected_coordinates (str): Path to the file containing discretization results.
-
-    Returns:
-    - coordinates (list of str): Names of the coordinates.
-    - X_cuts (list of list of float): Cut points (e.g., minima) for each coordinate.
-    - labels (list of list of int): labels corresponding to each region between cuts.
-    """
+def load_data_discretization(config):
+    output_dir = config['output_dir']
+    output_selected_coordinates = output_dir + "selected_coordinates.txt"
 
     # Read file content (assumes open_file returns parsed data and raw lines)
     data_discretization, lines_discretization = open_file(output_selected_coordinates)
@@ -357,44 +267,15 @@ def get_multiplicities(discretized_array):
 
 
 ##################### OPENING TRAJECTORY #####################
-def open_trajectory(topolfile, trajfile):
-    """
-    Opens a molecular dynamics trajectory using MDAnalysis.
-
-    Parameters:
-    - topolfile (str): The topology file (e.g., .psf, .gro, or .pdb) that describes the molecular structure.
-    - trajfile (str): The trajectory file (e.g., .dcd, .xtc) containing atomic coordinates over time.
-
-    Returns:
-    - u_traj (MDAnalysis.Universe): An MDAnalysis Universe object representing the system and trajectory,
-      which can be used for further analysis (e.g., atom selections, RMSD calculations, etc.).
-    """
+def open_trajectory(config):
+    topolfile = config['topolfile']
+    trajfile = config['trajfile']
     u_traj = mda.Universe(topolfile, trajfile)
     return u_traj
 
 
 ########################## FILTERING TIMES AND INDICES ##################
-def filter_times_and_indices(u_traj, time_zero, delta_time, output_dir):
-    """
-    Filters trajectory frames based on time criteria and saves the results.
-
-    Parameters:
-    - u_traj (MDAnalysis.Universe): The trajectory universe object.
-    - time_zero (float): The minimum time threshold. Frames before this time are ignored.
-    - delta_time (float): The time step interval for selecting frames (e.g., every 100 ps).
-    - output_dir (str): Path to the directory where the output files will be saved.
-
-    Returns:
-    - times (np.ndarray): Array of selected frame times.
-    - times_indices (np.ndarray): Array of corresponding frame indices.
-
-    Behavior:
-    - Iterates through the trajectory.
-    - Uses a progress bar to show filtering progress in the terminal.
-    - Selects frames where the time is greater than or equal to `time_zero`
-      and where the time is a multiple of `delta_time`.
-    - Saves the selected times and their frame indices as `.npy` files in the specified output directory.
-    """
+def filter_times_and_indices(u_traj,config):
     logging.info("\nFiltering times and indices...")
     times = []
     times_indices = []
@@ -402,6 +283,9 @@ def filter_times_and_indices(u_traj, time_zero, delta_time, output_dir):
     delta_t_traj=u_traj.trajectory.dt
     delta_t_traj=round(delta_t_traj,3)
     always_keep=False
+
+    delta_time= config['delta_time']
+    output_dir= config['output_dir']
     if delta_time < delta_t_traj:
         always_keep=True
     logging.info(f"Trajectory time step: {delta_t_traj} ps")
@@ -478,24 +362,10 @@ def read_dictionary(dic):
                 logging.info(f"Skipping line: {line}")
     return important_atoms_dic, amino_acids, nucleic_acids_pyrimidine, nucleic_acids_purine
 
-def get_important_atoms_MDA(u_traj, important_atoms_dic,step_to_perform):
-    """
-    Extracts definitions of important atoms from an MDAnalysis Universe.
-
-    Parameters:
-    - u_traj (MDAnalysis.Universe): The trajectory object containing residues and atoms.
-    - important_atoms_dic (str): Path to the important atom dictionary file.
-
-    Returns:
-    - important_atoms (list): List of important atom names (per residue).
-    - selected_resids (list): List of residue IDs corresponding to the important atoms.
-    - selected_resnames (list): List of residue names corresponding to the important atoms.
-    - indices_aa (list): List of residue IDs that are amino acids (based on the dictionary).
-    
-    Notes:
-    - Residues not found in the dictionary are reported once.
-    """
+def get_important_atoms_MDA(u_traj, config):
     logging.info("\nGetting important atoms...")
+    important_atoms_dic = config['dic']
+    step_to_perform = config['step_to_perform']
     atoms_dic, amino_acids, nucleic_acids_pyrimidine, nucleic_acids_purine = read_dictionary(important_atoms_dic)
     important_atoms = []
     selected_resids = []
@@ -535,23 +405,8 @@ def get_important_atoms_MDA(u_traj, important_atoms_dic,step_to_perform):
 
     return important_atoms, selected_resids, selected_resnames, indices_aa, indices_na_pyrimidine, indices_na_purine
 
-def save_important_atoms(important_atoms, selected_resids, selected_resnames, indices_aa, indices_na_pyrimidine, indices_na_purine,output_dir):
-    """
-    Saves important atoms information to a text file.
-
-    Parameters:
-    - important_atoms (list): List of important atom names per residue.
-    - selected_resids (list): List of corresponding residue IDs.
-    - selected_resnames (list): List of corresponding residue names.
-    - indices_aa (list): List of residue IDs that are amino acids.
-    - indices_na_pyrimidine (list): List of residue IDs for pyrimidine nucleic acids.
-    - indices_na_purine (list): List of residue IDs for purine nucleic acids.
-    - output_dir (str): Directory path where the output file will be saved.
-
-    Output:
-    - A text file named 'important_atoms.txt' containing:
-      <resid>   <resname>   <atom_names> <tag>
-    """
+def save_important_atoms(important_atoms, selected_resids, selected_resnames, indices_aa, indices_na_pyrimidine, indices_na_purine,config):
+    output_dir = config['output_dir']
     logging.info("\nSaving important atoms to file...")
     with open(output_dir + 'important_atoms.txt', 'w') as f:
         for k in range(len(important_atoms)):
@@ -987,19 +842,8 @@ def get_histogram(times, data, time_zero_ps, coord_type,delta_y):
 
 ######################## Functions for discretizing coordinates ########################
 
-def smooth_coordinate(y, delta_y,smooth_factor):
-    """
-    Smooth a 1D distribution using Kernel Density Estimation (KDE)
-    with a Gaussian kernel and fixed bandwidth.
-
-    Parameters:
-    - y: array-like, 1D input data (e.g., trajectory values).
-    - delta_y: float, bandwidth for the KDE and spacing for the evaluation grid.
-
-    Returns:
-    - x_smooth: 1D array of x-values (evaluation grid for the KDE).
-    - y_smooth: 1D array of corresponding smoothed probability density values.
-    """
+def smooth_coordinate(y, delta_y,config):
+    smooth_factor = config['smooth_factor']
 
     # Ensure input is a NumPy array and reshape for sklearn's KDE
     y = np.asarray(y).reshape(-1, 1)
@@ -1022,30 +866,7 @@ def smooth_coordinate(y, delta_y,smooth_factor):
     return x_smooth.ravel(), y_smooth
 
 
-def find_minima(x_smooth, 
-                y_smooth, 
-                prominence) :
-    """
-    Identify and refine local minima in a smooth 1D curve.
-
-    Parameters
-    ----------
-    x_smooth : np.ndarray
-        Array of x-values (must be uniformly spaced).
-    y_smooth : np.ndarray
-        Array of y-values corresponding to x_smooth.
-    prominence : float, optional
-        Relative height threshold (fraction of max(y_smooth)) used to:
-          - Define zones of similar y-values.
-          - Determine if minima are distinct and sufficiently deep.
-        Default is 0.025 (i.e., 2.5% of the maximum y-value).
-
-    Returns
-    -------
-    list
-        Sorted list of x positions corresponding to selected minima.
-    """
-
+def find_minima(x_smooth,y_smooth,config) :
     # === Step 1: Derivative-based extrema detection ===
     dx = x_smooth[1] - x_smooth[0]
     dy = np.gradient(y_smooth, dx)
@@ -1065,6 +886,7 @@ def find_minima(x_smooth,
         return []
 
     # === Step 2: Define zones where y_smooth varies slowly ===
+    prominence = config['prominence']
     val_cutoff = prominence * np.max(y_smooth)
     zones = []
     start = 0
@@ -1174,21 +996,8 @@ def get_labels_discretization(minima, x_smooth, y_smooth):
 
     return labels
 
-def save_minima(minima, coordinate, labels, name_output):
-    """
-    Saves the discretization minima and their associated labels to a file.
-
-    The output format for each line is:
-    <coordinate_type> <label_0> <minimum_0> <label_1> <minimum_1> ... <label_N>
-    
-    The last label is repeated at the end, which may represent the label of the final interval.
-
-    Parameters:
-    - minima: List of x-values (floats) where local minima were found (used as discretization boundaries).
-    - coordinate: String indicating the coordinate type (e.g., "distance", "angle", etc.).
-    - labels: List of integers representing the region label associated with each minimum.
-    - name_output: Path to the output file where the minima and labels will be appended.
-    """
+def save_minima(minima, coordinate, labels, config):
+    name_output = config['output_dir'] + "selected_coordinates.txt"
 
     # Open the output file in append mode
     with open(name_output, 'a') as file_output:
@@ -1203,18 +1012,8 @@ def save_minima(minima, coordinate, labels, name_output):
         # Write the final label again (to cover the last interval)
         file_output.write(f' {labels[-1]}\n')  # Newline at the end of the line
 
-def save_coordinate_results(times, distance_to_save, coordinate, output_dir):
-    """
-    Saves the evolution of a coordinate (e.g., distance) over time to a .dat file.
-
-    Each line in the output file contains a time point and the corresponding coordinate value.
-
-    Parameters:
-    - times: 1D array of time points (floats).
-    - distance_to_save: 1D array of coordinate values (floats), same length as times.
-    - coordinate: String representing the coordinate name (used as filename).
-    - output_dir: String path to the output directory (should end with a slash).
-    """
+def save_coordinate_results(times, distance_to_save, coordinate, config):
+    output_dir = config['output_dir']
 
     # Stack time and coordinate values into two columns
     Time_evolution = np.column_stack((times, distance_to_save))
@@ -1225,70 +1024,8 @@ def save_coordinate_results(times, distance_to_save, coordinate, output_dir):
     # Save to file with two decimal places, separated by three spaces
     np.savetxt(output_file, Time_evolution, fmt="%.2f   %.2f")
 
-def plot_histogram_avg(x, AVG, error_bars, x_smooth, y_smooth, xlabel, coordinate_name, minima, output_dir):
-    #OBSOLETE FUNCTION  
-    """
-    Plots the histogram of coordinate data with error bars, KDE curve, and vertical lines at selected minima.
 
-    Parameters:
-    - x: Array of bin centers for the histogram.
-    - AVG: Average histogram values (probability density).
-    - error_bars: Error estimates for each bin (e.g., standard error).
-    - y_smooth: Smoothed density estimation from Kernel Density Estimation (KDE).
-    - x_smooth: x-values corresponding to the KDE curve.
-    - xlabel: Label string for the x-axis.
-    - coordinate_name: Name of the coordinate (used for plot title and filename).
-    - minima: List of x-values representing local minima to highlight on the plot.
-    - output_dir: Directory path to save the plot image.
-
-    The function saves the plot as a PNG file and closes the figure to free memory.
-    """
-
-    fig, ax = plt.subplots()
-
-    # Plot average histogram as a black line
-    ax.plot(x, AVG, color='black', label='Average')
-
-    # Fill between error bars to show variability
-    ax.fill_between(x, AVG - error_bars, AVG + error_bars, color='black', alpha=0.3)
-
-    # Plot KDE smoothed curve in red
-    ax.plot(x_smooth, y_smooth, color='green', lw=2, label='KDE Smoothed')
-
-    # Draw vertical dashed blue lines at each minimum position
-    for mini in minima:
-        ax.axvline(x=mini, color='blue', linestyle='--')
-
-    # Set axis labels and plot title
-    ax.set_xlabel(xlabel)
-    ax.set_ylabel('Probability density')
-    ax.set_title(coordinate_name)
-
-    # Show legend
-    ax.legend()
-
-    # Save plot to specified directory with dpi for quality
-    plt.savefig(f'{output_dir}coordinates_plots/{coordinate_name}.png', dpi=150)
-
-    # Close the figure to free memory
-    plt.close()
-
-def plot_histogram(x, hist, x_smooth, y_smooth, xlabel, coordinate_name, minima, output_dir):
-    """
-    Plots the histogram of coordinate data with error bars, KDE curve, and vertical lines at selected minima.
-
-    Parameters:
-    - x: Array of bin centers for the histogram.
-    - hist: Histogram values (probability density).
-    - y_smooth: Smoothed density estimation from Kernel Density Estimation (KDE).
-    - x_smooth: x-values corresponding to the KDE curve.
-    - xlabel: Label string for the x-axis.
-    - coordinate_name: Name of the coordinate (used for plot title and filename).
-    - minima: List of x-values representing local minima to highlight on the plot.
-    - output_dir: Directory path to save the plot image.
-
-    The function saves the plot as a PNG file and closes the figure to free memory.
-    """
+def plot_histogram(x, hist, x_smooth, y_smooth, xlabel, coordinate_name, minima, config):
 
     fig, ax = plt.subplots()
 
@@ -1313,46 +1050,22 @@ def plot_histogram(x, hist, x_smooth, y_smooth, xlabel, coordinate_name, minima,
 
     # Show legend
     ax.legend()
-
+    output_dir = config['output_dir']
+    extension_plots = config['extension_plots']
+    resolution_plots = config['resolution_plots']
     # Save plot to specified directory with dpi for quality
-    plt.savefig(f'{output_dir}coordinates_plots/{coordinate_name}.png', dpi=150)
+    plt.savefig(f'{output_dir}coordinates_plots/{coordinate_name}.{extension_plots}', dpi=resolution_plots)
 
     # Close the figure to free memory
     plt.close()
 
-def discretize_coordinate(y, coordinate_type, times, time_zero,
-                          coordinate_name, prominence,smooth_factor,output, output_dir,
-                          cutoff_npoints_discretization, min_bin_size_distances, min_bin_size_angles, n_points_per_bin, 
-                          labels=None, selected_minima=None, save_data=True, save_all_plots=False):
-    """
-    Discretizes a continuous coordinate distribution into distinct regions based on local minima 
-    identified in the smoothed probability density.
-
-    Workflow:
-    1. Smooth the coordinate distribution using KDE.
-    2. Compute an average histogram and related statistics from the raw data.
-    3. Detect local minima in the smoothed KDE curve.
-    4. Generate labels for discretized regions based on detected minima.
-    5. Save minima, labels, and coordinate data for downstream use.
-    6. Plot and save the histogram with KDE curve and highlighted minima.
-
-    Parameters:
-    - y (array-like): 1D array of coordinate values (trajectory over time).
-    - coordinate_type (str): Label describing the coordinate type.
-    - times (array-like): 1D array of time points corresponding to the trajectory.
-    - time_zero (float): Starting time for analysis.
-    - coordinate_name (str): Identifier used for saving files.
-    - prominence (float): Parameter controlling sensitivity of minima detection.
-    - output (str or file-like): Path or handle to save minima/label information.
-    - output_dir (str): Directory to save coordinate data and plots.
-    - cutoff_npoints_discretization (int): Maximum number of points to use for discretization.
-    - n_points_per_bin (int): Number of points per histogram bin.
-    - labels (list of int, optional): Predefined labels for discretized regions.
-    - selected_minima (list of float, optional): Predefined minima positions.
-
-    Returns:
-    - None. Results are saved to disk.
-    """
+def discretize_coordinate(y, coordinate_type, times,coordinate_name, config, labels=None, selected_minima=None):
+    
+    time_zero= config['time_zero']
+    cutoff_npoints_discretization= config['cutoff_npoints_discretization']
+    n_points_per_bin= config['n_points_per_bin']
+    min_bin_size_distances= config['min_bin_size_distances']
+    min_bin_size_angles= config['min_bin_size_angles']
 
     # Step 1: Smooth the coordinate distribution using KDE
     y_subset=y.copy()
@@ -1377,7 +1090,7 @@ def discretize_coordinate(y, coordinate_type, times, time_zero,
         delta_y=min_bin_size_angles
     #logging.info(f"Using bin_size = {delta_y:.3f} for discretization of {coordinate_name}.")
 
-    x_smooth, y_smooth = smooth_coordinate(y_subset, delta_y,smooth_factor)
+    x_smooth, y_smooth = smooth_coordinate(y_subset, delta_y,config)
 
     # Step 2: Compute the average histogram and error bars from raw data
     #x, AVG, error_bars, xlabel = get_avg_histogram(
@@ -1389,25 +1102,29 @@ def discretize_coordinate(y, coordinate_type, times, time_zero,
 
     if labels is None and selected_minima is None:
         # Step 3: Detect local minima in the smoothed density (robust to noise) and filter them
-        selected_minima = find_minima(x_smooth,y_smooth,prominence)
+        selected_minima = find_minima(x_smooth,y_smooth,config)
 
         if len(selected_minima) !=0 :
             # Step 4: Generate region labels from the minima
             labels = get_labels_discretization(selected_minima, x_smooth, y_smooth)
-        
+    output_dir= config['output_dir']
+    output = output_dir + "selected_coordinates.txt"
+    save_data= config['save_data']
+    save_all_plots= config['save_all_plots']
+    
     if len(selected_minima) !=0 :
         # Step 5: Save detected minima and corresponding labels
-        save_minima(selected_minima, coordinate_name, labels, output)
+        save_minima(selected_minima, coordinate_name, labels, config)
         if save_data:
             # Step 6: Save the original coordinate data and metadata
-            save_coordinate_results(times, y, coordinate_name, output_dir)
+            save_coordinate_results(times, y, coordinate_name, config)
 
         # Step 7: Plot the histogram with KDE and show detected minima
         plot_histogram(
             x, hist,
             x_smooth, y_smooth,xlabel,
             coordinate_name, selected_minima,
-            output_dir
+            config
         )
     elif save_all_plots:
         # Even if no minima found, save the plot for reference
@@ -1415,39 +1132,13 @@ def discretize_coordinate(y, coordinate_type, times, time_zero,
             x, hist,
             x_smooth, y_smooth,xlabel,
             coordinate_name, selected_minima,
-            output_dir
+            config
         )
 
 
 ############################### Compute minimum distance between important atoms ##################
-def compute_min_distances(positions_important_atoms, i, j, important_atoms):
-    """
-    Computes the minimum distance between important atoms 
-    of two residues across all frames in the trajectory.
-
-    Parameters:
-    - positions_important_atoms (np.ndarray): A 3D array of shape 
-      (total_important_atoms, num_frames, 3), storing positions of important atoms.
-    - i (int): Index of the first residue in selected_resids and important_atoms.
-    - j (int): Index of the second residue in selected_resids and important_atoms.
-    - important_atoms (list of lists): A list where each entry contains the names 
-      of important atoms for the corresponding residue.
-
-
-    Returns:
-    - min_absolute_distance (float): The minimum distance between any pair of terminal 
-      atoms from residues i and j, over all frames.
-    - distance_to_save (np.ndarray): A 1D array containing the distance values over time 
-      for the pair of atoms that gave the minimum distance.
-    - atom_i_to_save (str): Name of the atom in residue i involved in the minimum distance.
-    - atom_j_to_save (str): Name of the atom in residue j involved in the minimum distance.
-
-    Description:
-    - Computes pairwise distances between all important atoms of residue i and residue j.
-    - For each atom pair, the Euclidean distance is computed across all frames.
-    - From all possible atom pair combinations, the one with the smallest minimum 
-      distance (across all time steps) is selected and returned.
-    """
+def compute_min_distances(positions_important_atoms, i, j, important_atoms,config):
+    
 
     # Get number of important atoms for each residue
     num_term_i = len(important_atoms[i])
@@ -1473,77 +1164,63 @@ def compute_min_distances(positions_important_atoms, i, j, important_atoms):
         for l in range(len(atoms_j)):
             distances[k, l] = np.linalg.norm(Positions_i[k] - Positions_j[l], axis=1)
 
+    cutoff_distance = config['cutoff_distance']
+    proba_under_cutoff_distance = config['proba_under_cutoff_distance']
     # Find the minimal distance for each atom pair across all frames
-    minimal_distances = np.zeros((len(atoms_i), len(atoms_j)))
+    proba_under_cutoff= np.zeros((len(atoms_i), len(atoms_j)))
     for k in range(len(atoms_i)):
         for l in range(len(atoms_j)):
-            minimal_distances[k, l] = np.min(distances[k, l])
+            proba_under_cutoff[k, l] = np.mean(distances[k, l] < cutoff_distance)
+    # Filter pairs based on the probability of being under the cutoff distance
+    valid_pairs = proba_under_cutoff >= proba_under_cutoff_distance
+    if not np.any(valid_pairs):
+        # If no pairs meet the cutoff probability, return default values
+        return [],[],[]
+    
+    list_distances_to_save = []
+    list_atoms_i_to_save = []
+    list_atoms_j_to_save = []
+    list_proba_under_cutoff_to_save = []
+    for k in range(len(atoms_i)):
+        for l in range(len(atoms_j)):
+            if valid_pairs[k, l]:
+                list_distances_to_save.append(distances[k, l])
+                list_atoms_i_to_save.append(atoms_i[k])
+                list_atoms_j_to_save.append(atoms_j[l])
+                list_proba_under_cutoff_to_save.append(proba_under_cutoff[k, l])
+    list_distances_to_save = np.array(list_distances_to_save)
+    list_atoms_i_to_save = np.array(list_atoms_i_to_save)
+    list_atoms_j_to_save = np.array(list_atoms_j_to_save)
+    indexes_sorted = np.argsort(list_proba_under_cutoff_to_save)[::-1]  # Sort by probability (descending)
+    list_distances_to_save = list_distances_to_save[indexes_sorted]
+    list_atoms_i_to_save = list_atoms_i_to_save[indexes_sorted]
+    list_atoms_j_to_save = list_atoms_j_to_save[indexes_sorted]
 
-    # Find the atom pair with the absolute minimal distance
-    minimal_indexes = np.unravel_index(np.argmin(minimal_distances, axis=None), minimal_distances.shape)
-
-    # Extract values to return
-    min_absolute_distance = minimal_distances[minimal_indexes[0], minimal_indexes[1]]
-    distance_to_save = distances[minimal_indexes[0], minimal_indexes[1]]
-    atom_i_to_save = atoms_i[minimal_indexes[0]]
-    atom_j_to_save = atoms_j[minimal_indexes[1]]
-
-    return min_absolute_distance, distance_to_save, atom_i_to_save, atom_j_to_save
+    return list_distances_to_save, list_atoms_i_to_save, list_atoms_j_to_save
 
 
 ############################# process distance pair #############################
-def process_distance_pair(i, j, positions_important_atoms, important_atoms, selected_resids, times, time_zero, cutoff_distance,proba_under_cutoff_distance,prominence,smooth_factor,output,output_dir,cutoff_npoints_discretization, min_bin_size_distances, min_bin_size_angles, n_points_per_bin):
-    """
-    Processes a pair of selected residues by computing the minimal interatomic distance
-    between their important atoms, and discretizes the distance time series if the pair 
-    is close enough (below cutoff).
-
-    Parameters:
-    -----------
-    - i, j (int) :  Indices of the residues in selected_resids to process.
-    - positions_important_atoms (np.ndarray): 3D array of precomputed positions of important atoms.
-      Shape: (total_important_atoms, num_frames, 3).
-    - important_atoms (list of lists): Names of important atoms for each residue.
-    - selected_resids (list): List of selected residue IDs.
-    - times (np.ndarray): Array of times corresponding to selected frames.
-    - time_zero (float): Reference time used for distance analysis.
-    - cutoff_distance (float): Distance threshold for further analysis.
-    - prominence (float): Prominence parameter for minima detection in discretization.
-    - output (file-like or handle): Destination for saving results.
-    - output_dir (str): Directory where output files will be written.
-    - cutoff_npoints_discretization (int): Maximum number of points to use for discretization.
-    - n_points_per_bin (int): Number of points per bin for histogram discretization.
-    """
-    
+def process_distance_pair(i, j, positions_important_atoms, important_atoms, selected_resids, times,config):    
     # Compute the minimal interatomic distance between important atoms of residues i and j
-    min_absolute_distance, distance_to_save, atom_i_to_save, atom_j_to_save = compute_min_distances(
-        positions_important_atoms, i, j, important_atoms
-    )
-
-    # Skip pairs that are too far apart
-    if min_absolute_distance > cutoff_distance:
-        return
-    proba_under = np.mean(distance_to_save < cutoff_distance)
-    if proba_under < proba_under_cutoff_distance :
+    distances_to_save, atoms_i_to_save, atoms_j_to_save = compute_min_distances(positions_important_atoms, i, j, important_atoms,config)
+    if len(distances_to_save)==0:
         return
 
-    # Prepare coordinate for discretization
-    y = distance_to_save               # Distance time series
+    for k, y in enumerate(distances_to_save):
+        atom_i=atoms_i_to_save[k]
+        atom_j=atoms_j_to_save[k]
 
-    coordinate_type = 'distance'      # Type of coordinate being discretized
+        coordinate_type = 'distance'      # Type of coordinate being discretized
 
-    # Construct a unique name for this distance coordinate
-    coordinate_name = f"{selected_resids[i]}_{atom_i_to_save}_{selected_resids[j]}_{atom_j_to_save}"
+        # Construct a unique name for this distance coordinate
+        coordinate_name = f"{selected_resids[i]}_{atom_i}_{selected_resids[j]}_{atom_j}"
     
-    # Discretize the distance time series and update output data structures
-    discretize_coordinate(
-        y, coordinate_type, times, time_zero,
-        coordinate_name, prominence,smooth_factor, output, output_dir,cutoff_npoints_discretization, min_bin_size_distances, min_bin_size_angles, n_points_per_bin
-    )
-
+        # Discretize the distance time series and update output data structures
+        discretize_coordinate(y, coordinate_type, times, coordinate_name,config)
+    
 
 ####################### Function to compute distances between important atoms for all residue pairs ##########################
-def compute_all_distances(important_atoms,selected_resids,positions_important_atoms,times,time_zero,delta_resid,cutoff_distance,proba_under_cutoff_distance,prominence,smooth_factor,output,output_dir,cutoff_npoints_discretization, min_bin_size_distances, min_bin_size_angles, n_points_per_bin):
+def compute_all_distances(important_atoms,selected_resids,positions_important_atoms,times,config):
     """
     Computes pairwise distances between all valid residue pairs based on their important atoms,
     and processes each pair using a custom distance analysis function.
@@ -1571,7 +1248,7 @@ def compute_all_distances(important_atoms,selected_resids,positions_important_at
     - For each pair, calls `process_distance_pair` to compute and process distances.
     - A progress bar is shown during processing.
     """
-
+    delta_resid = config['delta_resid']
     num_residues = len(selected_resids)
     total_combinations = num_residues * (num_residues - delta_resid) / 2  # total number of pairs
     count_step = 0
@@ -1588,29 +1265,15 @@ def compute_all_distances(important_atoms,selected_resids,positions_important_at
 
             # Process this residue pair
             process_distance_pair(
-                i, j,positions_important_atoms,important_atoms,selected_resids,times,time_zero,cutoff_distance,proba_under_cutoff_distance,prominence,smooth_factor,output,output_dir,cutoff_npoints_discretization, min_bin_size_distances, min_bin_size_angles, n_points_per_bin
-            )
+                i, j,positions_important_atoms,important_atoms,selected_resids,times,config)
 
     # Finalize progress bar
     plot_progress_bar(total_combinations, total_combinations,previous_progress)
     logging.info("Distances computed and saved.")
 
 ########################### Precompute important atom positions ##############################
-def precompute_all_positions(u_traj, important_atoms, selected_resids,indices_aa,indices_na_pyrimidine,indices_na_purine, output_dir):
-    """
-    Precomputes and saves the 3D positions of important atoms and backbone atoms
-    across a molecular dynamics trajectory. 
-    Parameters:
-    - u_traj: MDAnalysis Universe object containing the trajectory.
-    - important_atoms: List of important atom names for each selected residue.
-    - selected_resids: List of residue IDs to analyze.
-    - indices_aa: List of indices for amino acid residues.
-    - indices_na_pyrimidine: List of indices for nucleic acid pyrimidine residues.
-    - indices_na_purine: List of indices for nucleic acid purine residues.
-    - output_dir: Directory path to save precomputed positions.
-    Returns:
-    - None. Precomputed positions are saved to disk.
-    """
+def precompute_all_positions(u_traj, important_atoms, selected_resids,indices_aa,indices_na_pyrimidine,indices_na_purine, config):
+    output_dir = config['output_dir']
     # Load time points and frame indices previously filtered and saved
     times = np.load(output_dir + 'discretizing_npy/times.npy')
     times_indices = np.load(output_dir + 'discretizing_npy/times_indices.npy')
@@ -1655,32 +1318,8 @@ def precompute_all_positions(u_traj, important_atoms, selected_resids,indices_aa
 
 
 ########################## Function to get the multimodal contacts ################################
-def get_contacts(u_traj, important_atoms, selected_resids, time_zero, cutoff_distance,proba_under_cutoff_distance, delta_resid, prominence,smooth_factor, output_dir,cutoff_npoints_discretization, min_bin_size_distances, min_bin_size_angles, n_points_per_bin):
-    """
-    Main function to compute and process distances (contacts) between important atoms
-    throughout a molecular dynamics trajectory.
-
-    This function performs the following steps:
-    1. Loads pre-filtered time points and frame indices from .npy files.
-    2. Precomputes the 3D positions of all important atoms across the selected frames.
-    3. Saves the computed positions to a file for later use.
-    4. Computes distances between all valid residue pairs and processes the results.
-
-    Parameters:
-    - u_traj: MDAnalysis Universe object containing the trajectory.
-    - important_atoms: List of important atom names for each selected residue.
-    - selected_resids: List of residue IDs to analyze.
-    - time_zero: Time reference for analysis start.
-    - cutoff_distance: Maximum distance threshold to consider a contact.
-    - delta_resid: Minimum residue index separation to avoid local contacts.
-    - prominence: Prominence parameter for minima detection in discretization.
-    - output_dir: Directory path to read inputs and save outputs.
-    - cutoff_npoints_discretization (int): Maximum number of points to use for discretization.
-    - n_points_per_bin (int): Number of points per bin for histogram discretization.
-
-    Returns:
-    - None. Results are saved to files.
-    """
+def get_contacts(u_traj, important_atoms, selected_resids, config):
+    output_dir = config['output_dir']
 
     # Load time points and frame indices previously filtered and saved
     times = np.load(output_dir + 'discretizing_npy/times.npy')
@@ -1690,12 +1329,7 @@ def get_contacts(u_traj, important_atoms, selected_resids, time_zero, cutoff_dis
     positions_important_atoms = np.load(output_dir + "discretizing_npy/positions_important_atoms.npy")
 
     # Compute and process distances between all valid residue pairs
-    compute_all_distances(
-        important_atoms, selected_resids, positions_important_atoms,
-        times, time_zero, delta_resid,
-        cutoff_distance,proba_under_cutoff_distance, prominence,smooth_factor,
-        output_dir + "selected_coordinates.txt", output_dir,cutoff_npoints_discretization, min_bin_size_distances, min_bin_size_angles, n_points_per_bin
-    )
+    compute_all_distances(important_atoms, selected_resids, positions_important_atoms,times, config)
 
 
 ########################### Functions to process dihedrals for a single residue ##########################
@@ -1714,23 +1348,8 @@ def load_adjustments_angles(output_dir):
     return angle_names_adjusted,angle_values_adjusted
     
 
-def adjust_angle_data(name_angle, data, y_min, y_max, delta_y, output_dir):
-    """
-    Adjust angle data by "unwrapping" values below the global minimum histogram bin center.
-    This is useful for circular data like angles (0-360 degrees), to reduce edge effects
-    by shifting low values above the main minimum.
-
-    Parameters:
-    - data: 1D array of angle measurements (in degrees).
-    - y_min: Minimum angle value for histogram binning.
-    - y_max: Maximum angle value for histogram binning.
-    - delta_y: Bin width for histogram.
-
-    Returns:
-    - adjusted_data: Angle data after adjustment (values below min histogram bin center shifted by +360).
-    - new_y_max: Updated max value after adjustment.
-    - new_y_min: Updated min value after adjustment.
-    """
+def adjust_angle_data(name_angle, data, y_min, y_max, delta_y, config):
+    output_dir = config['output_dir']
     output_data_adjustement = output_dir + 'angles_adjustments.txt'
     if not os.path.exists(output_data_adjustement):
         with open(output_data_adjustement, 'w') as f:
@@ -1765,32 +1384,7 @@ def adjust_angle_data(name_angle, data, y_min, y_max, delta_y, output_dir):
 
     
 
-def process_dihedral_i_protein(i, Positions_atoms_C, Positions_atoms_N, Positions_atoms_CA, indices_aa, 
-                       times, time_zero,prominence,smooth_factor, output, output_dir,cutoff_npoints_discretization, min_bin_size_distances, min_bin_size_angles, n_points_per_bin):
-    """
-    Processes the i-th residue to compute phi and psi dihedral angles, adjust for angle wrapping,
-    and discretize the angle distributions for further analysis.
-
-    Parameters:
-    - i: Index of the residue to process.
-    - Positions_atoms_C, Positions_atoms_N, Positions_atoms_CA: 3D arrays of atomic positions
-      with shape (num_residues, num_timepoints, 3).
-    - indices_aa: List or array of residue identifiers.
-    - times: 1D array of time points corresponding to frames.
-    - time_zero: Start time for analysis.
-    - prominence: Prominence parameter for minima detection in discretization.
-    - output: File handle or path for saving results.
-    - output_dir: Directory path for saving outputs.
-    - cutoff_npoints_discretization (int): Maximum number of points to use for discretization.
-    - n_points_per_bin (int): Number of points per bin for discretization.
-
-    Notes:
-    - Phi angle is defined only if the previous residue exists and the C-N distance is reasonable.
-    - Psi angle is defined only if the next residue exists and the N-C distance is reasonable.
-    - Angles are converted from radians to degrees.
-    - If the angle range exceeds 180°, the data is "unwrapped" to reduce circular boundary artifacts.
-    - Discretization is performed on adjusted angles.
-    """
+def process_dihedral_i_protein(i, Positions_atoms_C, Positions_atoms_N, Positions_atoms_CA, indices_aa,times, config):
     coordinate_type = 'angle'
 
     # Initialize empty arrays (optional, overwritten later)
@@ -1806,11 +1400,9 @@ def process_dihedral_i_protein(i, Positions_atoms_C, Positions_atoms_N, Position
             phi_angle = np.rad2deg(mda.lib.distances.calc_dihedrals(Positions_atoms_C[i - 1, :, :],Positions_atoms_N[i, :, :],Positions_atoms_CA[i, :, :],Positions_atoms_C[i, :, :])            )
             # Adjust angles if range spans more than 180 degrees (unwrap circular data)
             if np.ptp(phi_angle) > 180:
-                phi_angle, _, _ = adjust_angle_data(coordinate_name,phi_angle, np.min(phi_angle), np.max(phi_angle), 4,output_dir)
+                phi_angle, _, _ = adjust_angle_data(coordinate_name,phi_angle, np.min(phi_angle), np.max(phi_angle), 4,config)
             # Discretize the phi angle data for further analysis
-            discretize_coordinate(phi_angle, coordinate_type,
-                                  times, time_zero, 
-                                  coordinate_name,prominence,smooth_factor, output, output_dir,cutoff_npoints_discretization, min_bin_size_distances, min_bin_size_angles, n_points_per_bin)
+            discretize_coordinate(phi_angle, coordinate_type,times, coordinate_name,config)
 
     # Process psi dihedral if next residue exists and backbone geometry is valid
     if i < len(Positions_atoms_C) - 1:
@@ -1821,40 +1413,14 @@ def process_dihedral_i_protein(i, Positions_atoms_C, Positions_atoms_N, Position
             psi_angle = np.rad2deg(mda.lib.distances.calc_dihedrals(Positions_atoms_N[i, :, :],Positions_atoms_CA[i, :, :],Positions_atoms_C[i, :, :],Positions_atoms_N[i + 1, :, :]))
             # Adjust angles if range spans more than 180 degrees (unwrap circular data)
             if np.ptp(psi_angle) > 180:
-                psi_angle, _, _ = adjust_angle_data(coordinate_name,psi_angle, np.min(psi_angle), np.max(psi_angle), 4,output_dir)
+                psi_angle, _, _ = adjust_angle_data(coordinate_name,psi_angle, np.min(psi_angle), np.max(psi_angle), 4,config)
             
             # Discretize the psi angle data for further analysis
-            discretize_coordinate(psi_angle, coordinate_type,
-                                  times, time_zero, 
-                                  coordinate_name,prominence,smooth_factor, output, output_dir,cutoff_npoints_discretization, min_bin_size_distances, min_bin_size_angles, n_points_per_bin)
+            discretize_coordinate(psi_angle, coordinate_type,times, coordinate_name,config)
             
 def process_dihedral_i_nucleic_acids(i, Positions_atoms_P, Positions_atoms_O5p, Positions_atoms_C5p, Positions_atoms_O4p, Positions_atoms_C4p, Positions_atoms_C3p,
                                      Positions_atoms_O3p, Positions_atoms_C1p, Positions_atoms_Nbs, Positions_atoms_Cbs, indices_na, 
-                                    times, time_zero, prominence,smooth_factor, output, output_dir,cutoff_npoints_discretization, min_bin_size_distances, min_bin_size_angles, n_points_per_bin):
-    """
-    Processes the i-th residue to compute phi and psi dihedral angles, adjust for angle wrapping,
-    and discretize the angle distributions for further analysis.
-
-    Parameters:
-    - i: Index of the residue to process.
-    - Positions_atoms_P, Positions_atoms_O5p, Positions_atoms_C5p, Positions_atoms_C4p,
-      Positions_atoms_C3p, Positions_atoms_O3p, Positions_atoms_C1p, Positions_atoms_Cbs: 3D arrays of atomic positions
-      with shape (num_residues, num_timepoints, 3).
-    - indices_na: List or array of residue identifiers.
-    - times: 1D array of time points corresponding to frames.
-    - time_zero: Start time for analysis.
-    - prominence: Prominence parameter for minima detection in discretization.
-    - output: File handle or path for saving results.
-    - output_dir: Directory path for saving outputs.
-    - cutoff_npoints_discretization (int): Maximum number of points to use for discretization.
-    - n_points_per_bin (int): Number of points per bin for discretization.
-    Notes:
-    - Phi angle is defined only if the previous residue exists and the C-N distance is reasonable.
-    - Psi angle is defined only if the next residue exists and the N-C distance is reasonable.
-    - Angles are converted from radians to degrees.
-    - If the angle range exceeds 180°, the data is "unwrapped" to reduce circular boundary artifacts.
-    - Discretization is performed on adjusted angles.
-    """
+                                    times, config):
     coordinate_type = 'angle'
 
     # Initialize empty arrays (optional, overwritten later)
@@ -1875,60 +1441,51 @@ def process_dihedral_i_nucleic_acids(i, Positions_atoms_P, Positions_atoms_O5p, 
             alpha_angle = np.rad2deg(mda.lib.distances.calc_dihedrals(Positions_atoms_O3p[i - 1, :, :],Positions_atoms_P[i, :, :],Positions_atoms_O5p[i, :, :],Positions_atoms_C5p[i, :, :]) )
             # Adjust angles if range spans more than 180 degrees (unwrap circular data)
             if np.ptp(alpha_angle) > 180:
-                alpha_angle, _, _ = adjust_angle_data(coordinate_name,alpha_angle, np.min(alpha_angle), np.max(alpha_angle), 4,output_dir)
+                alpha_angle, _, _ = adjust_angle_data(coordinate_name,alpha_angle, np.min(alpha_angle), np.max(alpha_angle), 4,config)
             
             # Discretize the alpha angle data for further analysis
             discretize_coordinate(alpha_angle, coordinate_type,
-                                  times, time_zero, 
-                                  coordinate_name,prominence,smooth_factor, output, output_dir,cutoff_npoints_discretization, min_bin_size_distances, min_bin_size_angles, n_points_per_bin)
+                                  times, coordinate_name,config)
             
         coordinate_name = f"beta_{indices_na[i]}"
         # Calculate beta dihedral angles (radians) and convert to degrees
         beta_angle = np.rad2deg(mda.lib.distances.calc_dihedrals(Positions_atoms_P[i, :, :],Positions_atoms_O5p[i, :, :],Positions_atoms_C5p[i, :, :],Positions_atoms_C4p[i, :, :]) )
         # Adjust angles if range spans more than 180 degrees (unwrap circular data)
         if np.ptp(beta_angle) > 180:
-            beta_angle, _, _ = adjust_angle_data(coordinate_name,beta_angle, np.min(beta_angle), np.max(beta_angle), 4,output_dir)
+            beta_angle, _, _ = adjust_angle_data(coordinate_name,beta_angle, np.min(beta_angle), np.max(beta_angle), 4,config)
         
         # Discretize the beta angle data for further analysis
-        discretize_coordinate(beta_angle, coordinate_type,
-                                times, time_zero, 
-                                coordinate_name,prominence,smooth_factor, output, output_dir,cutoff_npoints_discretization, min_bin_size_distances, min_bin_size_angles, n_points_per_bin)
+        discretize_coordinate(beta_angle, coordinate_type,times, coordinate_name,config)
     
     coordinate_name = f"gamma_{indices_na[i]}"
     # Calculate gamma dihedral angles (radians) and convert to degrees
     gamma_angle = np.rad2deg(mda.lib.distances.calc_dihedrals(Positions_atoms_O5p[i, :, :],Positions_atoms_C5p[i, :, :],Positions_atoms_C4p[i, :, :],Positions_atoms_C3p[i, :, :]) )
     # Adjust angles if range spans more than 180 degrees (unwrap circular data)
     if np.ptp(gamma_angle) > 180:
-        gamma_angle, _, _ = adjust_angle_data(coordinate_name,gamma_angle, np.min(gamma_angle), np.max(gamma_angle), 4,output_dir)
+        gamma_angle, _, _ = adjust_angle_data(coordinate_name,gamma_angle, np.min(gamma_angle), np.max(gamma_angle), 4,config)
     
     # Discretize the gamma angle data for further analysis
-    discretize_coordinate(gamma_angle, coordinate_type,
-                            times, time_zero, 
-                            coordinate_name,prominence,smooth_factor, output, output_dir,cutoff_npoints_discretization, min_bin_size_distances, min_bin_size_angles, n_points_per_bin)
+    discretize_coordinate(gamma_angle, coordinate_type,times, coordinate_name,config)
     
     coordinate_name = f"delta_{indices_na[i]}"
     # Calculate delta dihedral angles (radians) and convert to degrees
     delta_angle = np.rad2deg(mda.lib.distances.calc_dihedrals(Positions_atoms_C5p[i, :, :],Positions_atoms_C4p[i, :, :],Positions_atoms_C3p[i, :, :],Positions_atoms_O3p[i, :, :]) )
     # Adjust angles if range spans more than 180 degrees (unwrap circular data)
     if np.ptp(delta_angle) > 180:
-        delta_angle, _, _ = adjust_angle_data(coordinate_name,delta_angle, np.min(delta_angle), np.max(delta_angle), 4,output_dir)
+        delta_angle, _, _ = adjust_angle_data(coordinate_name,delta_angle, np.min(delta_angle), np.max(delta_angle), 4,config)
     
     # Discretize the delta angle data for further analysis
-    discretize_coordinate(delta_angle, coordinate_type,
-                            times, time_zero, 
-                            coordinate_name,prominence,smooth_factor, output, output_dir,cutoff_npoints_discretization, min_bin_size_distances, min_bin_size_angles, n_points_per_bin)
+    discretize_coordinate(delta_angle, coordinate_type, times, coordinate_name,config)
     
     coordinate_name = f"chi_{indices_na[i]}"
     # Calculate chi dihedral angles (radians) and convert to degrees
     chi_angle = np.rad2deg(mda.lib.distances.calc_dihedrals(Positions_atoms_O4p[i, :, :],Positions_atoms_C1p[i, :, :],Positions_atoms_Nbs[i, :, :],Positions_atoms_Cbs[i, :, :]) )
     # Adjust angles if range spans more than 180 degrees (unwrap circular data)
     if np.ptp(chi_angle) > 180:
-        chi_angle, _, _ = adjust_angle_data(coordinate_name,chi_angle, np.min(chi_angle), np.max(chi_angle), 4,output_dir)
+        chi_angle, _, _ = adjust_angle_data(coordinate_name,chi_angle, np.min(chi_angle), np.max(chi_angle), 4,config)
     
     # Discretize the chi angle data for further analysis
-    discretize_coordinate(chi_angle, coordinate_type,
-                            times, time_zero, 
-                            coordinate_name,prominence,smooth_factor, output, output_dir,cutoff_npoints_discretization, min_bin_size_distances, min_bin_size_angles, n_points_per_bin)
+    discretize_coordinate(chi_angle, coordinate_type, times, coordinate_name,config)
 
     # Process psi dihedral if next residue exists and backbone geometry is valid
     if i < len(Positions_atoms_P) - 1:
@@ -1939,51 +1496,24 @@ def process_dihedral_i_nucleic_acids(i, Positions_atoms_P, Positions_atoms_O5p, 
             epsilon_angle = np.rad2deg(mda.lib.distances.calc_dihedrals(Positions_atoms_C4p[i, :, :],Positions_atoms_C3p[i, :, :],Positions_atoms_O3p[i, :, :],Positions_atoms_P[i + 1, :, :]))
             # Adjust angles if range spans more than 180 degrees (unwrap circular data)
             if np.ptp(epsilon_angle) > 180:
-                epsilon_angle, _, _ = adjust_angle_data(coordinate_name,epsilon_angle, np.min(epsilon_angle), np.max(epsilon_angle), 4,output_dir)
+                epsilon_angle, _, _ = adjust_angle_data(coordinate_name,epsilon_angle, np.min(epsilon_angle), np.max(epsilon_angle), 4,config)
             
             # Discretize the psi angle data for further analysis
-            discretize_coordinate(epsilon_angle, coordinate_type,
-                                  times, time_zero, 
-                                  coordinate_name,prominence,smooth_factor, output, output_dir,cutoff_npoints_discretization, min_bin_size_distances, min_bin_size_angles, n_points_per_bin)
+            discretize_coordinate(epsilon_angle, coordinate_type,times, coordinate_name,config)
             
             coordinate_name = f"zeta_{indices_na[i]}"
             # Calculate psi dihedral angles (radians) and convert to degrees
             zeta_angle = np.rad2deg(mda.lib.distances.calc_dihedrals(Positions_atoms_C3p[i, :, :],Positions_atoms_O3p[i, :, :],Positions_atoms_P[i+1, :, :],Positions_atoms_O5p[i + 1, :, :]))
             # Adjust angles if range spans more than 180 degrees (unwrap circular data)
             if np.ptp(zeta_angle) > 180:
-                zeta_angle, _, _ = adjust_angle_data(coordinate_name,zeta_angle, np.min(zeta_angle), np.max(zeta_angle), 4,output_dir)
+                zeta_angle, _, _ = adjust_angle_data(coordinate_name,zeta_angle, np.min(zeta_angle), np.max(zeta_angle), 4,config)
             
             # Discretize the psi angle data for further analysis
-            discretize_coordinate(zeta_angle, coordinate_type,
-                                  times, time_zero, 
-                                  coordinate_name,prominence,smooth_factor, output, output_dir,cutoff_npoints_discretization, min_bin_size_distances, min_bin_size_angles, n_points_per_bin)
+            discretize_coordinate(zeta_angle, coordinate_type, times,coordinate_name,config)
         
     
 ########################### Functions to compute dihedrals for all residues ##########################
-def compute_all_dihedrals_protein(indices_aa, Positions_atoms_C, Positions_atoms_N, Positions_atoms_CA, times, time_zero,  prominence,smooth_factor, output, output_dir,cutoff_npoints_discretization, min_bin_size_distances, min_bin_size_angles, n_points_per_bin):  
-    """
-    Iterates over all selected residues and computes dihedral angles between them.
-
-    This function processes each selected residue's dihedral angle one by one using
-    precomputed backbone atom positions and stores the results for further analysis.
-
-    Parameters:
-    - u_traj: MDAnalysis Universe or trajectory object.
-    - indices_aa: List of residue indices for which to compute dihedrals.
-    - Positions_atoms_C: Precomputed C atom positions for each residue over time.
-    - Positions_atoms_N: Precomputed N atom positions for each residue over time.
-    - Positions_atoms_CA: Precomputed CA atom positions for each residue over time.
-    - times: 1D array of time points (e.g., in ps).
-    - time_zero: Time (in ps) to start analysis from.
-    - prominence: Prominence parameter for minima detection in discretization.
-    - output: Path to output file where selected features/labels are written.
-    - output_dir: Directory where output data (e.g., plots or processed values) is stored.
-    - cutoff_npoints_discretization (int): Maximum number of points to use for discretization.
-    - n_points_per_bin (int): Number of points per bin for histogram discretization.
-
-    Returns:
-    - None. Outputs are saved directly to disk.
-    """
+def compute_all_dihedrals_protein(indices_aa, Positions_atoms_C, Positions_atoms_N, Positions_atoms_CA, times, config):  
 
     num_residues = len(indices_aa)
 
@@ -1991,81 +1521,30 @@ def compute_all_dihedrals_protein(indices_aa, Positions_atoms_C, Positions_atoms
     previous_progress = -1  # Initialize progress bar
     for i in range(num_residues):
         previous_progress=plot_progress_bar(i, num_residues,previous_progress)
-        process_dihedral_i_protein(i, Positions_atoms_C, Positions_atoms_N, Positions_atoms_CA, indices_aa, times, time_zero,  prominence,smooth_factor,output, output_dir,cutoff_npoints_discretization, min_bin_size_distances, min_bin_size_angles, n_points_per_bin)
+        process_dihedral_i_protein(i, Positions_atoms_C, Positions_atoms_N, Positions_atoms_CA, indices_aa, times, config)
 
     plot_progress_bar(num_residues, num_residues,previous_progress)
     logging.info("Dihedrals computed and saved.")
 
-def compute_all_dihedrals_nucleic_acids(indices_na, Positions_atoms_P, Positions_atoms_O5p, Positions_atoms_C5p, Positions_atoms_O4p, Positions_atoms_C4p, Positions_atoms_C3p, Positions_atoms_O3p, Positions_atoms_C1p, Positions_atoms_Nbs, Positions_atoms_Cbs,
-                                         times, time_zero,  prominence,smooth_factor, output, output_dir,cutoff_npoints_discretization, min_bin_size_distances, min_bin_size_angles, n_points_per_bin):  
-    """
-    Iterates over all selected residues and computes dihedral angles between them.
-
-    This function processes each selected residue's dihedral angle one by one using
-    precomputed backbone atom positions and stores the results for further analysis.
-
-    Parameters:
-    - u_traj: MDAnalysis Universe or trajectory object.
-    - indices_na: List of residue indices for which to compute dihedrals.
-    - Positions_atoms_P: Precomputed P atom positions for each residue over time.
-    - Positions_atoms_O5p: Precomputed O5' atom positions for each residue over time.
-    - Positions_atoms_C5p: Precomputed C5' atom positions for each residue over time.
-    - Positions_atoms_C4p: Precomputed C4' atom positions for each residue over time.
-    - Positions_atoms_C3p: Precomputed C3' atom positions for each residue over time.
-    - Positions_atoms_O3p: Precomputed O3' atom positions for each residue over time.
-    - Positions_atoms_C1p: Precomputed C1' atom positions for each residue over time.
-    - Positions_atoms_Cbs: Precomputed Cb atom positions for each residue over time.
-    - times: 1D array of time points (e.g., in ps).
-    - time_zero: Time (in ps) to start analysis from.
-    - prominence: Prominence parameter for minima detection in discretization.
-    - output: Path to output file where selected features/labels are written.
-    - output_dir: Directory where output data (e.g., plots or processed values) is stored.
-    - cutoff_npoints_discretization (int): Maximum number of points to use for discretization.
-    - n_points_per_bin (int): Number of points per bin for histogram discretization.
-
-    Returns:
-    - None. Outputs are saved directly to disk.
-    """
-
+def compute_all_dihedrals_nucleic_acids(indices_na, Positions_atoms_P, Positions_atoms_O5p, Positions_atoms_C5p, Positions_atoms_O4p, Positions_atoms_C4p, Positions_atoms_C3p, Positions_atoms_O3p, Positions_atoms_C1p, Positions_atoms_Nbs, Positions_atoms_Cbs,times, config):  
     num_residues = len(indices_na)
 
     logging.info("\nComputing dihedrals in nucleic acids backbone...")
     previous_progress = -1  # Initialize progress bar
     for i in range(num_residues):
         previous_progress=plot_progress_bar(i, num_residues,previous_progress)
-        process_dihedral_i_nucleic_acids(i,  Positions_atoms_P, Positions_atoms_O5p, Positions_atoms_C5p, Positions_atoms_O4p, Positions_atoms_C4p, Positions_atoms_C3p, Positions_atoms_O3p, Positions_atoms_C1p, Positions_atoms_Nbs, Positions_atoms_Cbs, indices_na, times, time_zero,  prominence,smooth_factor,output, output_dir,cutoff_npoints_discretization, min_bin_size_distances, min_bin_size_angles, n_points_per_bin)
+        process_dihedral_i_nucleic_acids(i,  Positions_atoms_P, Positions_atoms_O5p, Positions_atoms_C5p, Positions_atoms_O4p, Positions_atoms_C4p, Positions_atoms_C3p, Positions_atoms_O3p, Positions_atoms_C1p, Positions_atoms_Nbs, Positions_atoms_Cbs, indices_na, times, config)
 
     plot_progress_bar(num_residues, num_residues,previous_progress)
     logging.info("Dihedrals computed and saved.")
 
 
 ########################## Function to get the multimodal dihedrals of protein ################################
-def get_dihedrals_protein(u_traj, indices_aa, time_zero,  prominence,smooth_factor,output_dir,cutoff_npoints_discretization, min_bin_size_distances, min_bin_size_angles, n_points_per_bin):
-    """
-    Computes and processes dihedral angles for selected amino acid residues in a trajectory.
-
-    Workflow:
-    1. Loads simulation time points and their indices.
-    2. Checks if at least two amino acids are selected.
-    3. Precomputes and saves backbone atom positions (N, C, CA).
-    4. Computes all dihedral angles and processes them for further analysis.
-
-    Parameters:
-    - u_traj: MDAnalysis Universe or trajectory object.
-    - indices_aa: List of amino acid residue indices to analyze.
-    - time_zero: Starting time for dihedral analysis.
-    - prominence: Prominence parameter for minima detection in discretization.
-    - output_dir: Directory to save output files.
-    - cutoff_npoints_discretization (int): Maximum number of points to use for discretization.
-    - n_points_per_bin (int): Number of points per bin for histogram discretization.
-
-    Returns:
-    - None. Saves dihedral angles and intermediate data to disk.
-    """
+def get_dihedrals_protein(u_traj, indices_aa, config):
     if len(indices_aa) < 2:
         logging.info("Not enough amino acids selected for dihedral analysis. Skipping.")
         return
-    
+    output_dir = config['output_dir']
     # Load time values and their corresponding frame indices
     times = np.load(output_dir + 'discretizing_npy/times.npy')
     times_indices = np.load(output_dir + 'discretizing_npy/times_indices.npy')
@@ -2076,32 +1555,12 @@ def get_dihedrals_protein(u_traj, indices_aa, time_zero,  prominence,smooth_fact
     Positions_atoms_CA =np.load( output_dir + "discretizing_npy/Positions_CA_atoms.npy")
 
     # Step 3: Compute all dihedral angles and write selected features
-    compute_all_dihedrals_protein(indices_aa, Positions_atoms_C, Positions_atoms_N, Positions_atoms_CA, times, time_zero,  prominence,smooth_factor, output_dir + "selected_coordinates.txt", output_dir,cutoff_npoints_discretization, min_bin_size_distances, min_bin_size_angles, n_points_per_bin)
+    compute_all_dihedrals_protein(indices_aa, Positions_atoms_C, Positions_atoms_N, Positions_atoms_CA, times, config)
 
 
 ########################## Function to get the multimodal dihedrals of nucleic acids ################################
-def get_dihedrals_nucleic_acids(u_traj, indices_na_pyrimidine,indices_na_purine, time_zero,  prominence,smooth_factor, output_dir,cutoff_npoints_discretization, min_bin_size_distances, min_bin_size_angles, n_points_per_bin):
-    """
-    Computes and processes dihedral angles for selected amino acid residues in a trajectory.
-
-    Workflow:
-    1. Loads simulation time points and their indices.
-    2. Checks if at least two amino acids are selected.
-    3. Precomputes and saves backbone atom positions (N, C, CA).
-    4. Computes all dihedral angles and processes them for further analysis.
-
-    Parameters:
-    - u_traj: MDAnalysis Universe or trajectory object.
-    - indices_aa: List of amino acid residue indices to analyze.
-    - time_zero: Starting time for dihedral analysis.
-    - prominence: Prominence parameter for minima detection in discretization.
-    - output_dir: Directory to save output files.
-    - cutoff_npoints_discretization (int): Maximum number of points to use for discretization.
-    - n_points_per_bin (int): Number of points per bin for histogram discretization.
-
-    Returns:
-    - None. Saves dihedral angles and intermediate data to disk.
-    """
+def get_dihedrals_nucleic_acids(u_traj, indices_na_pyrimidine,indices_na_purine, config):
+    output_dir = config['output_dir']
     if len(indices_na_pyrimidine) < 1 and len(indices_na_purine) < 1:
         logging.info("No nucleic acids selected for dihedral analysis.")
         return
@@ -2125,30 +1584,16 @@ def get_dihedrals_nucleic_acids(u_traj, indices_na_pyrimidine,indices_na_purine,
 
     indices_na= np.sort(indices_na_pyrimidine+indices_na_purine)
     # Step 3: Compute all dihedral angles and write selected features
-    compute_all_dihedrals_nucleic_acids(indices_na, Positions_atoms_P, Positions_atoms_O5p, Positions_atoms_C5p, Positions_atoms_O4p, Positions_atoms_C4p, Positions_atoms_C3p, Positions_atoms_O3p, Positions_atoms_C1p, Positions_atoms_Nbs, Positions_atoms_Cbs, times, time_zero,  prominence,smooth_factor, output_dir + "selected_coordinates.txt", output_dir,cutoff_npoints_discretization, min_bin_size_distances, min_bin_size_angles, n_points_per_bin)
+    compute_all_dihedrals_nucleic_acids(indices_na, Positions_atoms_P, Positions_atoms_O5p, Positions_atoms_C5p, Positions_atoms_O4p, Positions_atoms_C4p, Positions_atoms_C3p, Positions_atoms_O3p, Positions_atoms_C1p, Positions_atoms_Nbs, Positions_atoms_Cbs, times, config)
 
 
 ############################# Function to add new coordinates to the existing discretization ##########################
-def add_coordinates(coordinates_to_add, type_coordinates_to_add,time_zero, prominence,smooth_factor, output_dir,cutoff_npoints_discretization, min_bin_size_distances, min_bin_size_angles, n_points_per_bin):
-    """
-    Adds new coordinates (distance or angle) to an existing discretization setup.
-
-    Arguments:
-    coordinates_to_add -- list of file paths to the new coordinate data (.dat files)
-    time_zero -- starting time point for block analysis
-    type_coordinates_to_add -- list indicating the type of each coordinate ('distance' or 'angle')
-    prominence: Prominence parameter for minima detection in discretization.
-    output_dir -- path to the directory where outputs are stored
-    cutoff_npoints_discretization -- maximum number of points to use for discretization   
-    n_points_per_bin -- number of points per bin for histogramming 
-     Notes:
-    - Coordinate data must be 2-column files: [time, value]
-    - Aligns new data to the reference timeline (from the first existing coordinate)
-    - Discretizes the new coordinate and appends it to selected_coordinates.txt
-    """
-
+def add_coordinates(config):
+    output_dir = config['output_dir']
+    coordinates_to_add = config['coordinates_to_add']
+    type_coordinates_to_add = config['type_coordinates_to_add']
     # Load already discretized coordinates
-    coordinates, X_cuts, Labels = load_data_discretization(output_dir + "selected_coordinates.txt")
+    coordinates, X_cuts, Labels = load_data_discretization(config)
 
     # Reference time values from the first known coordinate
     data_zero = open_data_coordinate(output_dir + "coordinates_data/" + coordinates[0] + ".dat")
@@ -2181,17 +1626,16 @@ def add_coordinates(coordinates_to_add, type_coordinates_to_add,time_zero, promi
             y_coord, _, _ = adjust_angle_data(coordinate_name,y_coord, np.min(y_coord), np.max(y_coord), 4,output_dir)
 
         # Discretize and append this coordinate to selected_coordinates.txt
-        discretize_coordinate(y_coord, coordinate_type,
-                              times_to_compare, time_zero, 
-                              coordinate_name, prominence,smooth_factor,output_dir + "selected_coordinates.txt",
-                              output_dir,cutoff_npoints_discretization, min_bin_size_distances, min_bin_size_angles, n_points_per_bin)
+        discretize_coordinate(y_coord, coordinate_type,times_to_compare, coordinate_name, config)
     logging.info("New coordinates added and discretized.")
 
 
 ############################ Function to get the discretized array from saved coordinates ##########################
-def get_discretized_array(output_dir,time_zero):
+def get_discretized_array(config):
     # Load coordinate names, discretization cutoffs, and corresponding labels
-    coordinates, X_cuts, Labels = load_data_discretization(output_dir + "selected_coordinates.txt")
+    output_dir = config['output_dir']
+    time_zero = config['time_zero']
+    coordinates, X_cuts, Labels = load_data_discretization(config)
 
     # Load time information from the first coordinate file (assumes all coordinates share the same time points)
     times = np.load(output_dir + 'discretizing_npy/times.npy')
@@ -2300,8 +1744,9 @@ def compute_frequencies(discretized_array):
 
     return single_frequencies, double_frequencies
 
-def get_frequencies(output_dir):
+def get_frequencies(config):
     # Load the discretized array from a .npy file located in the specified output directory
+    output_dir = config['output_dir']
     discretized_array = np.load(output_dir + "discretizing_npy/discretized_array.npy")
     
     # Compute the single and double frequencies using a helper function 
@@ -2315,7 +1760,7 @@ def get_frequencies(output_dir):
 
 
 ########################### Function to plot mutual information matrix ##########################
-def plot_information(Information_matrix,output_dir,name_out,label_data=None):
+def plot_information(config,Information_matrix,output_dir,name_out,label_data=None):
     """
     Plots the mutual information matrix and saves it as an image.
     Parameters:
@@ -2323,6 +1768,8 @@ def plot_information(Information_matrix,output_dir,name_out,label_data=None):
     - output_dir: Directory where the plot will be saved.
     - name_out: Name of the output file (without extension).
     """
+    extension_plots = config['extension_plots']
+    resolution_plots = config['resolution_plots']
     plt.figure(figsize=(10, 6))
     plt.imshow(Information_matrix, cmap='magma', interpolation='nearest')
     plt.colorbar(label=label_data)
@@ -2330,10 +1777,10 @@ def plot_information(Information_matrix,output_dir,name_out,label_data=None):
     plt.xlabel('Coordinate Index')
     plt.ylabel('Coordinate Index')
     plt.tight_layout()
-    plt.savefig(output_dir+name_out+'.png', dpi=200)
+    plt.savefig(output_dir+name_out+f'.{extension_plots}', dpi=resolution_plots)
     plt.close()
 
-def plot_information_clustered(Information_matrix, reordered_labels, output_dir, name_out, label_data=None,xlabel=None, ylabel=None):
+def plot_information_clustered(config,Information_matrix, reordered_labels, output_dir, name_out, label_data=None,xlabel=None, ylabel=None):
     """
     Plots the mutual information matrix with boxed cluster boundaries.
 
@@ -2388,7 +1835,10 @@ def plot_information_clustered(Information_matrix, reordered_labels, output_dir,
     ax.set_xlabel(xlabel)
     ax.set_ylabel(ylabel)
     plt.tight_layout()
-    plt.savefig(f"{output_dir}/{name_out}.png", dpi=300)
+
+    extension_plots = config['extension_plots']
+    resolution_plots = config['resolution_plots']
+    plt.savefig(f"{output_dir}/{name_out}.{extension_plots}", dpi=resolution_plots)
     plt.close()
 
 ########################## Function to compute mutual information between coordinates ##########################
@@ -2432,8 +1882,9 @@ def get_B_correction(output_dir):
     return B_single, B_coupled, n_frames
 
 ########################## Function to compute entropy  ##########################
-def get_entropy(output_dir):
+def get_entropy(config):
     logging.info("\nComputing entropy...")
+    output_dir = config['output_dir']
     discretized_array=np.load(output_dir+"discretizing_npy/discretized_array.npy")
     single_frequencies=np.load(output_dir+'analysis_npy/frequencies_single.npy')
     double_frequencies=np.load(output_dir+'analysis_npy/frequencies_double.npy')
@@ -2451,6 +1902,8 @@ def get_entropy(output_dir):
     np.save(output_dir+'analysis_npy/entropy.npy', entropy)
     logging.info("Entropy computed.")
 
+    extension_plots = config['extension_plots']
+    resolution_plots = config['resolution_plots']
     #plot the entropy values
     plt.figure(figsize=(8, 4))
     plt.bar(range(ncoord), entropy, color='blue', alpha=0.7)
@@ -2458,7 +1911,7 @@ def get_entropy(output_dir):
     plt.ylabel('Entropy')
     plt.title('Entropy of Coordinates')
     plt.tight_layout()
-    plt.savefig(output_dir + 'information_plots/entropy.png', dpi=200)
+    plt.savefig(output_dir + f'information_plots/entropy.{extension_plots}', dpi=resolution_plots)
     plt.close()
     logging.info('\nComputing coupled entropy...')
     offsets = np.cumsum([0] + list(multiplicities[:-1]))
@@ -2473,29 +1926,13 @@ def get_entropy(output_dir):
                     if proba_xixj>0:
                         coupled_entropy[i,j]-=proba_xixj*np.log(proba_xixj)
     np.save(output_dir+'analysis_npy/coupled_entropy.npy', coupled_entropy)
-    plot_information(coupled_entropy, output_dir + 'information_plots/', "coupled_entropy", label_data="Coupled Entropy")   
+    plot_information(config,coupled_entropy, output_dir + 'information_plots/', "coupled_entropy", label_data="Coupled Entropy")   
     logging.info("Coupled Entropy computed.")
 
 
 ######################## Function to compute Rajski distance ##########################
-def get_rajski_distance(output_dir):
-    """
-    Computes the Rajski distance matrix from the mutual information (MI) matrix and the entropy.
-
-    The Rajski distance is computed as:
-    Rajski(i, j) = 1 - MI(i, j) / max(H(i), H(j))
-    where H(i) and H(j) are the entropies of coordinates i and j, respectively.
-
-    Parameters:
-    -----------
-    output_dir : str
-        Path to the directory containing the MI matrix and entropy values.
-    
-    Returns:
-    --------
-    None. The Rajski distance matrix is saved to disk.
-    """
-    
+def get_rajski_distance(config):
+    output_dir = config['output_dir']    
     logging.info("\nComputing Rajski distance...")
     entropy= np.load(os.path.join(output_dir, "analysis_npy", "entropy.npy"))
     coupled_entropy= np.load(os.path.join(output_dir, "analysis_npy", "coupled_entropy.npy"))
@@ -2523,7 +1960,7 @@ def get_rajski_distance(output_dir):
             rajski_distance[j,i]=rajski_distance[i,j]
     np.save(os.path.join(output_dir, "analysis_npy", "Rajski_distance.npy"), rajski_distance)
 
-    plot_information(rajski_distance, output_dir + 'information_plots/', "rajski_distance", label_data="Rajski Distance")
+    plot_information(config,rajski_distance, output_dir + 'information_plots/', "rajski_distance",label_data="Rajski Distance")
 
     logging.info("Rajski distance computed.")
 
@@ -2742,7 +2179,7 @@ def cluster_distances(distance_matrix, method_clustering, parameters_clustering)
 
 
 ############# Function to plot clustering results ##########################
-def plot_clustering_results(dist_matrix,cluster_labels, output_dir, output_name, label_data=None, xlabel='X-axis', ylabel='Y-axis'):
+def plot_clustering_results(config,dist_matrix,cluster_labels, output_dir, output_name, label_data=None, xlabel='X-axis', ylabel='Y-axis'):
     """
     Plots the results of clustering on the mutual information distance matrix.
 
@@ -2794,7 +2231,7 @@ def plot_clustering_results(dist_matrix,cluster_labels, output_dir, output_name,
     dist_reordered = dist_matrix[sorted_indices, :][:, sorted_indices]
 
 
-    plot_information_clustered(dist_reordered,reordered_labels, output_dir, output_name, label_data, xlabel=xlabel, ylabel=ylabel)
+    plot_information_clustered(config,dist_reordered,reordered_labels, output_dir, output_name, label_data, xlabel=xlabel, ylabel=ylabel)
 
     
     logging.info("Clustering results plotted and saved.")
@@ -2819,8 +2256,10 @@ def write_clusters_to_file(clusters_ndx, coordinates, output_dir, name_output_cl
 
     logging.info("Clusters written to file.")
 
-def get_resids_in_clusters(clusters_ndx,coordinates,name_coordinates_to_add,residues_coordinates_to_add,name_output,output_dir):
+def get_resids_in_clusters(clusters_ndx,coordinates,name_coordinates_to_add,name_output,config):
     logging.info("\nGetting resids in clusters...")
+    output_dir = config['output_dir']
+    residues_coordinates_to_add=config['residues_coordinates_to_add']
     file_out=open(output_dir+name_output,'w')
     for i in range (len(clusters_ndx)):
         cluster_i=clusters_ndx[i]
@@ -2861,53 +2300,19 @@ def get_resids_in_clusters(clusters_ndx,coordinates,name_coordinates_to_add,resi
 
 
 ############ Function to compute information metrics and save results ##############
-def compute_information(output_dir):
-    """
-    Computes mutual information, entropy, and variation information for the discretized coordinates.
-
-    This function loads the discretized data, computes the necessary information metrics,
-    and saves the results to disk. It also plots the mutual information matrix.
-
-    Parameters:
-    -----------
-    output_dir : str
-        Path to the directory containing the discretized data.
-
-    Returns:
-    --------
-    None. The computed metrics are saved to disk.
-    """
-    
-    get_frequencies(output_dir)
-    get_entropy(output_dir)
-    get_rajski_distance(output_dir)
+def compute_information(config):  
+    get_frequencies(config)
+    get_entropy(config)
+    get_rajski_distance(config)
 
 
 ############ Function to cluster coordinates based on mutual information distance, using Advanced Density Peaks ##############
-def cluster_coordinates(output_dir,coordinates_to_add,residues_coordinates_to_add, method_clustering_coordinates, parameters_clustering_coordinates,minimal_size_to_cluster):
-    """
-    Clusters coordinates based on mutual information distance using Advanced Density Peaks.
+def cluster_coordinates(config):
+    output_dir = config['output_dir']
+    method_clustering_coordinates = config['method_clustering_coordinates']
+    minimal_size_to_cluster = config['minimal_size_to_cluster']
+    parameters_clustering_coordinates = config['parameters_clustering_coordinates']
 
-    This function loads the mutual information distance matrix, applies Advanced Density Peaks clustering,
-    and saves the resulting cluster labels to a file.
-
-    Parameters:
-    -----------
-    output_dir : str
-        Path to the directory containing the MI distance matrix.
-    coordinates_to_add : list of str
-        List of file paths to additional coordinates to be clustered.
-    residues_coordinates_to_add : list of str
-        List of residue identifiers corresponding to the additional coordinates.
-    method_clustering_coordinates : str
-        Clustering method to use (e.g., 'advanced_density_peaks', 'hdbscan', 'yacare').
-    parameters_clustering_coordinates : list
-        Parameters for the clustering method, such as Z_parameter and halo_parameter for ADP.
-
-    Returns:
-    --------
-    None. The cluster labels are saved to disk.
-    """
 
     logging.info(f"\nClustering coordinates using {method_clustering_coordinates}...")
 
@@ -2927,8 +2332,8 @@ def cluster_coordinates(output_dir,coordinates_to_add,residues_coordinates_to_ad
 
     logging.info("Clustering completed and labels saved.")
 
-    reordered_labels = plot_clustering_results(rajski_distance,cluster_labels, output_dir+'information_plots/', "rajski_distance_clustering", "Rajski distance",xlabel="Coordinate Index", ylabel="Coordinate Index")
-    coordinates,X_cuts,Labels=load_data_discretization(output_dir + "selected_coordinates.txt")
+    reordered_labels = plot_clustering_results(config,rajski_distance,cluster_labels, output_dir+'information_plots/', "rajski_distance_clustering", "Rajski distance",xlabel="Coordinate Index", ylabel="Coordinate Index")
+    coordinates,X_cuts,Labels=load_data_discretization(config)
 
     # Extract clusters and write to file
     clusters_ndx = []
@@ -2944,8 +2349,9 @@ def cluster_coordinates(output_dir,coordinates_to_add,residues_coordinates_to_ad
     # Write clusters to file
     write_clusters_to_file(clusters_ndx, coordinates, output_dir, "clusters_of_coordinates.txt")
     # Get resids in clusters and write to file
+    coordinates_to_add=config['coordinates_to_add']
     name_coordinates_to_add = [coord.split('/')[-1].split('.')[0] for coord in coordinates_to_add]
-    get_resids_in_clusters(clusters_ndx, coordinates, name_coordinates_to_add,residues_coordinates_to_add, "resids_in_clusters.txt", output_dir)
+    get_resids_in_clusters(clusters_ndx, coordinates, name_coordinates_to_add, "resids_in_clusters.txt",config)
 
 
 ###################### Functions to manipulate states and get conformations ########################
@@ -2978,7 +2384,7 @@ def split_discretized_array_by_clusters(discretized_array, cluster_labels):
 
 
 
-def get_unique_states_in_splitted_array(clusters_data,cutoff_len_states,cluster_of_coordinates_to_process):
+def get_unique_states_in_splitted_array(clusters_data,config):
     """
     Extracts unique states from each cluster's discretized data.
 
@@ -2994,6 +2400,8 @@ def get_unique_states_in_splitted_array(clusters_data,cutoff_len_states,cluster_
     """
     unique_states = []
     probalities_unique_states = []
+    cutoff_len_states = config['cutoff_len_states']
+    cluster_of_coordinates_to_process = config['cluster_of_coordinates_to_process']
     for i,cluster_data in enumerate(clusters_data):
         if cluster_of_coordinates_to_process>=0 and i != cluster_of_coordinates_to_process:
             probalities_unique_states.append([])
@@ -3028,7 +2436,7 @@ def get_unique_states_in_splitted_array(clusters_data,cutoff_len_states,cluster_
         
     return unique_states, probalities_unique_states
 
-def compute_distances_between_states(states,cluster_of_coordinates_to_process):
+def compute_distances_between_states(states,config):
     """
     Computes pairwise distances between unique states.
 
@@ -3045,6 +2453,7 @@ def compute_distances_between_states(states,cluster_of_coordinates_to_process):
         A list containing distance matrices for each cluster's unique states.
     """
     distances = []
+    cluster_of_coordinates_to_process = config['cluster_of_coordinates_to_process']
     for i,state in enumerate(states):
         if cluster_of_coordinates_to_process>=0 and i != cluster_of_coordinates_to_process:
             distances.append([])
@@ -3057,41 +2466,13 @@ def compute_distances_between_states(states,cluster_of_coordinates_to_process):
         distances.append(dist_matrix)
     return distances
 
-def extract_frames_from_labels(output_dir, clusters_data, unique_states_clusters, all_clusters_labels, times_indices, proba_clusters, cutoff_proba_conformations,cluster_of_coordinates_to_process):
-    """
-    Extracts the original frame indices corresponding to each conformation
-    within each cluster, based on clustering labels of unique states.
-
-    Parameters:
-    -----------
-    output_dir : str
-        Directory where output .ndx files will be saved.
-    clusters_data : list of ndarray
-        Each element contains the discretized states for a cluster.
-    unique_states_clusters : list of ndarray
-        Unique states (rows) found in each cluster.
-    all_clusters_labels : list of ndarray
-        clustering labels of unique states in each cluster.
-    times_indices : list or ndarray
-        Mapping of indices to the original frame times.
-    proba_clusters : list of ndarray
-        Probabilities of each conformation in each cluster.
-    cutoff_proba_conformations : float
-        Probability threshold to filter out low-probability conformations.
-    cluster_of_coordinates_to_process : int
-        Index of the cluster to process (if > 0, only this cluster is processed).
-
-    Returns:
-    --------
-    frames_by_clusters : list of list of list of int
-        Frame indices for each conformation in each cluster.
-        Structure: cluster → conformation → list of frame indices.
-    """
-
+def extract_frames_from_labels(clusters_data, unique_states_clusters, all_clusters_labels, times_indices, proba_clusters, config):
     logging.info("Extracting frames from states...")
 
     frames_by_clusters = []
-
+    cluster_of_coordinates_to_process = config['cluster_of_coordinates_to_process']
+    cutoff_proba_conformations = config['cutoff_proba_conformations']
+    output_dir = config['output_dir']
     for i, cluster_labels in enumerate(all_clusters_labels):
         
         if cluster_of_coordinates_to_process >= 0 and i != cluster_of_coordinates_to_process:
@@ -3150,22 +2531,13 @@ def extract_frames_from_labels(output_dir, clusters_data, unique_states_clusters
 
     return frames_by_clusters
 
-def split_trajectory_by_conformations(output_dir, u_traj, frames_by_clusters,proba_clusters,cutoff_proba_conformations,all_clusters_labels,topolfile,trajfile,selected_resids,cluster_of_coordinates_to_process):
-    """
-    Splits the trajectory into separate files for each identified conformation
-    in each cluster, based on frame indices.
-
-    Parameters:
-    -----------
-    output_dir : str
-        Path to the base output directory.
-    u_traj : MDAnalysis Universe
-        MDAnalysis trajectory object containing atom and trajectory data.
-    frames_by_clusters : list of list of list of int
-        Nested list where each element represents a cluster,
-        containing sublists of frame indices for each conformation.
-        Structure: cluster → conformation → frame indices.
-    """
+def split_trajectory_by_conformations(u_traj, frames_by_clusters,proba_clusters,all_clusters_labels,selected_resids, config):
+    
+    output_dir = config['output_dir']
+    cluster_of_coordinates_to_process = config['cluster_of_coordinates_to_process']
+    cutoff_proba_conformations = config['cutoff_proba_conformations']
+    topolfile = config['topolfile']
+    trajfile = config['trajfile']
     extension_topol = topolfile.split('.')[-1]
     extension_traj = trajfile.split('.')[-1]
 
@@ -3211,44 +2583,11 @@ def split_trajectory_by_conformations(output_dir, u_traj, frames_by_clusters,pro
             atoms_selected.write(output_file, frames=frames)
     logging.info("Trajectory splitting completed.")
 
-def get_most_probable_states(all_clusters_labels, unique_states_clusters, probabilities_unique_states_clusters,cutoff_proba_conformations,cluster_of_coordinates_to_process):
-    """
-    For each cluster, identify the most probable state (discretized conformation)
-    within each sub-cluster (i.e., clustering-labeled conformation).
-
-    Parameters:
-    -----------
-    all_clusters_labels : list of ndarray
-        List of clustering label arrays, one per main cluster.
-        Each array gives the label for each unique state within that cluster.
-        Example shape: [n_main_clusters][n_states_in_cluster_i]
-
-    unique_states_clusters : list of ndarray
-        List of arrays containing all unique discretized states in each main cluster.
-        Example shape: [n_main_clusters][n_unique_states_in_cluster_i, n_coords]
-
-    probabilities_unique_states_clusters : list of ndarray
-        List of probability arrays corresponding to each unique state in each main cluster.
-        Example shape: [n_main_clusters][n_unique_states_in_cluster_i]
-
-    cutoff_proba_conformations : float
-        Probability threshold to consider a conformation as valid.
-    cluster_of_coordinates_to_process : int
-        If greater than 0, only process the specified cluster of coordinates.
-
-    Returns:
-    --------
-    most_probable_states : list of list of ndarray
-        For each cluster, a list of the most probable state in each clustering sub-cluster (i.e., conformation).
-        Structure: [n_main_clusters][n_conformations_in_cluster_i]
-
-    proba_most_probable_states : list of list of float
-        Corresponding probabilities for each most probable state.
-        Structure mirrors `most_probable_states`.
-    """
+def get_most_probable_states(all_clusters_labels, unique_states_clusters, probabilities_unique_states_clusters,config):
     most_probable_states = []
     proba_most_probable_states = []
-
+    cutoff_proba_conformations = config['cutoff_proba_conformations']
+    cluster_of_coordinates_to_process = config['cluster_of_coordinates_to_process']
     # Loop through each main cluster
     for i, cluster_labels in enumerate(all_clusters_labels):
         if cluster_of_coordinates_to_process >= 0 and i != cluster_of_coordinates_to_process:
@@ -3294,29 +2633,8 @@ def get_most_probable_states(all_clusters_labels, unique_states_clusters, probab
 
     return most_probable_states, proba_most_probable_states
 
-def get_coordinates_in_clusters(output_dir): 
-    """
-    Parses the 'clusters_of_coordinates.txt' file to extract coordinate groupings for each cluster.
-
-    This function assumes that the file contains sections like:
-    [ Cluster 0 ]
-    coord_1
-    coord_2
-    ...
-    [ Cluster 1 ]
-    ...
-
-    Parameters:
-    -----------
-    output_dir : str
-        Path to the output directory where 'clusters_of_coordinates.txt' is stored.
-
-    Returns:
-    --------
-    clusters_coords : list of list of str
-        Each element is a list of coordinate names (as strings) belonging to a cluster.
-        The outer list contains one entry per cluster.
-    """
+def get_coordinates_in_clusters(config): 
+    output_dir = config['output_dir']
     file_clusters = open(output_dir + "clusters_of_coordinates.txt", 'r')
     clusters_coords = []  # List to hold coordinates per cluster
     current_cluster = []  # Temporarily store coordinates for current cluster
@@ -3341,34 +2659,15 @@ def get_coordinates_in_clusters(output_dir):
 
     return clusters_coords
 
-def write_conformations_to_file(all_cluster_labels,most_probable_states, proba_most_probable_states, proba_clusters, output_dir, cutoff_proba_conformations,cluster_of_coordinates_to_process):
-    """
-    Writes the most probable conformational states of each cluster to a human-readable text file.
-
-    For each cluster (corresponding to a group of coordinates), this function writes:
-    - The cluster header.
-    - Each most probable conformation and its associated probabilities.
-    - The discretized state values (per coordinate) that define each conformation.
-
-    Parameters:
-    -----------
-    most_probable_states : list of list of ndarray
-        Each element corresponds to a cluster and contains the most probable states (as arrays) per conformation.
-
-    proba_most_probable_states : list of list of float
-        Probabilities of each most probable state in the corresponding conformation, per cluster.
-
-    proba_clusters : list of ndarray
-        Each element is an array containing the total probability of each conformation in the corresponding cluster.
-
-    output_dir : str
-        Directory where the output file ("conformations.txt") will be saved.
-    """
-    clusters_coords = get_coordinates_in_clusters(output_dir)  # Get coordinate names (CVs) associated with each cluster
+def write_conformations_to_file(all_cluster_labels,most_probable_states, proba_most_probable_states, proba_clusters, config):
+    clusters_coords = get_coordinates_in_clusters(config)  # Get coordinate names (CVs) associated with each cluster
     logging.info("\nWriting conformations to file...")
 
     # Open the output file for writing
     # Loop over clusters
+    cluster_of_coordinates_to_process = config['cluster_of_coordinates_to_process']
+    output_dir = config['output_dir']
+    cutoff_proba_conformations = config['cutoff_proba_conformations']
     for i, cluster_states in enumerate(most_probable_states):
         if cluster_of_coordinates_to_process >= 0 and i != cluster_of_coordinates_to_process:
             continue
@@ -3395,41 +2694,16 @@ def write_conformations_to_file(all_cluster_labels,most_probable_states, proba_m
 
 
 ######################### Function to extract conformations from clusters ##########################
-def get_conformations_from_clusters(output_dir, u_traj,
-                                     method_clustering_conformations, parameters_clustering_conformations,
-                                     split_trajectory,cutoff_proba_conformations,topolfile,trajfile, selected_resids,cutoff_len_states, cluster_of_coordinates_to_process,time_zero,minimal_size_to_cluster):
-    """
-    Extracts representative conformations from trajectory data based on hierarchical clustering.
-    
-    Parameters:
-    -----------
-    output_dir : str
-        Path to output directory containing clustering and discretization data.
-    u_traj : MDAnalysis.Universe
-        Trajectory universe for accessing conformational frames.
-    times_indices : ndarray
-        Mapping of trajectory time steps to frame indices.
-    Z_parameter_conformations : float
-        Z parameter for density peaks clustering of conformations.
-    halo_parameter_conformations : int
-        Halo parameter for density peaks clustering of conformations.
-    split_trajectory : bool
-        Whether to save separate trajectory files for each final cluster.
-    cutoff_proba_conformations : float
-        Minimum probability threshold for a conformation to be considered significant.
-    topolfile : str
-        Path to the topology file (e.g., PDB) for the trajectory.
-    trajfile : str
-        Path to the trajectory file (e.g., DCD, XTC).
-    selected_resids : list of int
-        List of residue IDs to consider for trajectory splitting.
-    cutoff_len_states : int
-        Maximum number of unique states to consider in each cluster.
-    cluster_of_coordinates_to_process : int
-        Index of the cluster of coordinates to process (if applicable).
-    time_zero : int
-        Initial time frame offset for trajectory analysis.
-    """
+def get_conformations_from_clusters(u_traj,selected_resids,config):
+    output_dir = config['output_dir']
+    time_zero = config['time_zero']
+    method_clustering_conformations = config['method_clustering_conformations']
+    parameters_clustering_conformations = config['parameters_clustering_conformations']
+    cluster_of_coordinates_to_process = config['cluster_of_coordinates_to_process']
+    minimal_size_to_cluster = config['minimal_size_to_cluster']
+    cutoff_proba_conformations = config['cutoff_proba_conformations']
+    split_trajectory = config['split_trajectory']
+
     times_indices = np.load(output_dir + "discretizing_npy/times_indices.npy")  # Load time indices for frames
     times = np.load(output_dir + "discretizing_npy/times.npy")  # Load time values for frames
     index_time_zero = np.where(times >= time_zero)[0][0]
@@ -3438,7 +2712,7 @@ def get_conformations_from_clusters(output_dir, u_traj,
     cluster_labels = np.load(os.path.join(output_dir, "analysis_npy", "cluster_labels.npy"))
 
     # Load selected coordinates and the discretized representation
-    coordinates, X_cuts, Labels = load_data_discretization(output_dir + "selected_coordinates.txt")
+    coordinates, X_cuts, Labels = load_data_discretization(config)
     discretized_array = np.load(output_dir + "discretizing_npy/discretized_array.npy")
 
     logging.info("\nExtracting conformations from clusters...")
@@ -3449,14 +2723,14 @@ def get_conformations_from_clusters(output_dir, u_traj,
 
     # Extract unique conformational states and their probabilities within each cluster
     logging.info("Extracting unique states from clusters...")
-    unique_states_clusters, probabilities_unique_states_clusters = get_unique_states_in_splitted_array(clusters_data,cutoff_len_states, cluster_of_coordinates_to_process)
+    unique_states_clusters, probabilities_unique_states_clusters = get_unique_states_in_splitted_array(clusters_data,config)
     cumulative_proba = [np.sum(probabilities_unique_states_clusters[i]) for i in range(len(probabilities_unique_states_clusters))]
     cumulative_proba = np.array(cumulative_proba)
     logging.info(f"Total probability of unique states under cutoff_len_states in each cluster: {cumulative_proba}")
     
     # Compute pairwise distances between unique states inside each cluster
     logging.info(f"Computing distances between unique states in each cluster...")
-    distances_between_states = compute_distances_between_states(unique_states_clusters,cluster_of_coordinates_to_process)
+    distances_between_states = compute_distances_between_states(unique_states_clusters,config)
     
     all_clusters_labels = []
     for i, dist_states in enumerate(distances_between_states):
@@ -3477,7 +2751,7 @@ def get_conformations_from_clusters(output_dir, u_traj,
 
         
         # Plot and save the clustering results for this sub-cluster
-        _ = plot_clustering_results(
+        _ = plot_clustering_results(config,
             dist_states, cluster_labels,
             output_dir + 'conformations_clustering/',
             f"distances_between_states_cluster_{i}",
@@ -3513,37 +2787,26 @@ def get_conformations_from_clusters(output_dir, u_traj,
         
     # Extract the most probable states from each cluster 
     logging.info("\nComputing most probable states in each cluster...")
-    most_probable_states, proba_most_probable_states = get_most_probable_states(
-        all_clusters_labels, unique_states_clusters, probabilities_unique_states_clusters, cutoff_proba_conformations,cluster_of_coordinates_to_process
-    )
+    most_probable_states, proba_most_probable_states = get_most_probable_states(all_clusters_labels, unique_states_clusters, probabilities_unique_states_clusters,config)
 
     # Write representative conformations to file
-    write_conformations_to_file(all_clusters_labels,most_probable_states, proba_most_probable_states, proba_clusters, output_dir, cutoff_proba_conformations,cluster_of_coordinates_to_process)
+    write_conformations_to_file(all_clusters_labels,most_probable_states, proba_most_probable_states, proba_clusters, config)
     logging.info("Conformations written to file.")
 
     # Extract original frame indices from final conformation labels
-    frames_by_clusters = extract_frames_from_labels(
-        output_dir, clusters_data, unique_states_clusters, all_clusters_labels, times_indices,proba_clusters,cutoff_proba_conformations,cluster_of_coordinates_to_process
-    )
+    frames_by_clusters = extract_frames_from_labels(clusters_data, unique_states_clusters, all_clusters_labels, times_indices,proba_clusters,config)
 
     # Optionally split trajectory files for each conformation cluster
     if split_trajectory:
-        split_trajectory_by_conformations(output_dir, u_traj, frames_by_clusters,proba_clusters,cutoff_proba_conformations,all_clusters_labels,topolfile,trajfile,selected_resids,cluster_of_coordinates_to_process)
+        split_trajectory_by_conformations(u_traj, frames_by_clusters,proba_clusters,all_clusters_labels,selected_resids, config)
 
 ################### Function to plot conformations as function of time ##########################
-def plot_conformations_as_function_of_time(output_dir, cluster_of_coordinates_to_process,time_zero):
-    """
-    Plots the conformational states as a function of time for each cluster of coordinates.
-
-    Parameters:
-    -----------
-    output_dir : str
-        Path to the output directory containing clustering results.
-    cluster_of_coordinates_to_process : int
-        Index of the cluster of coordinates to process (if applicable).
-    """
+def plot_conformations_as_function_of_time(config):
     logging.info("\nPlotting conformations as a function of time...")
-
+    output_dir = config['output_dir']
+    time_zero = config['time_zero']
+    extension_plots = config['extension_plots']
+    resolution_plots = config['resolution_plots']
     times = np.load(output_dir + "discretizing_npy/times.npy")  # Load time points
     frame_zero = np.where(times >= time_zero)[0][0]
     times = times[frame_zero:]  # Adjust times based on time_zero
@@ -3551,8 +2814,6 @@ def plot_conformations_as_function_of_time(output_dir, cluster_of_coordinates_to
     cluster_labels = np.load(os.path.join(output_dir, "analysis_npy", "cluster_labels.npy"))
     unique_labels = np.unique(cluster_labels)
     unique_labels = unique_labels[unique_labels != -1]  # Exclude noise label (-1)
-    if cluster_of_coordinates_to_process >= 0:
-        unique_labels = [cluster_of_coordinates_to_process]
     conformations_by_cluster = []
 
     for i in unique_labels:
@@ -3575,7 +2836,7 @@ def plot_conformations_as_function_of_time(output_dir, cluster_of_coordinates_to
     num_clusters = len(conformations_by_cluster)
     max_number_of_colors = max([int(np.max(conf)) for conf in conformations_by_cluster if len(conf) > 0]) + 1
     #create a colormap with enough colors
-    base_colors = plt.cm.Greys(np.linspace(0, 1, max_number_of_colors))
+    base_colors = plt.cm.magma(np.linspace(0, 1, max_number_of_colors))
     cmap = ListedColormap(base_colors[:max_number_of_colors])
     # Discrete boundaries centered on integer indices
     bounds = np.arange(-0.5, max_number_of_colors + 0.5, 1)
@@ -3611,7 +2872,7 @@ def plot_conformations_as_function_of_time(output_dir, cluster_of_coordinates_to
     plt.ylabel('Cluster of Coordinates Index')
     plt.title('Conformational States as a Function of Time')
     plt.tight_layout()
-    plt.savefig(output_dir + "conformations_clustering/conformations_as_function_of_time.png", dpi=300)
+    plt.savefig(output_dir + f"conformations_clustering/conformations_as_function_of_time.{extension_plots}", dpi=resolution_plots)
     plt.close()
     logging.info("Conformational time plot saved.")
 
@@ -3619,22 +2880,19 @@ def plot_conformations_as_function_of_time(output_dir, cluster_of_coordinates_to
     correlation_matrix = np.nan_to_num(correlation_matrix)  # Replace NaNs with 0 for plotting
     correlation_matrix =np.abs(correlation_matrix)
 
-    print("Correlation matrix between clusters of coordinates:\n", correlation_matrix)
+    matrix_to_text = np.array2string(correlation_matrix, formatter={'float_kind': lambda x: f"{x:.2f}"})
 
+    logging.info("Absolute Pearson correlation matrix between clusters of coordinates:")
+    logging.info(matrix_to_text)
     plt.figure(figsize=(8, 6))
     plt.imshow(correlation_matrix, cmap='magma', aspect='equal')
-    #add a horizontal line on the colorbar at the max out of diagonal value except 1
-    #num_clusters = correlation_matrix.shape[0]
-    #max_off_diagonal = np.max(correlation_matrix - np.eye(num_clusters))
     cbar = plt.colorbar(label='Absolute Pearson Correlation Coefficient')
-    #cbar.ax.axhline(y=max_off_diagonal, color='w', linestyle='-', linewidth=3,label='Max off-diagonal correlation')
-    #cbar.ax.legend()
     plt.clim(0, 1)
     plt.xticks(np.arange(num_clusters), unique_labels)
     plt.yticks(np.arange(num_clusters), unique_labels)
     plt.xlabel('Cluster of Coordinates Index')
     plt.ylabel('Cluster of Coordinates Index')
     plt.tight_layout()
-    plt.savefig(output_dir + "conformations_clustering/correlation_conformations_between_clusters.pdf", dpi=300)
+    plt.savefig(output_dir + f"conformations_clustering/correlation_conformations_between_clusters.{extension_plots}", dpi=resolution_plots)
     plt.close()
-    logging.info("Correlation plot between clusters saved.")
+
