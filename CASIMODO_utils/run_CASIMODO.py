@@ -16,10 +16,10 @@ def parse_arguments():
     
     parser.add_argument('--step_to_perform', type=str, default='all', choices=['all','discretize_coordinates','cluster_coordinates','get_conformations','plot_conformations_time'] , help='Step to perform in the pipeline')
 
-    parser.add_argument('-topol', type=str, required=True, help='Path to topology file')
-    parser.add_argument('-trj', type=str, required=True, help='Path to trajector/y file')
-    parser.add_argument('-dic', type=str, default='dic_important_atoms_protein.txt', help='Path to important atoms dictionary')
-    parser.add_argument('--o_dir', type=str, default='results/', help='Output directory')
+    parser.add_argument('--topol_file' type=str, required=True, help='Path to topology file')
+    parser.add_argument('--trj_file', type=str, required=True, help='Path to trajector/y file')
+    parser.add_argument('--dic_file', type=str, default='dic_important_atoms_protein.txt', help='Path to important atoms dictionary')
+    parser.add_argument('--output_directory', type=str, default='results/', help='Output directory')
     
 
     parser.add_argument('--time_zero', type=float, default=0., help='Time (ps) to start analysis')
@@ -71,7 +71,7 @@ args = parse_arguments()
 #        VARIABLE INITIALIZATION      #
 #######################################
 
-output_dir = args.o_dir
+output_dir = args.output_directory
 if len(output_dir)>0 and output_dir[-1] != '/':
     output_dir += '/'
 
@@ -86,9 +86,9 @@ save_all_plots = bool(args.save_all_plots)
 
 config={
     'step_to_perform': args.step_to_perform,
-    'topolfile': args.topol,
-    'trajfile': args.trj,
-    'dic': args.dic,
+    'topolfile': args.topol_file,
+    'trajfile': args.trj_file,
+    'dic': args.dic_file,
     'output_dir': output_dir,
     'time_zero': args.time_zero,
     'delta_time': args.delta_time,
