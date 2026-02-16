@@ -16,7 +16,7 @@ def parse_arguments():
     
     parser.add_argument('--step_to_perform', type=str, default='all', choices=['all','discretize_coordinates','cluster_coordinates','get_conformations','plot_conformations_time'] , help='Step to perform in the pipeline')
 
-    parser.add_argument('--topol_file' type=str, required=True, help='Path to topology file')
+    parser.add_argument('--topol_file', type=str, required=True, help='Path to topology file')
     parser.add_argument('--trj_file', type=str, required=True, help='Path to trajector/y file')
     parser.add_argument('--dic_file', type=str, default='dic_important_atoms_protein.txt', help='Path to important atoms dictionary')
     parser.add_argument('--output_directory', type=str, default='results/', help='Output directory')
