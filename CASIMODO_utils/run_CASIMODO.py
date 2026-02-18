@@ -27,7 +27,6 @@ def parse_arguments():
 
     parser.add_argument('--cutoff_distance', type=int, default=5, help='Distance cutoff (A) to define contact')
     parser.add_argument('--proba_under_cutoff_distance', type=float, default=0.01, help='Probability cutoff for filtering contacts')
-    parser.add_argument('--delta_resid', type=int, default=1, help='Residue separation threshold for contact filtering')
     
     parser.add_argument('--prominence', type=float, default=0.01, help='Prominence for minima detection in discretization')
     parser.add_argument('--smooth_factor', type=float, default=10.0, help='Smoothing factor for discretization larger values mean KDE closer to histogram')
@@ -94,7 +93,6 @@ config={
     'delta_time': args.delta_time,
     'cutoff_distance': args.cutoff_distance,
     'proba_under_cutoff_distance': args.proba_under_cutoff_distance,
-    'delta_resid': args.delta_resid,
     'prominence': args.prominence,
     'smooth_factor': args.smooth_factor,
     'n_points_per_bin': args.n_points_per_bin,
@@ -199,13 +197,17 @@ if step_to_perform in ['all', 'precompute_positions']:
 
 if step_to_perform in ['all', 'discretize_coordinates']:
     subdirs = [
-    'coordinates_data',
     'coordinates_plots',
     'analysis_npy',
     'information_plots'   
     ]
 
     for subdir in subdirs:
+        if os.path.exists(os.path.join(output_dir, subdir)):
+            shutil.rmtree(os.path.join(output_dir, subdir))  # Remove existing directory  
+        os.mkdir(os.path.join(output_dir, subdir))
+    if save_data :
+        subdir = 'coordinates_data' 
         if os.path.exists(os.path.join(output_dir, subdir)):
             shutil.rmtree(os.path.join(output_dir, subdir))  # Remove existing directory  
         os.mkdir(os.path.join(output_dir, subdir))

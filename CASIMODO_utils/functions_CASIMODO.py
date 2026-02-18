@@ -277,12 +277,13 @@ def open_trajectory(config):
 ########################## FILTERING TIMES AND INDICES ##################
 def filter_times_and_indices(u_traj,config):
     logging.info("\nFiltering times and indices...")
-    times = []
-    times_indices = []
+    times_selected = []
+    frames_selected = []
     previous_progress = -1
     delta_t_traj=u_traj.trajectory.dt
     delta_t_traj=round(delta_t_traj,3)
     always_keep=False
+    time_zero = config['time_zero']
 
     delta_time= config['delta_time']
     output_dir= config['output_dir']
@@ -297,9 +298,9 @@ def filter_times_and_indices(u_traj,config):
         time_ts= times_from_traj[i]
         frame_ts= i
 
-        if always_keep or min(time_ts% delta_time,abs(delta_time-time_ts% delta_time)) < delta_t_traj/2:
-            times.append(time_ts)
-            times_indices.append(frame_ts)
+        if (always_keep or min(time_ts% delta_time,abs(delta_time-time_ts% delta_time)) < delta_t_traj/2) and time_ts >= time_zero:
+            times_selected.append(time_ts)
+            frames_selected.append(frame_ts)
             continue
 
 
@@ -307,18 +308,18 @@ def filter_times_and_indices(u_traj,config):
     plot_progress_bar(len(u_traj.trajectory), len(u_traj.trajectory), previous_progress)
 
     # Convert to NumPy arrays and save
-    times = np.array(times)
-    times_indices = np.array(times_indices)
-    np.save(output_dir + 'discretizing_npy/times.npy', times)
-    np.save(output_dir + 'discretizing_npy/times_indices.npy', times_indices)
+    times_selected = np.array(times_selected)
+    frames_selected = np.array(frames_selected)
+    np.save(output_dir + 'discretizing_npy/times_selected.npy', times_selected)
+    np.save(output_dir + 'discretizing_npy/frames_selected.npy', frames_selected)
 
     logging.info("Times and indices filtered.")
 
-    times_to_show= times[:10].tolist()+['...']+times[-10:].tolist()
-    indices_to_show= times_indices[:10].tolist()+['...']+times_indices[-10:].tolist()
+    times_to_show= times_selected[:10].tolist()+['...']+times_selected[-10:].tolist()
+    indices_to_show= frames_selected[:10].tolist()+['...']+frames_selected[-10:].tolist()
     logging.info(f"Filtered times (ps): {times_to_show}")
     logging.info(f"Corresponding frame indices: {indices_to_show}")
-    return times, times_indices
+    return times_selected, frames_selected
 
 
 ####################### GET IMPORTANT ATOMS #######################
@@ -426,83 +427,43 @@ def save_important_atoms(important_atoms, selected_resids, selected_resnames, in
 
 
 ############################## PRECOMPUTE POSITIONS OF ATOMS ##################
-def precompute_terminals(u_traj, important_atoms, selected_resids, times_indices):
-    """
-    Precomputes the 3D positions of important atoms 
-    for a selected set of residues across specified frames in a trajectory.
+def precompute_important(u_traj, important_atoms, selected_resids, frames_selected):
 
-    Parameters:
-    - u_traj (MDAnalysis.Universe): The MDAnalysis universe object containing the trajectory.
-    - important_atoms (list of lists): A list of important atom names for each selected residue.
-    - selected_resids (list): Residue IDs corresponding to the residues with important atoms.
-    - times_indices (np.ndarray): Indices of the frames in the trajectory to process.
-
-    Returns:
-    - positions_important_atoms (np.ndarray): A NumPy array of shape (num_atoms, num_frames, 3),
-      storing the x, y, z coordinates of each important atom across selected frames.
-
-    Behavior:
-    - Preselects important atoms for all residues to avoid repetitive selection in each frame.
-    - Iterates over selected trajectory frames and stores the positions of each important atom.
-    - Displays a progress bar during processing.
-    """
     logging.info("\nPrecomputing positions of important atoms...")
 
     num_residues = len(selected_resids)  # Total number of residues with important atoms
     num_atoms = np.sum([len(important_atoms[i]) for i in range(num_residues)])  # Total number of important atoms
 
     # Pre-select atom groups for each important atom in each residue to avoid repeated selections
-    terminal_atom_selections = []
+    important_atoms_selection = []
     for i in range(num_residues):
-        terminal_atom_selections.append([
+        important_atoms_selection.append([
             u_traj.select_atoms(f"resnum {selected_resids[i]} and name {important_atoms[i][j]}")
             for j in range(len(important_atoms[i]))
         ])
 
     # Initialize array to store important atom positions:
     # Shape: (total important atoms, number of selected frames, 3 coordinates)
-    positions_important_atoms = np.zeros((num_atoms, len(times_indices), 3))
+    positions_important_atoms = np.zeros((num_atoms, len(frames_selected), 3))
 
     # Iterate through selected frames and record positions
     previous_progress = -1
-    for k, frame in enumerate(times_indices):
+    for k, frame in enumerate(frames_selected):
         u_traj.trajectory[frame]  # Move to the specific frame
-        previous_progress = plot_progress_bar(k, len(times_indices), previous_progress)
+        previous_progress = plot_progress_bar(k, len(frames_selected), previous_progress)
         count_step = 0  # Index for placing atoms in the output array
         for i in range(num_residues):
             for j in range(len(important_atoms[i])):
-                positions_important_atoms[count_step, k, :] = terminal_atom_selections[i][j].positions
+                positions_important_atoms[count_step, k, :] = important_atoms_selection[i][j].positions
                 count_step += 1
 
     # Complete the progress bar
-    plot_progress_bar(len(times_indices), len(times_indices), previous_progress)
+    plot_progress_bar(len(frames_selected), len(frames_selected), previous_progress)
     logging.info("Positions of important atoms precomputed.")
 
     return positions_important_atoms
 
-def precompute_backbone_protein(u_traj, indices_aa, times_indices):
-    """
-    Precomputes the 3D positions of backbone atoms (C, N, and CA) for each selected residue
-    across specified trajectory frames.
-
-    Parameters:
-    - u_traj (MDAnalysis.Universe): The MDAnalysis universe object containing the trajectory.
-    - indices_aa (list): List of residue IDs for which backbone atoms are to be tracked.
-    - times_indices (np.ndarray): Indices of the trajectory frames to be processed.
-
-    Returns:
-    - Positions_atoms_C (np.ndarray): Array of shape (num_residues, num_frames, 3)
-      with the 3D positions of the carbon (C) atoms.
-    - Positions_atoms_N (np.ndarray): Array of shape (num_residues, num_frames, 3)
-      with the 3D positions of the nitrogen (N) atoms.
-    - Positions_atoms_CA (np.ndarray): Array of shape (num_residues, num_frames, 3)
-      with the 3D positions of the alpha-carbon (CA) atoms.
-
-    Behavior:
-    - Selects backbone atoms (C, N, CA) once per residue to avoid repeated lookups.
-    - Iterates through specified trajectory frames and stores atom positions for each frame.
-    - Shows progress using a progress bar.
-    """
+def precompute_backbone_protein(u_traj, indices_aa, frames_selected):
     logging.info("\nPrecomputing positions of protein backbone atoms...")
 
     num_residues = len(indices_aa)
@@ -524,14 +485,14 @@ def precompute_backbone_protein(u_traj, indices_aa, times_indices):
     ]
 
     # Initialize arrays to store positions of backbone atoms over time
-    Positions_atoms_C = np.zeros((num_residues, len(times_indices), 3))
-    Positions_atoms_N = np.zeros((num_residues, len(times_indices), 3))
-    Positions_atoms_CA = np.zeros((num_residues, len(times_indices), 3))
+    Positions_atoms_C = np.zeros((num_residues, len(frames_selected), 3))
+    Positions_atoms_N = np.zeros((num_residues, len(frames_selected), 3))
+    Positions_atoms_CA = np.zeros((num_residues, len(frames_selected), 3))
 
     # Iterate through selected frames and record positions
     previous_progress = -1
-    for k, frame in enumerate(times_indices):
-        previous_progress = plot_progress_bar(k, len(times_indices), previous_progress)
+    for k, frame in enumerate(frames_selected):
+        previous_progress = plot_progress_bar(k, len(frames_selected), previous_progress)
         u_traj.trajectory[frame]  # Set trajectory to the specific frame
 
         for i in range(num_residues):
@@ -540,40 +501,12 @@ def precompute_backbone_protein(u_traj, indices_aa, times_indices):
             Positions_atoms_CA[i, k, :] = atom_CA_selections[i].positions
 
     # Complete progress bar
-    plot_progress_bar(len(times_indices), len(times_indices), previous_progress)
+    plot_progress_bar(len(frames_selected), len(frames_selected), previous_progress)
     logging.info("Positions of protein backbone atoms precomputed.")
 
     return Positions_atoms_C, Positions_atoms_N, Positions_atoms_CA
 
-def precompute_backbone_nucleic_acids(u_traj, indices_na_pyrimidine, indices_na_purine, times_indices):
-    """
-    Precomputes the 3D positions of backbone atoms for nucleic acids (DNA/RNA) for each selected residue
-    across specified trajectory frames.
-    Parameters:
-    - u_traj (MDAnalysis.Universe): The MDAnalysis universe object containing the trajectory.
-    - selected_resids (list): List of residue IDs for which backbone atoms are to be tracked.
-    - times_indices (np.ndarray): Indices of the trajectory frames to be processed.
-    Returns:
-    - Positions_atoms_P (np.ndarray): Array of shape (num_residues, num_frames, 3)
-      with the 3D positions of the phosphorus (P) atoms. Warning the first residue has no P atom so the position is (0,0,0).
-    - Positions_atoms_O5p (np.ndarray): Array of shape (num_residues, num_frames, 3)
-        with the 3D positions of the oxygen-5' (O5') atoms.
-    - Positions_atoms_C5p (np.ndarray): Array of shape (num_residues, num_frames, 3)
-        with the 3D positions of the carbon-5' (C5') atoms.
-    - Positions_atoms_C4p (np.ndarray): Array of shape (num_residues, num_frames, 3)
-        with the 3D positions of the carbon-4' (C4') atoms.
-    - Positions_atoms_C3p (np.ndarray): Array of shape (num_residues, num_frames, 3)
-        with the 3D positions of the carbon-3' (C3') atoms.
-    - Positions_atoms_O3p (np.ndarray): Array of shape (num_residues, num_frames, 3)
-        with the 3D positions of the oxygen-3' (O3') atoms.
-    - Positions_atoms_C1p (np.ndarray): Array of shape (num_residues, num_frames, 3)
-        with the 3D positions of the carbon-1' (C1') atoms.
-    - Positions_atoms_C2 (np.ndarray): Array of shape (num_residues, num_frames, 3)
-        with the 3D positions of the carbon-2 (C2) atoms.
-    - Positions_atoms_C4 (np.ndarray): Array of shape (num_residues, num_frames, 3)
-        with the 3D positions of the carbon-4 (C4) atoms.
-
-    """
+def precompute_backbone_nucleic_acids(u_traj, indices_na_pyrimidine, indices_na_purine, frames_selected):
     logging.info("\nPrecomputing positions of nucleic acids backbone atoms...")
 
     indices_na= np.sort(indices_na_pyrimidine+indices_na_purine)  # Combine and sort indices of nucleic acids
@@ -637,17 +570,17 @@ def precompute_backbone_nucleic_acids(u_traj, indices_na_pyrimidine, indices_na_
 
 
     # Initialize arrays to store positions of backbone atoms over time
-    Positions_atoms_P = np.empty((num_residues, len(times_indices), 3))
+    Positions_atoms_P = np.empty((num_residues, len(frames_selected), 3))
     Positions_atoms_P.fill(np.inf)  # Fill with NaN to handle residues without P atom (e.g., first residue)
-    Positions_atoms_O5p = np.zeros((num_residues, len(times_indices), 3))
-    Positions_atoms_C5p = np.zeros((num_residues, len(times_indices), 3))
-    Positions_atoms_O4p = np.zeros((num_residues, len(times_indices), 3))
-    Positions_atoms_C4p = np.zeros((num_residues, len(times_indices), 3))
-    Positions_atoms_C3p = np.zeros((num_residues, len(times_indices), 3))
-    Positions_atoms_O3p = np.zeros((num_residues, len(times_indices), 3))
-    Positions_atoms_C1p = np.zeros((num_residues, len(times_indices), 3))
-    Positions_atoms_Nbs = np.zeros((num_residues, len(times_indices), 3))
-    Positions_atoms_Cbs = np.zeros((num_residues, len(times_indices), 3))
+    Positions_atoms_O5p = np.zeros((num_residues, len(frames_selected), 3))
+    Positions_atoms_C5p = np.zeros((num_residues, len(frames_selected), 3))
+    Positions_atoms_O4p = np.zeros((num_residues, len(frames_selected), 3))
+    Positions_atoms_C4p = np.zeros((num_residues, len(frames_selected), 3))
+    Positions_atoms_C3p = np.zeros((num_residues, len(frames_selected), 3))
+    Positions_atoms_O3p = np.zeros((num_residues, len(frames_selected), 3))
+    Positions_atoms_C1p = np.zeros((num_residues, len(frames_selected), 3))
+    Positions_atoms_Nbs = np.zeros((num_residues, len(frames_selected), 3))
+    Positions_atoms_Cbs = np.zeros((num_residues, len(frames_selected), 3))
 
 
 
@@ -655,8 +588,8 @@ def precompute_backbone_nucleic_acids(u_traj, indices_na_pyrimidine, indices_na_
 
     # Iterate through selected frames and record positions
     previous_progress = -1
-    for k, frame in enumerate(times_indices):
-        previous_progress = plot_progress_bar(k, len(times_indices), previous_progress)
+    for k, frame in enumerate(frames_selected):
+        previous_progress = plot_progress_bar(k, len(frames_selected), previous_progress)
         u_traj.trajectory[frame]  # Set trajectory to the specific frame
 
         for i in range(num_residues):
@@ -673,7 +606,7 @@ def precompute_backbone_nucleic_acids(u_traj, indices_na_pyrimidine, indices_na_
             Positions_atoms_Cbs[i, k, :] = atom_Cbs_selections[i].positions
 
     # Complete progress bar
-    plot_progress_bar(len(times_indices), len(times_indices), previous_progress)
+    plot_progress_bar(len(frames_selected), len(frames_selected), previous_progress)
     logging.info("Positions of nucleic acids backbone atoms precomputed.")
 
     return Positions_atoms_P, Positions_atoms_O5p, Positions_atoms_C5p, Positions_atoms_O4p, Positions_atoms_C4p, Positions_atoms_C3p, Positions_atoms_O3p, Positions_atoms_C1p, Positions_atoms_Nbs, Positions_atoms_Cbs
@@ -706,48 +639,6 @@ def compute_histogram(data, y_min, y_max, delta_y):
     hist, bin_edges = np.histogram(data, bins=bins, density=True)
     return hist, bin_edges
 
-def compute_hist_tot(times, data, num_blocks, y_min, y_max, delta_y, time_zero_ps, size_block_ps):
-    #OBSOLETE FUNCTION
-    """
-    Computes block-averaged histograms over time.
-
-    Parameters:
-    - times (array): Time points corresponding to the data.
-    - data (array): Coordinate values over time.
-    - num_blocks (int): Number of time blocks to divide data into.
-    - y_min (float): Minimum bin edge.
-    - y_max (float): Maximum bin edge.
-    - delta_y (float): Bin width.
-    - time_zero_ps (float): Starting time for analysis.
-    - size_block_ps (float): Duration of each time block.
-
-    Returns:
-    - HIST_TOT (2D array): Histogram for each block.
-    - x (array): Bin centers.
-    - AVG (array): Average histogram across blocks.
-    - STD (array): Standard deviation of histogram across blocks.
-    """
-    bins = np.arange(y_min, y_max + delta_y, delta_y)
-    HIST_TOT = np.zeros((num_blocks, len(bins) - 1))
-
-    for i in range(num_blocks):
-        start_time = time_zero_ps + i * size_block_ps
-        end_time = start_time + size_block_ps
-
-        # Extract data for the current time block
-        block_data = data[(times >= start_time) & (times < end_time)]
-        
-        # Compute histogram for this block
-        hist, bin_edges = compute_histogram(block_data, y_min, y_max, delta_y)
-        HIST_TOT[i] = hist
-
-    # Compute bin centers
-    x = (bin_edges[:-1] + bin_edges[1:]) / 2
-    AVG = np.average(HIST_TOT, axis=0)
-    STD = np.std(HIST_TOT, axis=0)
-
-    return HIST_TOT, x, AVG, STD
-
 def compute_error_bars(STD, num_blocks, confidence_level=0.95):
     """
     Computes error bars using the t-distribution for a given confidence level.
@@ -764,60 +655,13 @@ def compute_error_bars(STD, num_blocks, confidence_level=0.95):
     t_value = t.ppf((1 + confidence_level) / 2, degrees_freedom)
     return t_value * (STD / np.sqrt(num_blocks))
 
-def get_avg_histogram(times, data, time_zero_ps, size_block_ps, coord_type,delta_y):
-    #OBSOLETE FUNCTION
-    """
-    Computes the average histogram and error bars for a coordinate type (e.g., distance, angle).
-
-    Parameters:
-    - times (array): Time points of the trajectory.
-    - data (array): Coordinate values.
-    - time_zero_ps (float): Starting time for analysis.
-    - size_block_ps (float): Size of each time block.
-    - coord_type (str): Type of coordinate ('distance' or 'angle').
-
-    Returns:
-    - data: Original data (unchanged).
-    - filtered_data: Copy of original data (currently same as data).
-    - x: Bin centers.
-    - AVG: Average histogram across blocks.
-    - error_bars: Error bars for each bin.
-    - delta_y: Bin width used.
-    - coord_type: Coordinate type (for labeling).
-    - xlabel: Label for plotting x-axis.
-    """
-    # Set histogram parameters based on coordinate type
-    if coord_type == 'distance':
-        xlabel = 'Distance (Å)'
-    elif coord_type == 'angle':
-        xlabel = 'Angle (°)'
-    else:
-        raise ValueError(f"Unsupported coordinate type: {coord_type}")
-
-    # Compute number of blocks
-    num_blocks = max(1,int((times[-1] - time_zero_ps) / size_block_ps))
-    validated_size_block_ps = int((times[-1] - time_zero_ps) / num_blocks)
-
-    y_max = max(data)
-    y_min = min(data)
-
-    # Compute histograms
-    HIST_TOT, x, AVG, STD = compute_hist_tot(times, data, num_blocks, y_min, y_max, delta_y,
-                                             time_zero_ps, validated_size_block_ps)
-
-    # Compute confidence intervals
-    error_bars = compute_error_bars(STD, num_blocks)
-
-    return x, AVG, error_bars, xlabel
-
-def get_histogram(times, data, time_zero_ps, coord_type,delta_y):
+def get_histogram(times, data, coord_type,delta_y):
     """
     Computes the histogram.
 
     Parameters:
     - times (array): Time points of the trajectory.
     - data (array): Coordinate values.
-    - time_zero_ps (float): Starting time for analysis.
     - coord_type (str): Type of coordinate ('distance' or 'angle').
 
     Returns:
@@ -1061,7 +905,6 @@ def plot_histogram(x, hist, x_smooth, y_smooth, xlabel, coordinate_name, minima,
 
 def discretize_coordinate(y, coordinate_type, times,coordinate_name, config, labels=None, selected_minima=None):
     
-    time_zero= config['time_zero']
     cutoff_npoints_discretization= config['cutoff_npoints_discretization']
     n_points_per_bin= config['n_points_per_bin']
     min_bin_size_distances= config['min_bin_size_distances']
@@ -1070,9 +913,6 @@ def discretize_coordinate(y, coordinate_type, times,coordinate_name, config, lab
     # Step 1: Smooth the coordinate distribution using KDE
     y_subset=y.copy()
     times_subset=times.copy()
-    index_time_zero=np.where(times>=time_zero)[0][0]
-    y_subset=y_subset[index_time_zero:]
-    times_subset=times_subset[index_time_zero:]
     n_points=len(y_subset)
     
 
@@ -1088,16 +928,12 @@ def discretize_coordinate(y, coordinate_type, times,coordinate_name, config, lab
         delta_y=min_bin_size_distances
     elif coordinate_type=='angle' and delta_y<min_bin_size_angles:
         delta_y=min_bin_size_angles
-    #logging.info(f"Using bin_size = {delta_y:.3f} for discretization of {coordinate_name}.")
 
     x_smooth, y_smooth = smooth_coordinate(y_subset, delta_y,config)
 
-    # Step 2: Compute the average histogram and error bars from raw data
-    #x, AVG, error_bars, xlabel = get_avg_histogram(
-    #    times_subset, y_subset, time_zero,  coordinate_type, delta_y
-    #)
+
     x,hist, xlabel = get_histogram(
-        times_subset, y_subset, time_zero, coordinate_type, delta_y
+        times_subset, y_subset, coordinate_type, delta_y
     )
 
     if labels is None and selected_minima is None:
@@ -1221,44 +1057,16 @@ def process_distance_pair(i, j, positions_important_atoms, important_atoms, sele
 
 ####################### Function to compute distances between important atoms for all residue pairs ##########################
 def compute_all_distances(important_atoms,selected_resids,positions_important_atoms,times,config):
-    """
-    Computes pairwise distances between all valid residue pairs based on their important atoms,
-    and processes each pair using a custom distance analysis function.
-
-    Parameters:
-    - important_atoms (list of lists): Names of important atoms for each residue.
-    - selected_resids (list): List of selected residue IDs.
-    - positions_important_atoms (np.ndarray): 3D array of precomputed positions of important atoms.
-      Shape: (total_important_atoms, num_frames, 3).
-    - times (np.ndarray): Array of times corresponding to selected frames.
-    - time_zero (float): Reference time used for distance analysis.
-    - delta_resid (int): Minimum residue index separation; avoids comparing too-close residues.
-    - cutoff_distance (float): Distance threshold for further analysis.
-    - prominence (float): Prominence parameter for minima detection in discretization.
-    - output (file-like or handle): Destination for saving results.
-    - output_dir (str): Directory where output files will be written.
-    - cutoff_npoints_discretization (int): Maximum number of points to use for discretization.
-    - n_points_per_bin (int): Number of points per bin for histogram discretization.
-
-    Returns:
-    - None (results are saved to files via `process_distance_pair`)
-
-    Behavior:
-    - Iterates over all valid residue index pairs `(i, j)` where `j >= i + delta_resid`.
-    - For each pair, calls `process_distance_pair` to compute and process distances.
-    - A progress bar is shown during processing.
-    """
-    delta_resid = config['delta_resid']
     num_residues = len(selected_resids)
-    total_combinations = num_residues * (num_residues - delta_resid) / 2  # total number of pairs
+    total_combinations = num_residues * (num_residues - 1) / 2  # total number of pairs
     count_step = 0
 
     logging.info("\nComputing distances...")
 
     # Iterate over all valid residue pairs
     previous_progress = -1  # Initialize progress bar
-    for i in range(num_residues - delta_resid):
-        for j in range(i + delta_resid, num_residues):
+    for i in range(num_residues - 1):
+        for j in range(i + 1, num_residues):
             # Update progress bar
             previous_progress=plot_progress_bar(count_step, total_combinations, previous_progress)
             count_step += 1
@@ -1275,11 +1083,11 @@ def compute_all_distances(important_atoms,selected_resids,positions_important_at
 def precompute_all_positions(u_traj, important_atoms, selected_resids,indices_aa,indices_na_pyrimidine,indices_na_purine, config):
     output_dir = config['output_dir']
     # Load time points and frame indices previously filtered and saved
-    times = np.load(output_dir + 'discretizing_npy/times.npy')
-    times_indices = np.load(output_dir + 'discretizing_npy/times_indices.npy')
+    times = np.load(output_dir + 'discretizing_npy/times_selected.npy')
+    frames_selected = np.load(output_dir + 'discretizing_npy/frames_selected.npy')
 
     # Precompute important atom positions across trajectory
-    positions_important_atoms = precompute_terminals(u_traj, important_atoms, selected_resids, times_indices)
+    positions_important_atoms = precompute_important(u_traj, important_atoms, selected_resids, frames_selected)
 
     # Save precomputed positions to disk
     save_positions(positions_important_atoms, output_dir + "discretizing_npy/positions_important_atoms.npy")
@@ -1287,7 +1095,7 @@ def precompute_all_positions(u_traj, important_atoms, selected_resids,indices_aa
     if len(indices_aa)!=0:
         # Precompute backbone atom positions (N, C, and CA atoms)
         Positions_atoms_C, Positions_atoms_N, Positions_atoms_CA = precompute_backbone_protein(
-            u_traj, indices_aa, times_indices
+            u_traj, indices_aa, frames_selected
         )
 
         # Save backbone atom positions to disk for future use
@@ -1299,7 +1107,7 @@ def precompute_all_positions(u_traj, important_atoms, selected_resids,indices_aa
     if len(indices_na_pyrimidine) != 0 or len(indices_na_purine) != 0 : 
         # Precompute backbone atom positions (N, C, and CA atoms)
         Positions_atoms_P, Positions_atoms_O5p, Positions_atoms_C5p, Positions_atoms_O4p, Positions_atoms_C4p, Positions_atoms_C3p, Positions_atoms_O3p, Positions_atoms_C1p, Positions_atoms_Nbs, Positions_atoms_Cbs = precompute_backbone_nucleic_acids(
-            u_traj, indices_na_pyrimidine, indices_na_purine, times_indices
+            u_traj, indices_na_pyrimidine, indices_na_purine, frames_selected
         )   
 
         # Save backbone atom positions to disk for future use
@@ -1322,8 +1130,8 @@ def get_contacts(u_traj, important_atoms, selected_resids, config):
     output_dir = config['output_dir']
 
     # Load time points and frame indices previously filtered and saved
-    times = np.load(output_dir + 'discretizing_npy/times.npy')
-    times_indices = np.load(output_dir + 'discretizing_npy/times_indices.npy')
+    times = np.load(output_dir + 'discretizing_npy/times_selected.npy')
+    frames_selected = np.load(output_dir + 'discretizing_npy/frames_selected.npy')
 
     # Positions of important atoms
     positions_important_atoms = np.load(output_dir + "discretizing_npy/positions_important_atoms.npy")
@@ -1546,8 +1354,8 @@ def get_dihedrals_protein(u_traj, indices_aa, config):
         return
     output_dir = config['output_dir']
     # Load time values and their corresponding frame indices
-    times = np.load(output_dir + 'discretizing_npy/times.npy')
-    times_indices = np.load(output_dir + 'discretizing_npy/times_indices.npy')
+    times = np.load(output_dir + 'discretizing_npy/times_selected.npy')
+    frames_selected = np.load(output_dir + 'discretizing_npy/frames_selected.npy')
 
     # Load precomputed backbone atom positions (N, C, and CA atoms)
     Positions_atoms_C =np.load( output_dir + "discretizing_npy/Positions_C_atoms.npy")
@@ -1566,8 +1374,8 @@ def get_dihedrals_nucleic_acids(u_traj, indices_na_pyrimidine,indices_na_purine,
         return
     
     # Load time values and their corresponding frame indices
-    times = np.load(output_dir + 'discretizing_npy/times.npy')
-    times_indices = np.load(output_dir + 'discretizing_npy/times_indices.npy')
+    times = np.load(output_dir + 'discretizing_npy/times_selected.npy')
+    frames_selected = np.load(output_dir + 'discretizing_npy/frames_selected.npy')
 
     # Load precomputed backbone atom positions
     Positions_atoms_P = np.load( output_dir + "discretizing_npy/Positions_P_atoms.npy")
@@ -1634,16 +1442,12 @@ def add_coordinates(config):
 def get_discretized_array(config):
     # Load coordinate names, discretization cutoffs, and corresponding labels
     output_dir = config['output_dir']
-    time_zero = config['time_zero']
     coordinates, X_cuts, Labels = load_data_discretization(config)
 
     # Load time information from the first coordinate file (assumes all coordinates share the same time points)
-    times = np.load(output_dir + 'discretizing_npy/times.npy')
-    times_indices = np.load(output_dir + 'discretizing_npy/times_indices.npy')
+    frames_selected = np.load(output_dir + 'discretizing_npy/frames_selected.npy')
 
-    index_time_zero=np.where(times>=time_zero)[0][0]
-    frames_to_save_indices = times_indices[index_time_zero:]
-    nframes_to_save = len(frames_to_save_indices)
+    nframes_to_save = len(frames_selected)
     # Initialize output array to store discrete labels for each frame and coordinate
     data_discretized = np.zeros((nframes_to_save, len(coordinates)), dtype=int)
 
@@ -1655,17 +1459,17 @@ def get_discretized_array(config):
         data_coord = open_data_coordinate(output_dir + "coordinates_data/" + coordinates[i] + ".dat")
 
         # Loop over all frames
-        for f in frames_to_save_indices:
+        for f in range (len(frames_selected)):
             # Compare the current data value to discretization thresholds
             for c in range(len(X_cuts[i])):
                 # If the value is less than the current cutoff, assign the corresponding label
                 if data_coord[f, 1] < X_cuts[i][c]:
-                    data_discretized[f-frames_to_save_indices[0], i] = Labels[i][c]
+                    data_discretized[f, i] = Labels[i][c]
                     break  # Stop checking more bins once a match is found
 
                 # If value is larger than all cuts, assign the last label
                 if c == len(X_cuts[i]) - 1:
-                    data_discretized[f-frames_to_save_indices[0], i] = Labels[i][-1]
+                    data_discretized[f, i] = Labels[i][-1]
 
     logging.info("Discretization completed.")
 
@@ -1966,60 +1770,6 @@ def get_rajski_distance(config):
 
 
 ######################### Function to cluster using Advanced Density Peaks ##########################
-def density_peaks_clustering(distance_matrix, Z_parameter=1.65, halo_parameter=0):
-    """
-    Applies Density Peaks Clustering (ADP version) on a precomputed distance matrix.
-
-    Parameters
-    ----------
-    distance_matrix : np.ndarray of shape (n_samples, n_samples)
-        Symmetric pairwise distance matrix between conformations or data points.
-    
-    Z_parameter : float, default=1.65
-        Confidence level for the clustering decision threshold (used in ADP).
-        Typical values: 1.65 (≈ 95% confidence), 2.0 (≈ 97.5%), etc.
-
-    halo_parameter : int, default=0
-        If set to 1, identifies border points (halo) around clusters.
-
-    Returns
-    -------
-    cluster_labels : np.ndarray of shape (n_samples,)
-        Array of integer cluster labels for each data point.
-    """
-
-    # Get the number of data points (states/conformations)
-    n_states = np.shape(distance_matrix)[0]
-    eps = 1e-12
-    distance_matrix = distance_matrix.copy()
-    distance_matrix[distance_matrix == 0.0] = eps
-    np.fill_diagonal(distance_matrix, 0.0)
-
-    # Dummy coordinates (not used, but required by DADApy's Data object)
-    x_dummy = np.zeros((n_states, 2), dtype=float)
-  
-    # Create a buffer to capture stdout
-    buf = io.StringIO()
-    # Redirect stdout/stderr to the buffer
-    with redirect_stdout(buf), redirect_stderr(buf):
-        import dadapy
-        data = dadapy.Data(coordinates=x_dummy, distances=distance_matrix, verbose=True)
-        data.compute_id_2NN()
-        data.compute_density_PAk()
-        data.compute_clustering_ADP_pure_python(Z=Z_parameter, halo=bool(halo_parameter))
-
-
-
-    # Log the captured output
-    output = buf.getvalue()
-    if output.strip():
-        logging.info("[DADApy output]\n" + output.strip())
-
-    # Return cluster labels
-    cluster_labels = data.cluster_assignment
-
-    return cluster_labels
-
 def hdbscan_clustering(distance_matrix, min_cluster_size=5, min_samples=5, cluster_selection_epsilon=0.0):
     """
     Applies HDBSCAN clustering on a precomputed distance matrix.
@@ -2051,7 +1801,7 @@ def hdbscan_clustering(distance_matrix, min_cluster_size=5, min_samples=5, clust
 
     return cluster_labels
 
-def yacare_clustering(distance_matrix,function_for_ratio=2,threshold_variable=0.5,amount_of_noise=0.0,keep_no_noise=1,size_moving_square=10.0):
+def yacare_clustering(distance_matrix, threshold_variable=0.5,amount_of_noise=0.0,keep_no_noise=1,size_moving_square=10.0):
     # Create a buffer to capture stdout
     buf = io.StringIO()
 
@@ -2071,11 +1821,11 @@ def yacare_clustering(distance_matrix,function_for_ratio=2,threshold_variable=0.
         variables.project_name = 'temp_yacare_clustering_CASIMODO'
         variables.show_images = show_images
         variables.save_images = save_images
-        variables.function_for_ratio = function_for_ratio
+        variables.function_for_ratio = 2
         
         yacare.perform_first_reordering(variables, percentage_moving_square = percentage_moving_square, vmax = -1)
 
-        yacare.find_optimal_cutoff(variables, minimal_size_cluster = minimal_size_cluster, use_all_cutoff = True, function_for_ratio = function_for_ratio)
+        yacare.find_optimal_cutoff(variables, minimal_size_cluster = minimal_size_cluster, use_all_cutoff = True, function_for_ratio = 2)
         
         yacare.find_final_clusters(variables, vmax=-1)
         
@@ -2165,9 +1915,7 @@ def kmeans_clustering(data, n_clusters=3, random_state=0):
     return kmeans.labels_
 
 def cluster_distances(distance_matrix, method_clustering, parameters_clustering) :
-    if method_clustering == 'advanced_density_peaks':
-        cluster_labels = density_peaks_clustering(distance_matrix, *parameters_clustering)
-    elif method_clustering == 'hdbscan':
+    if method_clustering == 'hdbscan':
         cluster_labels = hdbscan_clustering(distance_matrix, *parameters_clustering)
     elif method_clustering == 'yacare':
         cluster_labels = yacare_clustering(distance_matrix, *parameters_clustering)
@@ -2466,7 +2214,7 @@ def compute_distances_between_states(states,config):
         distances.append(dist_matrix)
     return distances
 
-def extract_frames_from_labels(clusters_data, unique_states_clusters, all_clusters_labels, times_indices, proba_clusters, config):
+def extract_frames_from_labels(clusters_data, unique_states_clusters, all_clusters_labels, frames_selected, proba_clusters, config):
     logging.info("Extracting frames from states...")
 
     frames_by_clusters = []
@@ -2490,18 +2238,18 @@ def extract_frames_from_labels(clusters_data, unique_states_clusters, all_cluste
         n_states_i = len(unique_states_clusters[i])
         batch=int(1e8/ n_states_i)  # Adjust batch size based on number of unique states
         previous_progress = -1
-        for start_shift in range(0, len(times_indices), batch):
-            previous_progress = plot_progress_bar(start_shift, len(times_indices), previous_progress)
+        for start_shift in range(0, len(frames_selected), batch):
+            previous_progress = plot_progress_bar(start_shift, len(frames_selected), previous_progress)
             start= start_shift
-            end = min(start + batch, len(times_indices))
+            end = min(start + batch, len(frames_selected))
             batch_states = clusters_data[i][start:end]  # Shape: (batch_size, n_coords)
             dists = np.sum(batch_states[:, None, :] != unique_states_clusters[i][None, :, :], axis=2)  # Shape: (batch_size, n_states_i)
             closest_indices = np.argmin(dists, axis=1)  # Shape: (batch_size,)
             for t_offset, index_state in enumerate(closest_indices):
                 t = start + t_offset
                 label_index = list(unique_labels).index(cluster_labels[index_state])
-                frames_conformations[label_index].append(times_indices[t])
-        previous_progress = plot_progress_bar(len(times_indices), len(times_indices), previous_progress)
+                frames_conformations[label_index].append(frames_selected[t])
+        previous_progress = plot_progress_bar(len(frames_selected), len(frames_selected), previous_progress)
         frames_by_clusters.append(frames_conformations)
         
          # Check if there are enough conformations with high probability
@@ -2696,7 +2444,7 @@ def write_conformations_to_file(all_cluster_labels,most_probable_states, proba_m
 ######################### Function to extract conformations from clusters ##########################
 def get_conformations_from_clusters(u_traj,selected_resids,config):
     output_dir = config['output_dir']
-    time_zero = config['time_zero']
+
     method_clustering_conformations = config['method_clustering_conformations']
     parameters_clustering_conformations = config['parameters_clustering_conformations']
     cluster_of_coordinates_to_process = config['cluster_of_coordinates_to_process']
@@ -2704,10 +2452,8 @@ def get_conformations_from_clusters(u_traj,selected_resids,config):
     cutoff_proba_conformations = config['cutoff_proba_conformations']
     split_trajectory = config['split_trajectory']
 
-    times_indices = np.load(output_dir + "discretizing_npy/times_indices.npy")  # Load time indices for frames
-    times = np.load(output_dir + "discretizing_npy/times.npy")  # Load time values for frames
-    index_time_zero = np.where(times >= time_zero)[0][0]
-    times_indices = times_indices[index_time_zero:]  # Adjust time indices based on time_zero
+    frames_selected = np.load(output_dir + "discretizing_npy/frames_selected.npy")  # Load time indices for frames
+
     # Load top-level cluster assignments
     cluster_labels = np.load(os.path.join(output_dir, "analysis_npy", "cluster_labels.npy"))
 
@@ -2794,7 +2540,7 @@ def get_conformations_from_clusters(u_traj,selected_resids,config):
     logging.info("Conformations written to file.")
 
     # Extract original frame indices from final conformation labels
-    frames_by_clusters = extract_frames_from_labels(clusters_data, unique_states_clusters, all_clusters_labels, times_indices,proba_clusters,config)
+    frames_by_clusters = extract_frames_from_labels(clusters_data, unique_states_clusters, all_clusters_labels, frames_selected,proba_clusters,config)
 
     # Optionally split trajectory files for each conformation cluster
     if split_trajectory:
@@ -2804,13 +2550,12 @@ def get_conformations_from_clusters(u_traj,selected_resids,config):
 def plot_conformations_as_function_of_time(config):
     logging.info("\nPlotting conformations as a function of time...")
     output_dir = config['output_dir']
-    time_zero = config['time_zero']
     extension_plots = config['extension_plots']
     resolution_plots = config['resolution_plots']
-    times = np.load(output_dir + "discretizing_npy/times.npy")  # Load time points
-    frame_zero = np.where(times >= time_zero)[0][0]
-    times = times[frame_zero:]  # Adjust times based on time_zero
-    n_frames = len(times)
+    times_selected = np.load(output_dir + "discretizing_npy/times_selected.npy")  # Load time points
+    frames_selected = np.load(output_dir + "discretizing_npy/frames_selected.npy")  # Load frame indices corresponding to time points
+
+    n_frames = len(times_selected)
     cluster_labels = np.load(os.path.join(output_dir, "analysis_npy", "cluster_labels.npy"))
     unique_labels = np.unique(cluster_labels)
     unique_labels = unique_labels[unique_labels != -1]  # Exclude noise label (-1)
@@ -2829,7 +2574,7 @@ def plot_conformations_as_function_of_time(config):
                 index_conformation = int(data_ndx[j][1].split('_')[1])
             elif len(data_ndx[j])>0 :
                 for f in data_ndx[j] :
-                    conformation_by_frame[int(f)-frame_zero] = index_conformation
+                    conformation_by_frame[int(f)-frames_selected[0]] = index_conformation
         conformations_by_cluster.append(conformation_by_frame)
 
     # Plotting
@@ -2844,7 +2589,7 @@ def plot_conformations_as_function_of_time(config):
 
     conformations_by_cluster_colored =np.copy(conformations_by_cluster)
     # X-axis uses real times
-    extent = [float(times[0]), float(times[-1]), 0, num_clusters]
+    extent = [float(times_selected[0]), float(times_selected[-1]), 0, num_clusters]
     values_by_conformation = {}
     for i in range(num_clusters):
         values_by_conformation[i] = {}
