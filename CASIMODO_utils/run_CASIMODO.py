@@ -17,22 +17,22 @@ def parse_arguments():
     parser.add_argument('--step_to_perform', type=str, default='all', choices=['all','discretize_coordinates','cluster_coordinates','get_conformations','plot_conformations_time'] , help='Step to perform in the pipeline')
 
     parser.add_argument('--topol_file', type=str, required=True, help='Path to topology file')
-    parser.add_argument('--trj_file', type=str, required=True, help='Path to trajector/y file')
-    parser.add_argument('--dic_file', type=str, default='dic_important_atoms_protein.txt', help='Path to important atoms dictionary')
-    parser.add_argument('--output_directory', type=str, default='results/', help='Output directory')
+    parser.add_argument('--trj_file', type=str, required=True, help='Path to trajectory file')
+    parser.add_argument('--dic_file', type=str, required=True, help='Path to important atoms dictionary')
+    parser.add_argument('--output_directory', type=str, default='results_CASIMODO/', help='Output directory')
     
 
     parser.add_argument('--time_zero', type=float, default=0., help='Time (ps) to start analysis')
-    parser.add_argument('-dt', '--delta_time', type=float, default=1.0, help='Time (ps) between frames to consider')
+    parser.add_argument('-dt', '--delta_time', type=float, default=0.0, help='Time (ps) between frames to consider')
 
-    parser.add_argument('--cutoff_distance', type=int, default=5, help='Distance cutoff (A) to define contact')
-    parser.add_argument('--proba_under_cutoff_distance', type=float, default=0.01, help='Probability cutoff for filtering contacts')
+    parser.add_argument('--cutoff_distance', type=int, default=5, help='Distance cutoff (A) to consider distances in the analysis')
+    parser.add_argument('--proba_under_cutoff_distance', type=float, default=0.01, help='Probability cutoff to consider distances in the analysis')
     
-    parser.add_argument('--prominence', type=float, default=0.01, help='Prominence for minima detection in discretization')
-    parser.add_argument('--smooth_factor', type=float, default=10.0, help='Smoothing factor for discretization larger values mean KDE closer to histogram')
-    parser.add_argument('--n_points_per_bin', type=int, default=1000, help='Number of points per bin for histogram discretization')
-    parser.add_argument('--min_bin_size_distances', type=float, default=0.05, help='Minimum distance between bins in discretization in Angstroms')
-    parser.add_argument('--min_bin_size_angles', type=float, default=0.5, help='Minimum distance between bins in discretization in degrees')
+    parser.add_argument('--prominence', type=float, default=0.025, help='Prominence for minima detection in discretization')
+    parser.add_argument('--smooth_factor', type=float, default=10, help='Smoothing factor for determining bin size for KDE')
+    parser.add_argument('--n_points_per_bin', type=int, default=500, help='Number of points per bin for computing histograms')
+    parser.add_argument('--min_bin_size_distances', type=float, default=0.1, help='Minimum size of bins in histograms for distance-based coordinates in A')
+    parser.add_argument('--min_bin_size_angles', type=float, default=1.0, help='Minimum size of bins in histograms for angle-based coordinates in °')
     
     parser.add_argument('--cutoff_npoints_discretization', type=int, default=100000, help='Maximum number of points to use for discretization')
 
@@ -48,11 +48,11 @@ def parse_arguments():
     parser.add_argument('--parameters_clustering_conformations', nargs='*', type=float, default=[3.0, 0], help='Parameters for clustering conformations (e.g., Z_parameter and halo_parameter)')
     parser.add_argument('--cluster_of_coordinates_to_process', type=int, default=-1, help='Index of the cluster of coordinates to process (default: -1 for all clusters)')
 
-    parser.add_argument('--minimal_size_to_cluster', type=int, default=20, help='Minimal size to perform clustering (if number of states is below this value, no clustering is performed)')
+    parser.add_argument('--minimal_size_to_cluster', type=int, default=10, help='Minimal size to perform clustering (if number of states is below this value, no clustering is performed)')
 
-    parser.add_argument('--cutoff_len_states', type=int, default=100000, help='Cutoff for the number of states to consider in clustering states')
+    parser.add_argument('--cutoff_len_states', type=int, default=50000, help='Cutoff for the number of states to consider in clustering states')
 
-    parser.add_argument('--cutoff_proba_conformations', type=float, default=0.001, help='Probability cutoff for conformations extraction')
+    parser.add_argument('--cutoff_proba_conformations', type=float, default=0.0, help='Probability cutoff for conformations extraction')
     parser.add_argument('--split_trajectory', type=int, default=1, choices=[0, 1], help='Whether to split the trajectory by conformations (1 for True, 0 for False)')
 
     parser.add_argument('--coordinates_to_add', nargs='*', default=[], help='List of additional coordinate files')
