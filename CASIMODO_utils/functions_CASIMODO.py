@@ -1987,13 +1987,13 @@ def plot_clustering_results(config,dist_matrix,cluster_labels, output_dir, outpu
     
 
 #################### Function to extract the coordinates in each cluster ##########################
-def write_clusters_to_file(clusters_ndx, coordinates, output_dir, name_output_cluster):
+def write_clusters_to_file(clusters_ndx,corresponding_labels, coordinates, output_dir, name_output_cluster):
 
     logging.info("\nWriting clusters to file...")
     with open(output_dir + name_output_cluster, 'w') as file_out:
         for i, cluster_i in enumerate(clusters_ndx):
-            
-            if i != len(clusters_ndx) - 1:
+            label_i=corresponding_labels[i]
+            if label_i != -1:
                 file_out.write(f'[ Cluster{i} ]\n')
             else:
                 file_out.write(f'[ Noise ]\n')
@@ -2084,18 +2084,21 @@ def cluster_coordinates(config):
 
     # Extract clusters and write to file
     clusters_ndx = []
-    
+    corresponding_labels=[]
+
     noise_ndx = np.where(cluster_labels == -1)[0]  # Indices of noise points
     for label in np.unique(cluster_labels):
         if label == -1:  # Noise points
             continue
         cluster_indices = np.where(cluster_labels == label)[0]
         clusters_ndx.append(cluster_indices)    
+        corresponding_labels.append(label)
     # Add noise points as a separate cluster
     if len(noise_ndx) > 0:
         clusters_ndx.append(noise_ndx)
+        corresponding_labels.append(-1)
     # Write clusters to file
-    write_clusters_to_file(clusters_ndx, coordinates, output_dir, "clusters_of_coordinates.txt")
+    write_clusters_to_file(clusters_ndx,corresponding_labels, coordinates, output_dir, "clusters_of_coordinates.txt")
     # Get resids in clusters and write to file
     coordinates_to_add=config['coordinates_to_add']
     name_coordinates_to_add = [coord.split('/')[-1].split('.')[0] for coord in coordinates_to_add]
