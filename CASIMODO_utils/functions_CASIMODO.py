@@ -1801,7 +1801,7 @@ def hdbscan_clustering(distance_matrix, min_cluster_size=5, min_samples=5, clust
 
     return cluster_labels
 
-def yacare_clustering(distance_matrix, threshold_variable=0.5,amount_of_noise=0.0,keep_no_noise=1,size_moving_square=10.0):
+def yacare_clustering(distance_matrix,minimal_size_cluster=10, threshold_variable=0.5,amount_of_noise=0.0,keep_no_noise=1,size_moving_square=10.0):
     # Create a buffer to capture stdout
     buf = io.StringIO()
 
@@ -1812,7 +1812,6 @@ def yacare_clustering(distance_matrix, threshold_variable=0.5,amount_of_noise=0.
         save_images = False
         show_images = False
         percentage_moving_square = size_moving_square*100.0 / distance_matrix.shape[0]  # Percentage of moving square for reordering
-        minimal_size_cluster = 2*100/distance_matrix.shape[0]
         choice_merging_clusters = 3
         keep_no_noise = bool(keep_no_noise)  # Convert to boolean
 
@@ -2093,7 +2092,8 @@ def cluster_coordinates(config):
         cluster_indices = np.where(cluster_labels == label)[0]
         clusters_ndx.append(cluster_indices)    
     # Add noise points as a separate cluster
-    clusters_ndx.append(noise_ndx)
+    if len(noise_ndx) > 0:
+        clusters_ndx.append(noise_ndx)
     # Write clusters to file
     write_clusters_to_file(clusters_ndx, coordinates, output_dir, "clusters_of_coordinates.txt")
     # Get resids in clusters and write to file
