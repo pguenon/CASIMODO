@@ -45,7 +45,7 @@ delta_time=0.0
 # 'hdbscan': (min_cluster_size min_samples cluster_selection_epsilon) - min_cluster_size is the minimum size of clusters, min_samples is a threshold parameter, the larger it is, the more points will be considered as noise, cluster_selection_epsilon is a distance threshold for merging clusters (default 0.0)
 # 'yacare': (threshold_variable amount_of_noise keep_no_noise size_moving_square) - threshold_variable is a threshold variable, the smaller it is, the purer the clusters will be, amount_of_noise indicates the amount of data to recover from noise, keep_no_noise is a boolean indicating whether to consider noise for clustering (0 for noise, 1 for no noise), size_moving_square is the size of the moving square for the algorithm in percent
 # 'ward': (threshold) - the smaller the threshold, the more clusters will be defined
-#'k-means': (n_clusters) - number of clusters to define
+# 'k-means': (n_clusters) - number of clusters to define
 
 # Parameters for performing clustering of the coordinates
 # Method for clustering coordinates (options: 'hdbscan', 'yacare')

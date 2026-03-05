@@ -32,7 +32,7 @@ matplotlib.use('Agg')
 
 
 ###################### INITIATE LOGGING #####################
-def initiate_logging(config):
+def initiate_logging(config,basename='casimodo'):
     """
     Initializes logging to a file in the specified output directory.
 
@@ -47,7 +47,7 @@ def initiate_logging(config):
     output_dir = config['output_dir']
     cluster_of_coordinates_to_process = config['cluster_of_coordinates_to_process']
     if step_to_perform == 'all':
-        log_file = os.path.join(output_dir, 'casimodo.log')
+        log_file = os.path.join(output_dir, f'{basename}.log')
         logging.basicConfig(
             filename=log_file,
             level=logging.INFO,
@@ -58,7 +58,7 @@ def initiate_logging(config):
         logging.info("Start time: %s", now.strftime("%Y-%m-%d %H:%M:%S"))
 
     elif step_to_perform == "discretize_coordinates" :
-        log_file = os.path.join(output_dir, 'casimodo_rediscretize_coordinates.log')
+        log_file = os.path.join(output_dir, f'{basename}_rediscretize_coordinates.log')
         logging.basicConfig(
             filename=log_file,
             level=logging.INFO,
@@ -69,7 +69,7 @@ def initiate_logging(config):
         logging.info("Start time: %s", now.strftime("%Y-%m-%d %H:%M:%S"))
     
     elif step_to_perform == "cluster_coordinates" :
-        log_file = os.path.join(output_dir, 'casimodo_recluster_coordinates.log')
+        log_file = os.path.join(output_dir, f'{basename}_recluster_coordinates.log')
         logging.basicConfig(
             filename=log_file,
             level=logging.INFO,
@@ -80,9 +80,9 @@ def initiate_logging(config):
         logging.info("Start time: %s", now.strftime("%Y-%m-%d %H:%M:%S"))
     
     elif step_to_perform == "get_conformations" :
-        log_file = os.path.join(output_dir, 'casimodo_recluster_conformations.log')
+        log_file = os.path.join(output_dir, f'{basename}_recluster_conformations.log')
         if cluster_of_coordinates_to_process >=0:
-            log_file = os.path.join(output_dir, f'casimodo_recluster_conformations_cluster_{cluster_of_coordinates_to_process}.log')
+            log_file = os.path.join(output_dir, f'{basename}_recluster_conformations_cluster_{cluster_of_coordinates_to_process}.log')
         logging.basicConfig(
             filename=log_file,
             level=logging.INFO,
@@ -93,7 +93,7 @@ def initiate_logging(config):
         logging.info("Start time: %s", now.strftime("%Y-%m-%d %H:%M:%S"))
     
     elif step_to_perform == "plot_conformations_time" :
-        log_file = os.path.join(output_dir, 'casimodo_plot_conformations_time.log')
+        log_file = os.path.join(output_dir, f'{basename}_plot_conformations_time.log')
         logging.basicConfig(
             filename=log_file,
             level=logging.INFO,
@@ -104,7 +104,7 @@ def initiate_logging(config):
         logging.info("Start time: %s", now.strftime("%Y-%m-%d %H:%M:%S"))
 
     else :
-        log_file = os.path.join(output_dir, 'casimodo.log')
+        log_file = os.path.join(output_dir, f'{basename}.log')
         logging.basicConfig(
             filename=log_file,
             level=logging.INFO,
@@ -118,8 +118,8 @@ def initiate_logging(config):
 
 
 ###################### PRINT LOGO #####################
-def print_header():
-    with open("CASIMODO_utils/header_casimodo.txt", encoding="utf-8") as f:
+def print_header(header_file="CASIMODO_utils/header_casimodo.txt"):
+    with open(header_file, encoding="utf-8") as f:
         header = f.read()
     logging.info(header)
 
@@ -215,12 +215,10 @@ def open_data_coordinate(namefile):
         data = np.loadtxt(f)
     return data
 
-def load_data_discretization(config):
-    output_dir = config['output_dir']
-    output_selected_coordinates = output_dir + "selected_coordinates.txt"
+def load_data_discretization(namefile):
 
     # Read file content (assumes open_file returns parsed data and raw lines)
-    data_discretization, lines_discretization = open_file(output_selected_coordinates)
+    data_discretization, lines_discretization = open_file(namefile)
 
     coordinates = [row[0] for row in data_discretization if len(row) >= 1 and row[0][0] != '#']
     X_cuts = []  # To hold lists of cut points for each coordinate
@@ -424,6 +422,47 @@ def save_important_atoms(important_atoms, selected_resids, selected_resnames, in
             f.write(f'{resid}   {type_res}   {atom}   {tag}\n')
         f.close()
     logging.info("Important atoms saved to file.")
+
+def load_important_atoms(config):
+    output_dir = config['output_dir']
+    file_important_atoms = output_dir + 'important_atoms.txt'
+    important_atoms = []
+    selected_resids = []
+    selected_resnames = []
+    indices_aa = []
+    indices_na_pyrimidine = []
+    indices_na_purine = []
+    data, lines_file = open_file(file_important_atoms)
+    for row in data:
+        if len(row) >= 3 :
+            resid =int(row[0])
+            resname = row[1]
+            selected_resids.append(resid)
+            selected_resnames.append(resname)
+            atoms=[]
+            first_column_atom = 2
+            last_column_atom = 2
+            tag=''
+            while last_column_atom < len(row) and row[last_column_atom][-1] != ']':
+                last_column_atom += 1
+            for i in range(first_column_atom, last_column_atom + 1):
+                atom_i = row[i]
+                if i > first_column_atom:
+                    atom_i = atom_i[1:-2]
+                else :
+                    atom_i = atom_i[2:-2]
+                atoms.append(atom_i)
+            
+            important_atoms.append(atoms)
+            if last_column_atom < len(row) - 1:
+                tag = row[last_column_atom + 1]
+                if tag == 'AA':
+                    indices_aa.append(resid)
+                elif tag == 'NA_pyrimidine':
+                    indices_na_pyrimidine.append(resid)
+                elif tag == 'NA_purine':
+                    indices_na_purine.append(resid)
+    return important_atoms, selected_resids, selected_resnames, indices_aa, indices_na_pyrimidine, indices_na_purine
 
 
 ############################## PRECOMPUTE POSITIONS OF ATOMS ##################
@@ -1080,11 +1119,13 @@ def compute_all_distances(important_atoms,selected_resids,positions_important_at
     logging.info("Distances computed and saved.")
 
 ########################### Precompute important atom positions ##############################
-def precompute_all_positions(u_traj, important_atoms, selected_resids,indices_aa,indices_na_pyrimidine,indices_na_purine, config):
+def precompute_all_positions(u_traj, config):
     output_dir = config['output_dir']
     # Load time points and frame indices previously filtered and saved
     times = np.load(output_dir + 'discretizing_npy/times_selected.npy')
     frames_selected = np.load(output_dir + 'discretizing_npy/frames_selected.npy')
+
+    important_atoms, selected_resids, indices_aa, indices_na_pyrimidine, indices_na_purine = load_important_atoms(config)
 
     # Precompute important atom positions across trajectory
     positions_important_atoms = precompute_important(u_traj, important_atoms, selected_resids, frames_selected)
@@ -1126,8 +1167,10 @@ def precompute_all_positions(u_traj, important_atoms, selected_resids,indices_aa
 
 
 ########################## Function to get the multimodal contacts ################################
-def get_contacts(u_traj, important_atoms, selected_resids, config):
+def get_contacts(u_traj, config):
     output_dir = config['output_dir']
+
+    important_atoms, selected_resids, indices_aa, indices_na_pyrimidine, indices_na_purine = load_important_atoms(config)
 
     # Load time points and frame indices previously filtered and saved
     times = np.load(output_dir + 'discretizing_npy/times_selected.npy')
@@ -1146,14 +1189,17 @@ def load_adjustments_angles(output_dir):
     data_adjustement,lines_file_adjustement= open_file(output_data_adjustement)
     angle_names_adjusted=[]
     angle_values_adjusted=[]
+    cycle_corrections=[]
     for i in range(len(data_adjustement)):
-        if lines_file_adjustement[i].startswith('#'):
+        if len(data_adjustement[i])<1 or data_adjustement[i][0].startswith('#'):
             continue
         coord_adjusted= data_adjustement[i][0]
         angle_adjusted= float(data_adjustement[i][1])
+        cycle_correction = int(data_adjustement[i][2])
         angle_names_adjusted.append(coord_adjusted)
         angle_values_adjusted.append(angle_adjusted)
-    return angle_names_adjusted,angle_values_adjusted
+        cycle_corrections.append(cycle_correction)
+    return angle_names_adjusted,angle_values_adjusted,cycle_corrections
     
 
 def adjust_angle_data(name_angle, data, y_min, y_max, delta_y, config):
@@ -1162,32 +1208,41 @@ def adjust_angle_data(name_angle, data, y_min, y_max, delta_y, config):
     if not os.path.exists(output_data_adjustement):
         with open(output_data_adjustement, 'w') as f:
             f.write('#Coordinate_name  Angle_to_put_periodicity \n')
-    angle_names_adjusted,angle_values_adjusted = load_adjustments_angles(output_dir)
+    angle_names_adjusted,angle_values_adjusted,cycle_corrections = load_adjustments_angles(output_dir)
+    cycle_correction=0
+    
     if name_angle in angle_names_adjusted:
         index_adjusted= angle_names_adjusted.index(name_angle)
         angle_to_adjust= angle_values_adjusted[index_adjusted]
+        cycle_correction= cycle_corrections[index_adjusted]
 
     else : 
         # Wrap data to [0, 360)
-        data = np.asarray(data) % 360
+        data_wrapped = np.asarray(data) % 360
         # Sort angles once — O(N log N)
-        sorted_data = np.sort(data)
-        n = len(sorted_data)
+        sorted_data = np.sort(data_wrapped)
+        n = len(data_wrapped)
         # Compute circular gaps between consecutive sorted values (including wrap-around)
         gaps = np.diff(np.r_[sorted_data, sorted_data[0] + 360])
         # The largest gap indicates the "empty" region (best place to cut)
         i_max_gap = np.argmax(gaps)
         angle_to_adjust = (sorted_data[i_max_gap] + gaps[i_max_gap] / 2.0) % 360
+        if angle_to_adjust < -180 :
+            angle_to_adjust += 360
+        if angle_to_adjust > 180 :
+            angle_to_adjust -= 360
         # Adjust data: shift values below cutoff by +360
-    adjusted_data = np.where(data < angle_to_adjust, data + 360, data)
-    # bring back to [-180, 180] range if needed
-    if np.min(adjusted_data) > 180:
-        adjusted_data -= 360
-    if np.max(adjusted_data) < -180:
-        adjusted_data += 360
+        adjusted_data = np.where(data < angle_to_adjust, data + 360, data)
+        if np.min(adjusted_data) > 180 or np.max(adjusted_data) > 360:
+            cycle_correction = -1
+        if np.max(adjusted_data) < -180 or np.min(adjusted_data) < -360:
+            cycle_correction = 1
+
+        
+    adjusted_data = np.where(data < angle_to_adjust, data + 360, data) + 360*cycle_correction
     # Save adjustment info
     with open(output_data_adjustement, 'a') as f:
-        f.write(f'{name_angle}  {angle_to_adjust} \n')
+        f.write(f'{name_angle}  {angle_to_adjust}  {cycle_correction}\n')
     return adjusted_data, adjusted_data.max(), adjusted_data.min()
 
     
@@ -1348,7 +1403,9 @@ def compute_all_dihedrals_nucleic_acids(indices_na, Positions_atoms_P, Positions
 
 
 ########################## Function to get the multimodal dihedrals of protein ################################
-def get_dihedrals_protein(u_traj, indices_aa, config):
+def get_dihedrals_protein(u_traj, config):
+
+    important_atoms, selected_resids, indices_aa, indices_na_pyrimidine, indices_na_purine = load_important_atoms(config)
     if len(indices_aa) < 2:
         logging.info("Not enough amino acids selected for dihedral analysis. Skipping.")
         return
@@ -1367,7 +1424,9 @@ def get_dihedrals_protein(u_traj, indices_aa, config):
 
 
 ########################## Function to get the multimodal dihedrals of nucleic acids ################################
-def get_dihedrals_nucleic_acids(u_traj, indices_na_pyrimidine,indices_na_purine, config):
+def get_dihedrals_nucleic_acids(u_traj, config):
+
+    important_atoms, selected_resids, indices_aa, indices_na_pyrimidine, indices_na_purine = load_important_atoms(config)
     output_dir = config['output_dir']
     if len(indices_na_pyrimidine) < 1 and len(indices_na_purine) < 1:
         logging.info("No nucleic acids selected for dihedral analysis.")
@@ -1401,7 +1460,7 @@ def add_coordinates(config):
     coordinates_to_add = config['coordinates_to_add']
     type_coordinates_to_add = config['type_coordinates_to_add']
     # Load already discretized coordinates
-    coordinates, X_cuts, Labels = load_data_discretization(config)
+    coordinates, X_cuts, Labels = load_data_discretization(output_dir + "selected_coordinates.txt")
 
     # Reference time values from the first known coordinate
     data_zero = open_data_coordinate(output_dir + "coordinates_data/" + coordinates[0] + ".dat")
@@ -1442,7 +1501,7 @@ def add_coordinates(config):
 def get_discretized_array(config):
     # Load coordinate names, discretization cutoffs, and corresponding labels
     output_dir = config['output_dir']
-    coordinates, X_cuts, Labels = load_data_discretization(config)
+    coordinates, X_cuts, Labels = load_data_discretization(output_dir + "selected_coordinates.txt")
 
     # Load time information from the first coordinate file (assumes all coordinates share the same time points)
     frames_selected = np.load(output_dir + 'discretizing_npy/frames_selected.npy')
@@ -2080,7 +2139,7 @@ def cluster_coordinates(config):
     logging.info("Clustering completed and labels saved.")
 
     reordered_labels = plot_clustering_results(config,rajski_distance,cluster_labels, output_dir+'information_plots/', "rajski_distance_clustering", "Rajski distance",xlabel="Coordinate Index", ylabel="Coordinate Index")
-    coordinates,X_cuts,Labels=load_data_discretization(config)
+    coordinates,X_cuts,Labels=load_data_discretization(output_dir + "selected_coordinates.txt")
 
     # Extract clusters and write to file
     clusters_ndx = []
@@ -2445,7 +2504,7 @@ def write_conformations_to_file(all_cluster_labels,most_probable_states, proba_m
 
 
 ######################### Function to extract conformations from clusters ##########################
-def get_conformations_from_clusters(u_traj,selected_resids,config):
+def get_conformations_from_clusters(u_traj,config):
     output_dir = config['output_dir']
 
     method_clustering_conformations = config['method_clustering_conformations']
@@ -2461,7 +2520,7 @@ def get_conformations_from_clusters(u_traj,selected_resids,config):
     cluster_labels = np.load(os.path.join(output_dir, "analysis_npy", "cluster_labels.npy"))
 
     # Load selected coordinates and the discretized representation
-    coordinates, X_cuts, Labels = load_data_discretization(config)
+    coordinates, X_cuts, Labels = load_data_discretization(output_dir + "selected_coordinates.txt")
     discretized_array = np.load(output_dir + "discretizing_npy/discretized_array.npy")
 
     logging.info("\nExtracting conformations from clusters...")
@@ -2547,6 +2606,7 @@ def get_conformations_from_clusters(u_traj,selected_resids,config):
 
     # Optionally split trajectory files for each conformation cluster
     if split_trajectory:
+        important_atoms, selected_resids, indices_aa, indices_na_pyrimidine, indices_na_purine = load_important_atoms(config)
         split_trajectory_by_conformations(u_traj, frames_by_clusters,proba_clusters,all_clusters_labels,selected_resids, config)
 
 ################### Function to plot conformations as function of time ##########################

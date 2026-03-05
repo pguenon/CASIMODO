@@ -180,7 +180,7 @@ if step_to_perform == 'all' :
 #        GET IMPORTANT ATOMS          #
 #######################################
 
-if step_to_perform in ['all', 'discretize_coordinates', 'get_conformations', 'precompute_positions']:
+if step_to_perform in ['all']:
     important_atoms_file = os.path.join(output_dir, 'important_atoms.txt')
     if os.path.exists(important_atoms_file):
         os.remove(important_atoms_file)
@@ -189,7 +189,7 @@ if step_to_perform in ['all', 'discretize_coordinates', 'get_conformations', 'pr
     save_important_atoms(important_atoms, selected_resids, selected_resnames, indices_aa, indices_na_pyrimidine, indices_na_purine, config)
 
 if step_to_perform in ['all', 'precompute_positions']:
-    precompute_all_positions(u_traj, important_atoms, selected_resids,indices_aa,indices_na_pyrimidine,indices_na_purine, config)
+    precompute_all_positions(u_traj, config)
 
 #######################################
 #     DISCRETIZE CONFORMATIONS        #
@@ -216,13 +216,11 @@ if step_to_perform in ['all', 'discretize_coordinates']:
     if os.path.exists(selected_coordinates_file):
         os.remove(selected_coordinates_file)
 
-    get_contacts(u_traj, important_atoms, selected_resids, config)
+    get_contacts(u_traj, config)
     
-    if len(indices_aa)!=0 :
-        get_dihedrals_protein(u_traj, indices_aa, config)
+    get_dihedrals_protein(u_traj, config)
 
-    if len(indices_na_pyrimidine) != 0 or len(indices_na_purine) != 0:
-        get_dihedrals_nucleic_acids(u_traj, indices_na_pyrimidine, indices_na_purine, config)
+    get_dihedrals_nucleic_acids(u_traj, config)
         
     if len(coordinates_to_add) != 0:
         add_coordinates(config)
@@ -260,7 +258,7 @@ if step_to_perform in ['all','get_conformations']:
             os.remove(os.path.join(output_dir, file_ndx))
 
 
-    get_conformations_from_clusters(u_traj,selected_resids,config)
+    get_conformations_from_clusters(u_traj,config)
 
 if step_to_perform in ['all','plot_conformations_time']:
     plot_conformations_as_function_of_time(config)
