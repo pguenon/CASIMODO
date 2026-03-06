@@ -45,7 +45,8 @@ def initiate_logging(config,basename='casimodo'):
     now= datetime.now()
     step_to_perform = config['step_to_perform']
     output_dir = config['output_dir']
-    cluster_of_coordinates_to_process = config['cluster_of_coordinates_to_process']
+    if 'cluster_of_coordinates_to_process' in config.keys():
+        cluster_of_coordinates_to_process = config['cluster_of_coordinates_to_process']
     if step_to_perform == 'all':
         log_file = os.path.join(output_dir, f'{basename}.log')
         logging.basicConfig(
@@ -1237,12 +1238,11 @@ def adjust_angle_data(name_angle, data, y_min, y_max, delta_y, config):
             cycle_correction = -1
         if np.max(adjusted_data) < -180 or np.min(adjusted_data) < -360:
             cycle_correction = 1
-
+            # Save adjustment info
+        with open(output_data_adjustement, 'a') as f:
+            f.write(f'{name_angle}  {angle_to_adjust}  {cycle_correction}\n')
         
     adjusted_data = np.where(data < angle_to_adjust, data + 360, data) + 360*cycle_correction
-    # Save adjustment info
-    with open(output_data_adjustement, 'a') as f:
-        f.write(f'{name_angle}  {angle_to_adjust}  {cycle_correction}\n')
     return adjusted_data, adjusted_data.max(), adjusted_data.min()
 
     
@@ -1262,8 +1262,7 @@ def process_dihedral_i_protein(i, Positions_atoms_C, Positions_atoms_N, Position
             # Calculate phi dihedral angles (radians) and convert to degrees
             phi_angle = np.rad2deg(mda.lib.distances.calc_dihedrals(Positions_atoms_C[i - 1, :, :],Positions_atoms_N[i, :, :],Positions_atoms_CA[i, :, :],Positions_atoms_C[i, :, :])            )
             # Adjust angles if range spans more than 180 degrees (unwrap circular data)
-            if np.ptp(phi_angle) > 180:
-                phi_angle, _, _ = adjust_angle_data(coordinate_name,phi_angle, np.min(phi_angle), np.max(phi_angle), 4,config)
+            phi_angle, _, _ = adjust_angle_data(coordinate_name,phi_angle, np.min(phi_angle), np.max(phi_angle), 4,config)
             # Discretize the phi angle data for further analysis
             discretize_coordinate(phi_angle, coordinate_type,times, coordinate_name,config)
 
@@ -1275,8 +1274,7 @@ def process_dihedral_i_protein(i, Positions_atoms_C, Positions_atoms_N, Position
             # Calculate psi dihedral angles (radians) and convert to degrees
             psi_angle = np.rad2deg(mda.lib.distances.calc_dihedrals(Positions_atoms_N[i, :, :],Positions_atoms_CA[i, :, :],Positions_atoms_C[i, :, :],Positions_atoms_N[i + 1, :, :]))
             # Adjust angles if range spans more than 180 degrees (unwrap circular data)
-            if np.ptp(psi_angle) > 180:
-                psi_angle, _, _ = adjust_angle_data(coordinate_name,psi_angle, np.min(psi_angle), np.max(psi_angle), 4,config)
+            psi_angle, _, _ = adjust_angle_data(coordinate_name,psi_angle, np.min(psi_angle), np.max(psi_angle), 4,config)
             
             # Discretize the psi angle data for further analysis
             discretize_coordinate(psi_angle, coordinate_type,times, coordinate_name,config)
@@ -1303,8 +1301,7 @@ def process_dihedral_i_nucleic_acids(i, Positions_atoms_P, Positions_atoms_O5p, 
             # Calculate alpha dihedral angles (radians) and convert to degrees
             alpha_angle = np.rad2deg(mda.lib.distances.calc_dihedrals(Positions_atoms_O3p[i - 1, :, :],Positions_atoms_P[i, :, :],Positions_atoms_O5p[i, :, :],Positions_atoms_C5p[i, :, :]) )
             # Adjust angles if range spans more than 180 degrees (unwrap circular data)
-            if np.ptp(alpha_angle) > 180:
-                alpha_angle, _, _ = adjust_angle_data(coordinate_name,alpha_angle, np.min(alpha_angle), np.max(alpha_angle), 4,config)
+            alpha_angle, _, _ = adjust_angle_data(coordinate_name,alpha_angle, np.min(alpha_angle), np.max(alpha_angle), 4,config)
             
             # Discretize the alpha angle data for further analysis
             discretize_coordinate(alpha_angle, coordinate_type,
@@ -1314,8 +1311,7 @@ def process_dihedral_i_nucleic_acids(i, Positions_atoms_P, Positions_atoms_O5p, 
         # Calculate beta dihedral angles (radians) and convert to degrees
         beta_angle = np.rad2deg(mda.lib.distances.calc_dihedrals(Positions_atoms_P[i, :, :],Positions_atoms_O5p[i, :, :],Positions_atoms_C5p[i, :, :],Positions_atoms_C4p[i, :, :]) )
         # Adjust angles if range spans more than 180 degrees (unwrap circular data)
-        if np.ptp(beta_angle) > 180:
-            beta_angle, _, _ = adjust_angle_data(coordinate_name,beta_angle, np.min(beta_angle), np.max(beta_angle), 4,config)
+        beta_angle, _, _ = adjust_angle_data(coordinate_name,beta_angle, np.min(beta_angle), np.max(beta_angle), 4,config)
         
         # Discretize the beta angle data for further analysis
         discretize_coordinate(beta_angle, coordinate_type,times, coordinate_name,config)
@@ -1324,8 +1320,7 @@ def process_dihedral_i_nucleic_acids(i, Positions_atoms_P, Positions_atoms_O5p, 
     # Calculate gamma dihedral angles (radians) and convert to degrees
     gamma_angle = np.rad2deg(mda.lib.distances.calc_dihedrals(Positions_atoms_O5p[i, :, :],Positions_atoms_C5p[i, :, :],Positions_atoms_C4p[i, :, :],Positions_atoms_C3p[i, :, :]) )
     # Adjust angles if range spans more than 180 degrees (unwrap circular data)
-    if np.ptp(gamma_angle) > 180:
-        gamma_angle, _, _ = adjust_angle_data(coordinate_name,gamma_angle, np.min(gamma_angle), np.max(gamma_angle), 4,config)
+    gamma_angle, _, _ = adjust_angle_data(coordinate_name,gamma_angle, np.min(gamma_angle), np.max(gamma_angle), 4,config)
     
     # Discretize the gamma angle data for further analysis
     discretize_coordinate(gamma_angle, coordinate_type,times, coordinate_name,config)
@@ -1334,8 +1329,7 @@ def process_dihedral_i_nucleic_acids(i, Positions_atoms_P, Positions_atoms_O5p, 
     # Calculate delta dihedral angles (radians) and convert to degrees
     delta_angle = np.rad2deg(mda.lib.distances.calc_dihedrals(Positions_atoms_C5p[i, :, :],Positions_atoms_C4p[i, :, :],Positions_atoms_C3p[i, :, :],Positions_atoms_O3p[i, :, :]) )
     # Adjust angles if range spans more than 180 degrees (unwrap circular data)
-    if np.ptp(delta_angle) > 180:
-        delta_angle, _, _ = adjust_angle_data(coordinate_name,delta_angle, np.min(delta_angle), np.max(delta_angle), 4,config)
+    delta_angle, _, _ = adjust_angle_data(coordinate_name,delta_angle, np.min(delta_angle), np.max(delta_angle), 4,config)
     
     # Discretize the delta angle data for further analysis
     discretize_coordinate(delta_angle, coordinate_type, times, coordinate_name,config)
@@ -1344,8 +1338,7 @@ def process_dihedral_i_nucleic_acids(i, Positions_atoms_P, Positions_atoms_O5p, 
     # Calculate chi dihedral angles (radians) and convert to degrees
     chi_angle = np.rad2deg(mda.lib.distances.calc_dihedrals(Positions_atoms_O4p[i, :, :],Positions_atoms_C1p[i, :, :],Positions_atoms_Nbs[i, :, :],Positions_atoms_Cbs[i, :, :]) )
     # Adjust angles if range spans more than 180 degrees (unwrap circular data)
-    if np.ptp(chi_angle) > 180:
-        chi_angle, _, _ = adjust_angle_data(coordinate_name,chi_angle, np.min(chi_angle), np.max(chi_angle), 4,config)
+    chi_angle, _, _ = adjust_angle_data(coordinate_name,chi_angle, np.min(chi_angle), np.max(chi_angle), 4,config)
     
     # Discretize the chi angle data for further analysis
     discretize_coordinate(chi_angle, coordinate_type, times, coordinate_name,config)
@@ -1358,8 +1351,7 @@ def process_dihedral_i_nucleic_acids(i, Positions_atoms_P, Positions_atoms_O5p, 
             # Calculate psi dihedral angles (radians) and convert to degrees
             epsilon_angle = np.rad2deg(mda.lib.distances.calc_dihedrals(Positions_atoms_C4p[i, :, :],Positions_atoms_C3p[i, :, :],Positions_atoms_O3p[i, :, :],Positions_atoms_P[i + 1, :, :]))
             # Adjust angles if range spans more than 180 degrees (unwrap circular data)
-            if np.ptp(epsilon_angle) > 180:
-                epsilon_angle, _, _ = adjust_angle_data(coordinate_name,epsilon_angle, np.min(epsilon_angle), np.max(epsilon_angle), 4,config)
+            epsilon_angle, _, _ = adjust_angle_data(coordinate_name,epsilon_angle, np.min(epsilon_angle), np.max(epsilon_angle), 4,config)
             
             # Discretize the psi angle data for further analysis
             discretize_coordinate(epsilon_angle, coordinate_type,times, coordinate_name,config)
@@ -1368,8 +1360,7 @@ def process_dihedral_i_nucleic_acids(i, Positions_atoms_P, Positions_atoms_O5p, 
             # Calculate psi dihedral angles (radians) and convert to degrees
             zeta_angle = np.rad2deg(mda.lib.distances.calc_dihedrals(Positions_atoms_C3p[i, :, :],Positions_atoms_O3p[i, :, :],Positions_atoms_P[i+1, :, :],Positions_atoms_O5p[i + 1, :, :]))
             # Adjust angles if range spans more than 180 degrees (unwrap circular data)
-            if np.ptp(zeta_angle) > 180:
-                zeta_angle, _, _ = adjust_angle_data(coordinate_name,zeta_angle, np.min(zeta_angle), np.max(zeta_angle), 4,config)
+            zeta_angle, _, _ = adjust_angle_data(coordinate_name,zeta_angle, np.min(zeta_angle), np.max(zeta_angle), 4,config)
             
             # Discretize the psi angle data for further analysis
             discretize_coordinate(zeta_angle, coordinate_type, times,coordinate_name,config)
@@ -1489,7 +1480,7 @@ def add_coordinates(config):
             continue
 
         # Fix angle wrapping (e.g., from -180 to 180 or 0 to 360)
-        if coordinate_type == 'angle' and (np.max(y_coord) - np.min(y_coord) > 180):
+        if coordinate_type == 'angle' :
             y_coord, _, _ = adjust_angle_data(coordinate_name,y_coord, np.min(y_coord), np.max(y_coord), 4,output_dir)
 
         # Discretize and append this coordinate to selected_coordinates.txt
