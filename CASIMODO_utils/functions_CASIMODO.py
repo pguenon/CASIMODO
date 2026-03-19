@@ -25,9 +25,6 @@ matplotlib.use('Agg')
 
 
 
-
-
-
 ###################### INITIATE LOGGING #####################
 def initiate_logging(config,basename='casimodo'):
     """
@@ -1923,7 +1920,6 @@ def ward_clustering(distance_matrix, max_d=1.0):
     """
     from scipy.cluster.hierarchy import linkage, fcluster
     from scipy.spatial.distance import squareform
-    import numpy as np
 
     # Ensure condensed distance format
     if distance_matrix.ndim == 2:
