@@ -1,5 +1,5 @@
 # CASIMODO
-### _Conformation Analysis via Statistical Inference of MOlecular Dynamics Observables_
+### _Conformational Analysis via Shared Information by MOlecular Dynamics Observables_
 
 A script by _Paul Guénon_, Guillaume Stirnemann, Damien Laage, and Olivier Rivoire\*.
 
