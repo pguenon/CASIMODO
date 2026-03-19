@@ -3,7 +3,6 @@ import shutil
 import logging
 from datetime import datetime
 import io
-import sys
 from contextlib import redirect_stdout, redirect_stderr
 
 import numpy as np	
@@ -20,8 +19,6 @@ from matplotlib.patches import Rectangle
 from matplotlib.colors import ListedColormap, BoundaryNorm
 
 import MDAnalysis as mda 
-
-import networkx as nx
 
 import matplotlib
 matplotlib.use('Agg')
