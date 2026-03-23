@@ -1809,7 +1809,7 @@ def get_rajski_distance(config):
             rajski_distance[j,i]=rajski_distance[i,j]
     np.save(os.path.join(output_dir, "analysis_npy", "Rajski_distance.npy"), rajski_distance)
 
-    plot_information(config,rajski_distance, output_dir + 'information_plots/', "rajski_distance",label_data="Rajski Distance")
+    plot_information(config,rajski_distance, output_dir + 'information_plots/', "rajski_distance",label_data="Rajski Distance between Local Variables")
 
     logging.info("Rajski distance computed.")
 
@@ -2108,7 +2108,7 @@ def cluster_local_variables(config):
 
     logging.info("Clustering completed and labels saved.")
 
-    reordered_labels = plot_clustering_results(config,rajski_distance,community_labels, output_dir+'information_plots/', "rajski_distance_clustering", "Rajski distance",xlabel="Local Variable Index", ylabel="Local Variable Index")
+    reordered_labels = plot_clustering_results(config,rajski_distance,community_labels, output_dir+'information_plots/', "rajski_distance_clustering", "Rajski distance between Local Variables",xlabel="Local Variable Index", ylabel="Local Variable Index")
     local_variables,X_cuts,Labels=load_data_discretization(output_dir + "selected_local_variables.txt")
 
     # Extract clusters and write to file
@@ -2533,7 +2533,7 @@ def get_conformations_for_communities(u_traj,config):
             dist_states, cluster_labels,
             output_dir + 'conformational_states_clustering/',
             f"distances_between_configurations_community_{i}",
-            label_data="Normalized distance between states",
+            label_data="Normalized Hamming distance between configurations",
             xlabel="Unique Configuration Index",
             ylabel="Unique Configuration Index"
         )
