@@ -39,8 +39,8 @@ def initiate_logging(config,basename='casimodo'):
     now= datetime.now()
     step_to_perform = config['step_to_perform']
     output_dir = config['output_dir']
-    if 'cluster_of_coordinates_to_process' in config.keys():
-        cluster_of_coordinates_to_process = config['cluster_of_coordinates_to_process']
+    if 'community_to_process' in config.keys():
+        community_to_process = config['community_to_process']
     if step_to_perform == 'all':
         log_file = os.path.join(output_dir, f'{basename}.log')
         logging.basicConfig(
@@ -52,8 +52,8 @@ def initiate_logging(config,basename='casimodo'):
         logging.info("Logging initiated. Log file created at: %s", log_file)
         logging.info("Start time: %s", now.strftime("%Y-%m-%d %H:%M:%S"))
 
-    elif step_to_perform == "discretize_coordinates" :
-        log_file = os.path.join(output_dir, f'{basename}_rediscretize_coordinates.log')
+    elif step_to_perform == "discretize_local_variables" :
+        log_file = os.path.join(output_dir, f'{basename}_rediscretize_local_variables.log')
         logging.basicConfig(
             filename=log_file,
             level=logging.INFO,
@@ -63,8 +63,8 @@ def initiate_logging(config,basename='casimodo'):
         logging.info("Logging initiated. Log file created at: %s", log_file)
         logging.info("Start time: %s", now.strftime("%Y-%m-%d %H:%M:%S"))
     
-    elif step_to_perform == "cluster_coordinates" :
-        log_file = os.path.join(output_dir, f'{basename}_recluster_coordinates.log')
+    elif step_to_perform == "cluster_local_variables" :
+        log_file = os.path.join(output_dir, f'{basename}_recluster_local_variables.log')
         logging.basicConfig(
             filename=log_file,
             level=logging.INFO,
@@ -76,8 +76,8 @@ def initiate_logging(config,basename='casimodo'):
     
     elif step_to_perform == "get_conformations" :
         log_file = os.path.join(output_dir, f'{basename}_recluster_conformations.log')
-        if cluster_of_coordinates_to_process >=0:
-            log_file = os.path.join(output_dir, f'{basename}_recluster_conformations_cluster_{cluster_of_coordinates_to_process}.log')
+        if community_to_process >=0:
+            log_file = os.path.join(output_dir, f'{basename}_recluster_conformations_community_{community_to_process}.log')
         logging.basicConfig(
             filename=log_file,
             level=logging.INFO,
@@ -193,7 +193,7 @@ def open_file(namefile):
             data.append([x for x in row.split()])
     return data, lines_file
 
-def open_data_coordinate(namefile):
+def open_data_local_variable(namefile):
     """
     Loads numerical data from a file using NumPy.
 
@@ -215,8 +215,8 @@ def load_data_discretization(namefile):
     # Read file content (assumes open_file returns parsed data and raw lines)
     data_discretization, lines_discretization = open_file(namefile)
 
-    coordinates = [row[0] for row in data_discretization if len(row) >= 1 and row[0][0] != '#']
-    X_cuts = []  # To hold lists of cut points for each coordinate
+    local_variables = [row[0] for row in data_discretization if len(row) >= 1 and row[0][0] != '#']
+    X_cuts = []  # To hold lists of cut points for each local_variable
     labels = []  # To hold lists of region labels
 
     for row in data_discretization:
@@ -241,16 +241,16 @@ def load_data_discretization(namefile):
         X_cuts.append(xcut_i)
         labels.append(labels_i)
 
-    return coordinates, X_cuts, labels
+    return local_variables, X_cuts, labels
 
 def get_multiplicities(discretized_array):
-    # Get the shape of the input array: number of rows (frames) and columns (coordinates/features)
+    # Get the shape of the input array: number of rows (frames) and columns (local_variables/features)
     nframes, ncoord = np.shape(discretized_array)
     
     # Initialize an array to hold the multiplicity (number of unique values) for each column
     multiplicities = np.zeros((ncoord), dtype=np.int32)
     
-    # Loop over each column (coordinate/feature)
+    # Loop over each column (local_variable/feature)
     for i in range(ncoord):
         # Count the number of unique values in column i and store it in the multiplicities array
         multiplicities[i] = len(np.unique(discretized_array[:, i]))
@@ -477,7 +477,7 @@ def precompute_important(u_traj, important_atoms, selected_resids, frames_select
         ])
 
     # Initialize array to store important atom positions:
-    # Shape: (total important atoms, number of selected frames, 3 coordinates)
+    # Shape: (total important atoms, number of selected frames, 3 local_variables)
     positions_important_atoms = np.zeros((num_atoms, len(frames_selected), 3))
 
     # Iterate through selected frames and record positions
@@ -696,18 +696,18 @@ def get_histogram(times, data, coord_type,delta_y):
     Parameters:
     - times (array): Time points of the trajectory.
     - data (array): Coordinate values.
-    - coord_type (str): Type of coordinate ('distance' or 'angle').
+    - coord_type (str): Type of local_variable ('distance' or 'angle').
 
     Returns:
 
     """
-    # Set histogram parameters based on coordinate type
+    # Set histogram parameters based on local_variable type
     if coord_type == 'distance':
         xlabel = 'Distance (Å)'
     elif coord_type == 'angle':
         xlabel = 'Angle (°)'
     else:
-        raise ValueError(f"Unsupported coordinate type: {coord_type}")
+        raise ValueError(f"Unsupported local_variable type: {coord_type}")
 
     y_max = max(data)
     y_min = min(data)
@@ -718,9 +718,9 @@ def get_histogram(times, data, coord_type,delta_y):
     return x, hist, xlabel
 
 
-######################## Functions for discretizing coordinates ########################
+######################## Functions for discretizing local_variables ########################
 
-def smooth_coordinate(y, delta_y,config):
+def smooth_local_variable(y, delta_y,config):
     smooth_factor = config['smooth_factor']
 
     # Ensure input is a NumPy array and reshape for sklearn's KDE
@@ -845,7 +845,7 @@ def get_labels_discretization(minima, x_smooth, y_smooth):
 
     Parameters:
     - minima: List of x values (positions of selected minima).
-    - x_smooth: Array of smoothed x values (e.g., coordinate range).
+    - x_smooth: Array of smoothed x values (e.g., local_variable range).
     - y_smooth: Array of smoothed density values (same length as x_smooth).
 
     Returns:
@@ -874,13 +874,13 @@ def get_labels_discretization(minima, x_smooth, y_smooth):
 
     return labels
 
-def save_minima(minima, coordinate, labels, config):
-    name_output = config['output_dir'] + "selected_coordinates.txt"
+def save_minima(minima, local_variable, labels, config):
+    name_output = config['output_dir'] + "selected_local_variables.txt"
 
     # Open the output file in append mode
     with open(name_output, 'a') as file_output:
-        # Write the coordinate type first
-        file_output.write(f'{coordinate} ')
+        # Write the local_variable type first
+        file_output.write(f'{local_variable} ')
         
         # Write each label-minimum pair
         for i in range(len(minima)):
@@ -890,20 +890,20 @@ def save_minima(minima, coordinate, labels, config):
         # Write the final label again (to cover the last interval)
         file_output.write(f' {labels[-1]}\n')  # Newline at the end of the line
 
-def save_coordinate_results(times, distance_to_save, coordinate, config):
+def save_local_variable_results(times, distance_to_save, local_variable, config):
     output_dir = config['output_dir']
 
-    # Stack time and coordinate values into two columns
+    # Stack time and local_variable values into two columns
     Time_evolution = np.column_stack((times, distance_to_save))
 
     # Construct output file path
-    output_file = output_dir + "coordinates_data/" + coordinate + ".dat"
+    output_file = output_dir + "local_variables_data/" + local_variable + ".dat"
 
     # Save to file with two decimal places, separated by three spaces
     np.savetxt(output_file, Time_evolution, fmt="%.2f   %.2f")
 
 
-def plot_histogram(x, hist, x_smooth, y_smooth, xlabel, coordinate_name, minima, config):
+def plot_histogram(x, hist, x_smooth, y_smooth, xlabel, local_variable_name, minima, config):
 
     fig, ax = plt.subplots()
 
@@ -924,7 +924,7 @@ def plot_histogram(x, hist, x_smooth, y_smooth, xlabel, coordinate_name, minima,
     # Set axis labels and plot title
     ax.set_xlabel(xlabel)
     ax.set_ylabel('Probability density')
-    ax.set_title(coordinate_name)
+    ax.set_title(local_variable_name)
 
     # Show legend
     ax.legend()
@@ -932,19 +932,19 @@ def plot_histogram(x, hist, x_smooth, y_smooth, xlabel, coordinate_name, minima,
     extension_plots = config['extension_plots']
     resolution_plots = config['resolution_plots']
     # Save plot to specified directory with dpi for quality
-    plt.savefig(f'{output_dir}coordinates_plots/{coordinate_name}.{extension_plots}', dpi=resolution_plots)
+    plt.savefig(f'{output_dir}local_variables_plots/{local_variable_name}.{extension_plots}', dpi=resolution_plots)
 
     # Close the figure to free memory
     plt.close()
 
-def discretize_coordinate(y, coordinate_type, times,coordinate_name, config, labels=None, selected_minima=None):
+def discretize_local_variable(y, local_variable_type, times,local_variable_name, config, labels=None, selected_minima=None):
     
     cutoff_npoints_discretization= config['cutoff_npoints_discretization']
     n_points_per_bin= config['n_points_per_bin']
     min_bin_size_distances= config['min_bin_size_distances']
     min_bin_size_angles= config['min_bin_size_angles']
 
-    # Step 1: Smooth the coordinate distribution using KDE
+    # Step 1: Smooth the local_variable distribution using KDE
     y_subset=y.copy()
     times_subset=times.copy()
     n_points=len(y_subset)
@@ -958,16 +958,16 @@ def discretize_coordinate(y, coordinate_type, times,coordinate_name, config, lab
 
     n_bins=n_points_subset//n_points_per_bin
     delta_y=(max(y_subset)-min(y_subset))/(n_bins)
-    if coordinate_type=='distance' and delta_y<min_bin_size_distances:
+    if local_variable_type=='distance' and delta_y<min_bin_size_distances:
         delta_y=min_bin_size_distances
-    elif coordinate_type=='angle' and delta_y<min_bin_size_angles:
+    elif local_variable_type=='angle' and delta_y<min_bin_size_angles:
         delta_y=min_bin_size_angles
 
-    x_smooth, y_smooth = smooth_coordinate(y_subset, delta_y,config)
+    x_smooth, y_smooth = smooth_local_variable(y_subset, delta_y,config)
 
 
     x,hist, xlabel = get_histogram(
-        times_subset, y_subset, coordinate_type, delta_y
+        times_subset, y_subset, local_variable_type, delta_y
     )
 
     if labels is None and selected_minima is None:
@@ -978,22 +978,22 @@ def discretize_coordinate(y, coordinate_type, times,coordinate_name, config, lab
             # Step 4: Generate region labels from the minima
             labels = get_labels_discretization(selected_minima, x_smooth, y_smooth)
     output_dir= config['output_dir']
-    output = output_dir + "selected_coordinates.txt"
+    output = output_dir + "selected_local_variables.txt"
     save_data= config['save_data']
     save_all_plots= config['save_all_plots']
     
     if len(selected_minima) !=0 :
         # Step 5: Save detected minima and corresponding labels
-        save_minima(selected_minima, coordinate_name, labels, config)
+        save_minima(selected_minima, local_variable_name, labels, config)
         if save_data:
-            # Step 6: Save the original coordinate data and metadata
-            save_coordinate_results(times, y, coordinate_name, config)
+            # Step 6: Save the original local_variable data and metadata
+            save_local_variable_results(times, y, local_variable_name, config)
 
         # Step 7: Plot the histogram with KDE and show detected minima
         plot_histogram(
             x, hist,
             x_smooth, y_smooth,xlabel,
-            coordinate_name, selected_minima,
+            local_variable_name, selected_minima,
             config
         )
     elif save_all_plots:
@@ -1001,7 +1001,7 @@ def discretize_coordinate(y, coordinate_type, times,coordinate_name, config, lab
         plot_histogram(
             x, hist,
             x_smooth, y_smooth,xlabel,
-            coordinate_name, selected_minima,
+            local_variable_name, selected_minima,
             config
         )
 
@@ -1080,13 +1080,13 @@ def process_distance_pair(i, j, positions_important_atoms, important_atoms, sele
         atom_i=atoms_i_to_save[k]
         atom_j=atoms_j_to_save[k]
 
-        coordinate_type = 'distance'      # Type of coordinate being discretized
+        local_variable_type = 'distance'      # Type of local_variable being discretized
 
-        # Construct a unique name for this distance coordinate
-        coordinate_name = f"{selected_resids[i]}_{atom_i}_{selected_resids[j]}_{atom_j}"
+        # Construct a unique name for this distance local_variable
+        local_variable_name = f"{selected_resids[i]}_{atom_i}_{selected_resids[j]}_{atom_j}"
     
         # Discretize the distance time series and update output data structures
-        discretize_coordinate(y, coordinate_type, times, coordinate_name,config)
+        discretize_local_variable(y, local_variable_type, times, local_variable_name,config)
     
 
 ####################### Function to compute distances between important atoms for all residue pairs ##########################
@@ -1120,7 +1120,8 @@ def precompute_all_positions(u_traj, config):
     times = np.load(output_dir + 'discretizing_npy/times_selected.npy')
     frames_selected = np.load(output_dir + 'discretizing_npy/frames_selected.npy')
 
-    important_atoms, selected_resids, indices_aa, indices_na_pyrimidine, indices_na_purine = load_important_atoms(config)
+    important_atoms, selected_resids, selected_resnames, indices_aa, indices_na_pyrimidine, indices_na_purine = get_important_atoms_MDA(u_traj, config)
+    save_important_atoms(important_atoms, selected_resids, selected_resnames, indices_aa, indices_na_pyrimidine, indices_na_purine, config)
 
     # Precompute important atom positions across trajectory
     positions_important_atoms = precompute_important(u_traj, important_atoms, selected_resids, frames_selected)
@@ -1165,7 +1166,7 @@ def precompute_all_positions(u_traj, config):
 def get_contacts(u_traj, config):
     output_dir = config['output_dir']
 
-    important_atoms, selected_resids, indices_aa, indices_na_pyrimidine, indices_na_purine = load_important_atoms(config)
+    important_atoms, selected_resids, selected_resnames, indices_aa, indices_na_pyrimidine, indices_na_purine = load_important_atoms(config)
 
     # Load time points and frame indices previously filtered and saved
     times = np.load(output_dir + 'discretizing_npy/times_selected.npy')
@@ -1242,7 +1243,7 @@ def adjust_angle_data(name_angle, data, y_min, y_max, delta_y, config):
     
 
 def process_dihedral_i_protein(i, Positions_atoms_C, Positions_atoms_N, Positions_atoms_CA, indices_aa,times, config):
-    coordinate_type = 'angle'
+    local_variable_type = 'angle'
 
     # Initialize empty arrays (optional, overwritten later)
     phi_angle = np.zeros(len(times))
@@ -1252,31 +1253,31 @@ def process_dihedral_i_protein(i, Positions_atoms_C, Positions_atoms_N, Position
     if i > 0:
         distance_C_N = np.linalg.norm(Positions_atoms_C[i - 1, 0, :] - Positions_atoms_N[i, 0, :])
         if distance_C_N < 2:
-            coordinate_name = f"phi_{indices_aa[i]}"
+            local_variable_name = f"phi_{indices_aa[i]}"
             # Calculate phi dihedral angles (radians) and convert to degrees
             phi_angle = np.rad2deg(mda.lib.distances.calc_dihedrals(Positions_atoms_C[i - 1, :, :],Positions_atoms_N[i, :, :],Positions_atoms_CA[i, :, :],Positions_atoms_C[i, :, :])            )
             # Adjust angles if range spans more than 180 degrees (unwrap circular data)
-            phi_angle, _, _ = adjust_angle_data(coordinate_name,phi_angle, np.min(phi_angle), np.max(phi_angle), 4,config)
+            phi_angle, _, _ = adjust_angle_data(local_variable_name,phi_angle, np.min(phi_angle), np.max(phi_angle), 4,config)
             # Discretize the phi angle data for further analysis
-            discretize_coordinate(phi_angle, coordinate_type,times, coordinate_name,config)
+            discretize_local_variable(phi_angle, local_variable_type,times, local_variable_name,config)
 
     # Process psi dihedral if next residue exists and backbone geometry is valid
     if i < len(Positions_atoms_C) - 1:
         distance_N_C = np.linalg.norm(Positions_atoms_N[i + 1, 0, :] - Positions_atoms_C[i, 0, :])
         if distance_N_C < 2:
-            coordinate_name = f"psi_{indices_aa[i]}"
+            local_variable_name = f"psi_{indices_aa[i]}"
             # Calculate psi dihedral angles (radians) and convert to degrees
             psi_angle = np.rad2deg(mda.lib.distances.calc_dihedrals(Positions_atoms_N[i, :, :],Positions_atoms_CA[i, :, :],Positions_atoms_C[i, :, :],Positions_atoms_N[i + 1, :, :]))
             # Adjust angles if range spans more than 180 degrees (unwrap circular data)
-            psi_angle, _, _ = adjust_angle_data(coordinate_name,psi_angle, np.min(psi_angle), np.max(psi_angle), 4,config)
+            psi_angle, _, _ = adjust_angle_data(local_variable_name,psi_angle, np.min(psi_angle), np.max(psi_angle), 4,config)
             
             # Discretize the psi angle data for further analysis
-            discretize_coordinate(psi_angle, coordinate_type,times, coordinate_name,config)
+            discretize_local_variable(psi_angle, local_variable_type,times, local_variable_name,config)
             
 def process_dihedral_i_nucleic_acids(i, Positions_atoms_P, Positions_atoms_O5p, Positions_atoms_C5p, Positions_atoms_O4p, Positions_atoms_C4p, Positions_atoms_C3p,
                                      Positions_atoms_O3p, Positions_atoms_C1p, Positions_atoms_Nbs, Positions_atoms_Cbs, indices_na, 
                                     times, config):
-    coordinate_type = 'angle'
+    local_variable_type = 'angle'
 
     # Initialize empty arrays (optional, overwritten later)
     alpha_angle = np.zeros(len(times))
@@ -1291,73 +1292,73 @@ def process_dihedral_i_nucleic_acids(i, Positions_atoms_P, Positions_atoms_O5p, 
     if i > 1 and np.any(np.isinf(Positions_atoms_P[i, :, :]))==False :
         distance_O_P = np.linalg.norm(Positions_atoms_O3p[i - 1, 0, :] - Positions_atoms_P[i, 0, :])
         if distance_O_P < 2:
-            coordinate_name = f"alpha_{indices_na[i]}"
+            local_variable_name = f"alpha_{indices_na[i]}"
             # Calculate alpha dihedral angles (radians) and convert to degrees
             alpha_angle = np.rad2deg(mda.lib.distances.calc_dihedrals(Positions_atoms_O3p[i - 1, :, :],Positions_atoms_P[i, :, :],Positions_atoms_O5p[i, :, :],Positions_atoms_C5p[i, :, :]) )
             # Adjust angles if range spans more than 180 degrees (unwrap circular data)
-            alpha_angle, _, _ = adjust_angle_data(coordinate_name,alpha_angle, np.min(alpha_angle), np.max(alpha_angle), 4,config)
+            alpha_angle, _, _ = adjust_angle_data(local_variable_name,alpha_angle, np.min(alpha_angle), np.max(alpha_angle), 4,config)
             
             # Discretize the alpha angle data for further analysis
-            discretize_coordinate(alpha_angle, coordinate_type,
-                                  times, coordinate_name,config)
+            discretize_local_variable(alpha_angle, local_variable_type,
+                                  times, local_variable_name,config)
             
-        coordinate_name = f"beta_{indices_na[i]}"
+        local_variable_name = f"beta_{indices_na[i]}"
         # Calculate beta dihedral angles (radians) and convert to degrees
         beta_angle = np.rad2deg(mda.lib.distances.calc_dihedrals(Positions_atoms_P[i, :, :],Positions_atoms_O5p[i, :, :],Positions_atoms_C5p[i, :, :],Positions_atoms_C4p[i, :, :]) )
         # Adjust angles if range spans more than 180 degrees (unwrap circular data)
-        beta_angle, _, _ = adjust_angle_data(coordinate_name,beta_angle, np.min(beta_angle), np.max(beta_angle), 4,config)
+        beta_angle, _, _ = adjust_angle_data(local_variable_name,beta_angle, np.min(beta_angle), np.max(beta_angle), 4,config)
         
         # Discretize the beta angle data for further analysis
-        discretize_coordinate(beta_angle, coordinate_type,times, coordinate_name,config)
+        discretize_local_variable(beta_angle, local_variable_type,times, local_variable_name,config)
     
-    coordinate_name = f"gamma_{indices_na[i]}"
+    local_variable_name = f"gamma_{indices_na[i]}"
     # Calculate gamma dihedral angles (radians) and convert to degrees
     gamma_angle = np.rad2deg(mda.lib.distances.calc_dihedrals(Positions_atoms_O5p[i, :, :],Positions_atoms_C5p[i, :, :],Positions_atoms_C4p[i, :, :],Positions_atoms_C3p[i, :, :]) )
     # Adjust angles if range spans more than 180 degrees (unwrap circular data)
-    gamma_angle, _, _ = adjust_angle_data(coordinate_name,gamma_angle, np.min(gamma_angle), np.max(gamma_angle), 4,config)
+    gamma_angle, _, _ = adjust_angle_data(local_variable_name,gamma_angle, np.min(gamma_angle), np.max(gamma_angle), 4,config)
     
     # Discretize the gamma angle data for further analysis
-    discretize_coordinate(gamma_angle, coordinate_type,times, coordinate_name,config)
+    discretize_local_variable(gamma_angle, local_variable_type,times, local_variable_name,config)
     
-    coordinate_name = f"delta_{indices_na[i]}"
+    local_variable_name = f"delta_{indices_na[i]}"
     # Calculate delta dihedral angles (radians) and convert to degrees
     delta_angle = np.rad2deg(mda.lib.distances.calc_dihedrals(Positions_atoms_C5p[i, :, :],Positions_atoms_C4p[i, :, :],Positions_atoms_C3p[i, :, :],Positions_atoms_O3p[i, :, :]) )
     # Adjust angles if range spans more than 180 degrees (unwrap circular data)
-    delta_angle, _, _ = adjust_angle_data(coordinate_name,delta_angle, np.min(delta_angle), np.max(delta_angle), 4,config)
+    delta_angle, _, _ = adjust_angle_data(local_variable_name,delta_angle, np.min(delta_angle), np.max(delta_angle), 4,config)
     
     # Discretize the delta angle data for further analysis
-    discretize_coordinate(delta_angle, coordinate_type, times, coordinate_name,config)
+    discretize_local_variable(delta_angle, local_variable_type, times, local_variable_name,config)
     
-    coordinate_name = f"chi_{indices_na[i]}"
+    local_variable_name = f"chi_{indices_na[i]}"
     # Calculate chi dihedral angles (radians) and convert to degrees
     chi_angle = np.rad2deg(mda.lib.distances.calc_dihedrals(Positions_atoms_O4p[i, :, :],Positions_atoms_C1p[i, :, :],Positions_atoms_Nbs[i, :, :],Positions_atoms_Cbs[i, :, :]) )
     # Adjust angles if range spans more than 180 degrees (unwrap circular data)
-    chi_angle, _, _ = adjust_angle_data(coordinate_name,chi_angle, np.min(chi_angle), np.max(chi_angle), 4,config)
+    chi_angle, _, _ = adjust_angle_data(local_variable_name,chi_angle, np.min(chi_angle), np.max(chi_angle), 4,config)
     
     # Discretize the chi angle data for further analysis
-    discretize_coordinate(chi_angle, coordinate_type, times, coordinate_name,config)
+    discretize_local_variable(chi_angle, local_variable_type, times, local_variable_name,config)
 
     # Process psi dihedral if next residue exists and backbone geometry is valid
     if i < len(Positions_atoms_P) - 1:
         distance_O_P = np.linalg.norm(Positions_atoms_O3p[i, 0, :] - Positions_atoms_P[i+1, 0, :])
         if distance_O_P < 2 and  np.any(np.isinf(Positions_atoms_P[i+1, :, :]))==False:
-            coordinate_name = f"epsilon_{indices_na[i]}"
+            local_variable_name = f"epsilon_{indices_na[i]}"
             # Calculate psi dihedral angles (radians) and convert to degrees
             epsilon_angle = np.rad2deg(mda.lib.distances.calc_dihedrals(Positions_atoms_C4p[i, :, :],Positions_atoms_C3p[i, :, :],Positions_atoms_O3p[i, :, :],Positions_atoms_P[i + 1, :, :]))
             # Adjust angles if range spans more than 180 degrees (unwrap circular data)
-            epsilon_angle, _, _ = adjust_angle_data(coordinate_name,epsilon_angle, np.min(epsilon_angle), np.max(epsilon_angle), 4,config)
+            epsilon_angle, _, _ = adjust_angle_data(local_variable_name,epsilon_angle, np.min(epsilon_angle), np.max(epsilon_angle), 4,config)
             
             # Discretize the psi angle data for further analysis
-            discretize_coordinate(epsilon_angle, coordinate_type,times, coordinate_name,config)
+            discretize_local_variable(epsilon_angle, local_variable_type,times, local_variable_name,config)
             
-            coordinate_name = f"zeta_{indices_na[i]}"
+            local_variable_name = f"zeta_{indices_na[i]}"
             # Calculate psi dihedral angles (radians) and convert to degrees
             zeta_angle = np.rad2deg(mda.lib.distances.calc_dihedrals(Positions_atoms_C3p[i, :, :],Positions_atoms_O3p[i, :, :],Positions_atoms_P[i+1, :, :],Positions_atoms_O5p[i + 1, :, :]))
             # Adjust angles if range spans more than 180 degrees (unwrap circular data)
-            zeta_angle, _, _ = adjust_angle_data(coordinate_name,zeta_angle, np.min(zeta_angle), np.max(zeta_angle), 4,config)
+            zeta_angle, _, _ = adjust_angle_data(local_variable_name,zeta_angle, np.min(zeta_angle), np.max(zeta_angle), 4,config)
             
             # Discretize the psi angle data for further analysis
-            discretize_coordinate(zeta_angle, coordinate_type, times,coordinate_name,config)
+            discretize_local_variable(zeta_angle, local_variable_type, times,local_variable_name,config)
         
     
 ########################### Functions to compute dihedrals for all residues ##########################
@@ -1390,7 +1391,7 @@ def compute_all_dihedrals_nucleic_acids(indices_na, Positions_atoms_P, Positions
 ########################## Function to get the multimodal dihedrals of protein ################################
 def get_dihedrals_protein(u_traj, config):
 
-    important_atoms, selected_resids, indices_aa, indices_na_pyrimidine, indices_na_purine = load_important_atoms(config)
+    important_atoms, selected_resids, selected_resnames, indices_aa, indices_na_pyrimidine, indices_na_purine = load_important_atoms(config)
     if len(indices_aa) < 2:
         logging.info("Not enough amino acids selected for dihedral analysis. Skipping.")
         return
@@ -1411,7 +1412,7 @@ def get_dihedrals_protein(u_traj, config):
 ########################## Function to get the multimodal dihedrals of nucleic acids ################################
 def get_dihedrals_nucleic_acids(u_traj, config):
 
-    important_atoms, selected_resids, indices_aa, indices_na_pyrimidine, indices_na_purine = load_important_atoms(config)
+    important_atoms, selected_resids, selected_resnames, indices_aa, indices_na_pyrimidine, indices_na_purine = load_important_atoms(config)
     output_dir = config['output_dir']
     if len(indices_na_pyrimidine) < 1 and len(indices_na_purine) < 1:
         logging.info("No nucleic acids selected for dihedral analysis.")
@@ -1439,23 +1440,23 @@ def get_dihedrals_nucleic_acids(u_traj, config):
     compute_all_dihedrals_nucleic_acids(indices_na, Positions_atoms_P, Positions_atoms_O5p, Positions_atoms_C5p, Positions_atoms_O4p, Positions_atoms_C4p, Positions_atoms_C3p, Positions_atoms_O3p, Positions_atoms_C1p, Positions_atoms_Nbs, Positions_atoms_Cbs, times, config)
 
 
-############################# Function to add new coordinates to the existing discretization ##########################
-def add_coordinates(config):
+############################# Function to add new local_variables to the existing discretization ##########################
+def add_local_variables(config):
     output_dir = config['output_dir']
-    coordinates_to_add = config['coordinates_to_add']
-    type_coordinates_to_add = config['type_coordinates_to_add']
-    # Load already discretized coordinates
-    coordinates, X_cuts, Labels = load_data_discretization(output_dir + "selected_coordinates.txt")
+    local_variables_to_add = config['local_variables_to_add']
+    type_local_variables_to_add = config['type_local_variables_to_add']
+    # Load already discretized local_variables
+    local_variables, X_cuts, Labels = load_data_discretization(output_dir + "selected_local_variables.txt")
 
-    # Reference time values from the first known coordinate
-    data_zero = open_data_coordinate(output_dir + "coordinates_data/" + coordinates[0] + ".dat")
+    # Reference time values from the first known local_variable
+    data_zero = open_data_local_variable(output_dir + "local_variables_data/" + local_variables[0] + ".dat")
     times_to_compare = data_zero[:, 0]
 
-    logging.info("\nAdding new coordinates...")
-    for i, coord_file in enumerate(coordinates_to_add):
-        data_coord_raw = open_data_coordinate(coord_file)
-        coordinate_name = coord_file.split('/')[-1].split('.')[0]
-        coordinate_type = type_coordinates_to_add[i]
+    logging.info("\nAdding new local variables...")
+    for i, coord_file in enumerate(local_variables_to_add):
+        data_coord_raw = open_data_local_variable(coord_file)
+        local_variable_name = coord_file.split('/')[-1].split('.')[0]
+        local_variable_type = type_local_variables_to_add[i]
 
         # Filter values matching reference times
         y_coord = []
@@ -1474,33 +1475,33 @@ def add_coordinates(config):
             continue
 
         # Fix angle wrapping (e.g., from -180 to 180 or 0 to 360)
-        if coordinate_type == 'angle' :
-            y_coord, _, _ = adjust_angle_data(coordinate_name,y_coord, np.min(y_coord), np.max(y_coord), 4,output_dir)
+        if local_variable_type == 'angle' :
+            y_coord, _, _ = adjust_angle_data(local_variable_name,y_coord, np.min(y_coord), np.max(y_coord), 4,output_dir)
 
-        # Discretize and append this coordinate to selected_coordinates.txt
-        discretize_coordinate(y_coord, coordinate_type,times_to_compare, coordinate_name, config)
-    logging.info("New coordinates added and discretized.")
+        # Discretize and append this local_variable to selected_local_variables.txt
+        discretize_local_variable(y_coord, local_variable_type,times_to_compare, local_variable_name, config)
+    logging.info("New local variables added and discretized.")
 
 
-############################ Function to get the discretized array from saved coordinates ##########################
+############################ Function to get the discretized array from saved local_variables ##########################
 def get_discretized_array(config):
-    # Load coordinate names, discretization cutoffs, and corresponding labels
+    # Load local_variable names, discretization cutoffs, and corresponding labels
     output_dir = config['output_dir']
-    coordinates, X_cuts, Labels = load_data_discretization(output_dir + "selected_coordinates.txt")
+    local_variables, X_cuts, Labels = load_data_discretization(output_dir + "selected_local_variables.txt")
 
-    # Load time information from the first coordinate file (assumes all coordinates share the same time points)
+    # Load time information from the first local_variable file (assumes all local_variables share the same time points)
     frames_selected = np.load(output_dir + 'discretizing_npy/frames_selected.npy')
 
     nframes_to_save = len(frames_selected)
-    # Initialize output array to store discrete labels for each frame and coordinate
-    data_discretized = np.zeros((nframes_to_save, len(coordinates)), dtype=int)
+    # Initialize output array to store discrete labels for each frame and local_variable
+    data_discretized = np.zeros((nframes_to_save, len(local_variables)), dtype=int)
 
     logging.info("\nDiscretizing data...")
 
-    # Loop over all selected coordinates
-    for i in range(len(coordinates)):
-        # Load data for current coordinate
-        data_coord = open_data_coordinate(output_dir + "coordinates_data/" + coordinates[i] + ".dat")
+    # Loop over all selected local_variables
+    for i in range(len(local_variables)):
+        # Load data for current local_variable
+        data_coord = open_data_local_variable(output_dir + "local_variables_data/" + local_variables[i] + ".dat")
 
         # Loop over all frames
         for f in range (len(frames_selected)):
@@ -1524,12 +1525,12 @@ def get_discretized_array(config):
 ########################### Function to compute frequencies of single and double contacts ##########################
 def compute_frequencies(discretized_array):
     """
-    Compute marginal (single) and joint (double) frequencies for discretized coordinates.
+    Compute marginal (single) and joint (double) frequencies for discretized local_variables.
 
     Parameters
     ----------
     discretized_array : ndarray of shape (n_frames, n_coords)
-        The discretized representation of the coordinates.
+        The discretized representation of the local_variables.
 
     Returns
     -------
@@ -1543,7 +1544,7 @@ def compute_frequencies(discretized_array):
     multiplicities = get_multiplicities(discretized_array)
     total_bins = sum(multiplicities)
 
-    # Precompute flat indices (offsets) for each coordinate
+    # Precompute flat indices (offsets) for each local_variable
     offsets = np.cumsum([0] + list(multiplicities[:-1]))
 
     # Allocate output arrays
@@ -1622,8 +1623,8 @@ def plot_information(config,Information_matrix,output_dir,name_out,label_data=No
     plt.imshow(Information_matrix, cmap='magma', interpolation='nearest')
     plt.colorbar(label=label_data)
     plt.title(f'{label_data} Matrix')
-    plt.xlabel('Coordinate Index')
-    plt.ylabel('Coordinate Index')
+    plt.xlabel('Local Variable Index')
+    plt.ylabel('Local Variable Index')
     plt.tight_layout()
     plt.savefig(output_dir+name_out+f'.{extension_plots}', dpi=resolution_plots)
     plt.close()
@@ -1634,7 +1635,7 @@ def plot_information_clustered(config,Information_matrix, reordered_labels, outp
 
     Parameters:
     - Information_matrix: 2D numpy array (mutual information matrix).
-    - reordered_labels: List or array of cluster labels (in reordered coordinate order).
+    - reordered_labels: List or array of cluster labels (in reordered local_variable order).
     - output_dir: Directory to save the plot.
     - name_out: Output file name (without extension).
     - label_data: Optional string for the colorbar label.
@@ -1689,15 +1690,15 @@ def plot_information_clustered(config,Information_matrix, reordered_labels, outp
     plt.savefig(f"{output_dir}/{name_out}.{extension_plots}", dpi=resolution_plots)
     plt.close()
 
-########################## Function to compute mutual information between coordinates ##########################
+########################## Function to compute mutual information between local_variables ##########################
 def get_B_correction(output_dir):
     """
     Compute the bias correction for mutual information estimates.
     Parameters:
     discretized_array : ndarray (n_frames, n_coords)
-        The discretized representation of the coordinates.
+        The discretized representation of the local_variables.
     multiplicities : array-like of int, shape (n_coords,)
-        Number of discrete states (bins) for each coordinate.
+        Number of discrete states (bins) for each local_variable.
     Returns:
     correction : ndarray, shape (n_coords, n_coords)
         The bias correction matrix for mutual information.
@@ -1755,9 +1756,9 @@ def get_entropy(config):
     #plot the entropy values
     plt.figure(figsize=(8, 4))
     plt.bar(range(ncoord), entropy, color='blue', alpha=0.7)
-    plt.xlabel('Coordinate Index')
+    plt.title('Entropy of Local Variables')
+    plt.xlabel('Local Variable Index')
     plt.ylabel('Entropy')
-    plt.title('Entropy of Coordinates')
     plt.tight_layout()
     plt.savefig(output_dir + f'information_plots/entropy.{extension_plots}', dpi=resolution_plots)
     plt.close()
@@ -1896,7 +1897,7 @@ def yacare_clustering(distance_matrix,minimal_size_cluster=10, threshold_variabl
     # Log the captured output
     output = buf.getvalue()
     if output.strip():
-        logging.info("[DADApy output]\n" + output.strip())
+        logging.info("[YACARE output]\n" + output.strip())
     cluster_labels = np.array([x[1] for x in list_clustered_data_sorted])
     list_sufixes=['_Clustering_Clusters.ndx', '_Clustering_Labels.txt', '_Clustering_Noise.txt','_Clustering_ReorderedElements.txt','_Clustering_RepresentativeStructures.ndx','_Yacare_Summary.txt']
     for sufix in list_sufixes :
@@ -1969,32 +1970,17 @@ def cluster_distances(distance_matrix, method_clustering, parameters_clustering)
 
 
 ############# Function to plot clustering results ##########################
-def plot_clustering_results(config,dist_matrix,cluster_labels, output_dir, output_name, label_data=None, xlabel='X-axis', ylabel='Y-axis'):
-    """
-    Plots the results of clustering on the mutual information distance matrix.
+def plot_clustering_results(config,dist_matrix,community_labels, output_dir, output_name, label_data=None, xlabel='X-axis', ylabel='Y-axis'):
 
-    This function loads the cluster labels and distance matrix, then generates a scatter plot
-    of the coordinates colored by their cluster labels. It also saves the plot to a file.
-
-    Parameters:
-    -----------
-    output_dir : str
-        Path to the directory containing the analysis results.
-    
-    Returns:
-    --------
-    None. The plot is saved to disk.
-    """
-    
     logging.info("\nPlotting clustering results...")
 
     # Load cluster labels and distance matrix
-    unique_labels= np.unique(cluster_labels)
+    unique_labels= np.unique(community_labels)
     sorted_indices = []
     for label in unique_labels:
         if label == -1:  # Noise
             continue
-        indices = np.where(cluster_labels == label)[0]
+        indices = np.where(community_labels == label)[0]
 
         if len(indices) == 0:
             continue
@@ -2013,10 +1999,10 @@ def plot_clustering_results(config,dist_matrix,cluster_labels, output_dir, outpu
         sorted_indices.extend(order)
 
     # Add noise at the end
-    noise_indices = np.where(cluster_labels == -1)[0]
+    noise_indices = np.where(community_labels == -1)[0]
     sorted_indices.extend(noise_indices)
 
-    reordered_labels= cluster_labels[sorted_indices]
+    reordered_labels= community_labels[sorted_indices]
 
     dist_reordered = dist_matrix[sorted_indices, :][:, sorted_indices]
 
@@ -2029,41 +2015,41 @@ def plot_clustering_results(config,dist_matrix,cluster_labels, output_dir, outpu
     return reordered_labels
     
 
-#################### Function to extract the coordinates in each cluster ##########################
-def write_clusters_to_file(clusters_ndx,corresponding_labels, coordinates, output_dir, name_output_cluster):
+#################### Function to extract the local_variables in each cluster ##########################
+def write_communities_to_file(clusters_ndx,corresponding_labels, local_variables, output_dir, name_output_cluster):
 
-    logging.info("\nWriting clusters to file...")
+    logging.info("\nWriting communities to file...")
     with open(output_dir + name_output_cluster, 'w') as file_out:
         for i, cluster_i in enumerate(clusters_ndx):
             label_i=corresponding_labels[i]
             if label_i != -1:
-                file_out.write(f'[ Cluster{i} ]\n')
+                file_out.write(f'[ Community_{i} ]\n')
             else:
                 file_out.write(f'[ Noise ]\n')
             for index_coord in cluster_i:
-                file_out.write(f'{coordinates[index_coord]} \n')
+                file_out.write(f'{local_variables[index_coord]} \n')
             file_out.write('\n')
 
-    logging.info("Clusters written to file.")
+    logging.info("Communities written to file.")
 
-def get_resids_in_clusters(clusters_ndx,coordinates,name_coordinates_to_add,name_output,config):
-    logging.info("\nGetting resids in clusters...")
+def get_resids_in_communities(clusters_ndx,local_variables,name_local_variables_to_add,name_output,config):
+    logging.info("\nGetting resids in communities...")
     output_dir = config['output_dir']
-    residues_coordinates_to_add=config['residues_coordinates_to_add']
+    residues_local_variables_to_add=config['residues_local_variables_to_add']
     file_out=open(output_dir+name_output,'w')
     for i in range (len(clusters_ndx)):
         cluster_i=clusters_ndx[i]
         if i!=len(clusters_ndx)-1:
-            file_out.write(f'[ Cluster{i} ]\n')
+            file_out.write(f'[ Community_{i} ]\n')
         else:
             file_out.write(f'[ Noise ]\n')
         resids_in_cluster_i=[]
         for j in range(len(cluster_i)):
             index_coord=cluster_i[j]
-            coord=coordinates[index_coord]
-            if coord in name_coordinates_to_add:
-                index_coord_to_add=name_coordinates_to_add.index(coord)
-                name_resid_to_add=int(residues_coordinates_to_add[index_coord_to_add].split('_')[0])
+            coord=local_variables[index_coord]
+            if coord in name_local_variables_to_add:
+                index_coord_to_add=name_local_variables_to_add.index(coord)
+                name_resid_to_add=int(residues_local_variables_to_add[index_coord_to_add].split('_')[0])
                 if name_resid_to_add not in resids_in_cluster_i:
                     resids_in_cluster_i.append(name_resid_to_add)
                     
@@ -2085,7 +2071,7 @@ def get_resids_in_clusters(clusters_ndx,coordinates,name_coordinates_to_add,name
         for j in range(len(resids_in_cluster_i)):
             file_out.write(f'{resids_in_cluster_i[j]} ')
         file_out.write('\n\n')
-    logging.info("Getting resids in clusters completed.")
+    logging.info("Getting resids in communities completed.")
     file_out.close()
 
 
@@ -2096,44 +2082,44 @@ def compute_information(config):
     get_rajski_distance(config)
 
 
-############ Function to cluster coordinates based on mutual information distance, using Advanced Density Peaks ##############
-def cluster_coordinates(config):
+############ Function to cluster local_variables based on mutual information distance, using Advanced Density Peaks ##############
+def cluster_local_variables(config):
     output_dir = config['output_dir']
-    method_clustering_coordinates = config['method_clustering_coordinates']
+    method_clustering_local_variables = config['method_clustering_local_variables']
     minimal_size_to_cluster = config['minimal_size_to_cluster']
-    parameters_clustering_coordinates = config['parameters_clustering_coordinates']
+    parameters_clustering_local_variables = config['parameters_clustering_local_variables']
 
 
-    logging.info(f"\nClustering coordinates using {method_clustering_coordinates}...")
+    logging.info(f"\nClustering local variables using {method_clustering_local_variables}...")
 
     # Load the mutual information distance matrix
     rajski_distance = np.load(os.path.join(output_dir, "analysis_npy", "Rajski_distance.npy"))
-    n_coordinates= rajski_distance.shape[0]
-    #keep all in one cluster if not enough coordinates to cluster
-    if n_coordinates<minimal_size_to_cluster:
-        cluster_labels=np.array([0 for j in range(n_coordinates)])
+    n_local_variables= rajski_distance.shape[0]
+    #keep all in one cluster if not enough local_variables to cluster
+    if n_local_variables<minimal_size_to_cluster:
+        community_labels=np.array([0 for j in range(n_local_variables)])
     
     #Apply clustering
     else:
-        cluster_labels = cluster_distances(rajski_distance, method_clustering_coordinates, parameters_clustering_coordinates) 
+        community_labels = cluster_distances(rajski_distance, method_clustering_local_variables, parameters_clustering_local_variables) 
 
     # Save the cluster labels to a file
-    np.save(os.path.join(output_dir, "analysis_npy", "cluster_labels.npy"), cluster_labels)
+    np.save(os.path.join(output_dir, "analysis_npy", "community_labels.npy"), community_labels)
 
     logging.info("Clustering completed and labels saved.")
 
-    reordered_labels = plot_clustering_results(config,rajski_distance,cluster_labels, output_dir+'information_plots/', "rajski_distance_clustering", "Rajski distance",xlabel="Coordinate Index", ylabel="Coordinate Index")
-    coordinates,X_cuts,Labels=load_data_discretization(output_dir + "selected_coordinates.txt")
+    reordered_labels = plot_clustering_results(config,rajski_distance,community_labels, output_dir+'information_plots/', "rajski_distance_clustering", "Rajski distance",xlabel="Local Variable Index", ylabel="Local Variable Index")
+    local_variables,X_cuts,Labels=load_data_discretization(output_dir + "selected_local_variables.txt")
 
     # Extract clusters and write to file
     clusters_ndx = []
     corresponding_labels=[]
 
-    noise_ndx = np.where(cluster_labels == -1)[0]  # Indices of noise points
-    for label in np.unique(cluster_labels):
+    noise_ndx = np.where(community_labels == -1)[0]  # Indices of noise points
+    for label in np.unique(community_labels):
         if label == -1:  # Noise points
             continue
-        cluster_indices = np.where(cluster_labels == label)[0]
+        cluster_indices = np.where(community_labels == label)[0]
         clusters_ndx.append(cluster_indices)    
         corresponding_labels.append(label)
     # Add noise points as a separate cluster
@@ -2141,50 +2127,50 @@ def cluster_coordinates(config):
         clusters_ndx.append(noise_ndx)
         corresponding_labels.append(-1)
     # Write clusters to file
-    write_clusters_to_file(clusters_ndx,corresponding_labels, coordinates, output_dir, "clusters_of_coordinates.txt")
+    write_communities_to_file(clusters_ndx,corresponding_labels, local_variables, output_dir, "communities_of_local_variables.txt")
     # Get resids in clusters and write to file
-    coordinates_to_add=config['coordinates_to_add']
-    name_coordinates_to_add = [coord.split('/')[-1].split('.')[0] for coord in coordinates_to_add]
-    get_resids_in_clusters(clusters_ndx, coordinates, name_coordinates_to_add, "resids_in_clusters.txt",config)
+    local_variables_to_add=config['local_variables_to_add']
+    name_local_variables_to_add = [coord.split('/')[-1].split('.')[0] for coord in local_variables_to_add]
+    get_resids_in_communities(clusters_ndx, local_variables, name_local_variables_to_add, "resids_in_communities_of_LVs.txt",config)
 
 
 ###################### Functions to manipulate states and get conformations ########################
-def split_discretized_array_by_clusters(discretized_array, cluster_labels):
+def splt_discretized_array_by_communities(discretized_array, community_labels):
     """
     Splits the discretized array into sub-arrays based on cluster labels.
 
     Parameters:
     -----------
     discretized_array : ndarray
-        The discretized representation of the coordinates.
-    cluster_labels : ndarray
+        The discretized representation of the local_variables.
+    community_labels : ndarray
         The cluster labels for each frame in the discretized array.
 
     Returns:
     --------
-    clusters_data : list of ndarray
+    communities_data : list of ndarray
         A list where each element is a sub-array corresponding to a unique cluster.
     """
-    unique_labels = np.unique(cluster_labels)
-    clusters_data = []
+    unique_labels = np.unique(community_labels)
+    communities_data = []
 
     for label in unique_labels:
         if label == -1:  # Skip noise points
             continue
-        indices = np.where(cluster_labels == label)[0]
-        clusters_data.append(discretized_array[:,indices])
+        indices = np.where(community_labels == label)[0]
+        communities_data.append(discretized_array[:,indices])
 
-    return clusters_data
+    return communities_data
 
 
 
-def get_unique_states_in_splitted_array(clusters_data,config):
+def get_unique_configurations_in_splitted_array(communities_data,config):
     """
     Extracts unique states from each cluster's discretized data.
 
     Parameters:
     -----------
-    clusters_data : list of ndarray
+    communities_data : list of ndarray
         A list where each element is a sub-array corresponding to a unique cluster.
 
     Returns:
@@ -2194,10 +2180,10 @@ def get_unique_states_in_splitted_array(clusters_data,config):
     """
     unique_states = []
     probalities_unique_states = []
-    cutoff_len_states = config['cutoff_len_states']
-    cluster_of_coordinates_to_process = config['cluster_of_coordinates_to_process']
-    for i,cluster_data in enumerate(clusters_data):
-        if cluster_of_coordinates_to_process>=0 and i != cluster_of_coordinates_to_process:
+    cutoff_n_configurations = config['cutoff_n_configurations']
+    community_to_process = config['community_to_process']
+    for i,cluster_data in enumerate(communities_data):
+        if community_to_process>=0 and i != community_to_process:
             probalities_unique_states.append([])
             unique_states.append([]) 
             continue
@@ -2209,15 +2195,15 @@ def get_unique_states_in_splitted_array(clusters_data,config):
         unique_i = unique_i[sorted_proba_indices]  # Sort unique states by their probabilities
         proba_i = proba_i[sorted_proba_indices]  # Sort counts accordingly
         
-        unique_i_selected = unique_i[:cutoff_len_states]  # Keep only states up to the cutoff
-        proba_i_selected = proba_i[:cutoff_len_states]
+        unique_i_selected = unique_i[:cutoff_n_configurations]  # Keep only states up to the cutoff
+        proba_i_selected = proba_i[:cutoff_n_configurations]
         
-        n_non_selected_states = len(unique_i) - cutoff_len_states
+        n_non_selected_states = len(unique_i) - cutoff_n_configurations
         if n_non_selected_states > 0:
-            logging.info(f"Cluster {i}: Merging {n_non_selected_states} low-probability states into closest selected states.")
+            logging.info(f"Cluster {i}: Merging {n_non_selected_states} low-probability configurations into closest selected configurations.")
             previous_progress = -1
-            for j in range(cutoff_len_states, len(unique_i)):
-                previous_progress = plot_progress_bar(j - cutoff_len_states, n_non_selected_states, previous_progress)
+            for j in range(cutoff_n_configurations, len(unique_i)):
+                previous_progress = plot_progress_bar(j - cutoff_n_configurations, n_non_selected_states, previous_progress)
                 state_to_assign = unique_i[j]
                 dists = np.sum(state_to_assign != unique_i_selected, axis=1)  # Hamming distances to selected states
                 closest_index = np.argmin(dists)
@@ -2230,7 +2216,7 @@ def get_unique_states_in_splitted_array(clusters_data,config):
         
     return unique_states, probalities_unique_states
 
-def compute_distances_between_states(states,config):
+def compute_distances_between_configurations(states,config):
     """
     Computes pairwise distances between unique states.
 
@@ -2238,7 +2224,7 @@ def compute_distances_between_states(states,config):
     -----------
     states : list of ndarray
         A list where each element is an array of unique states for a cluster.
-    cluster_of_coordinates_to_process : int
+    community_to_process : int
         Index of the cluster to process (if > 0, only this cluster is processed).
 
     Returns:
@@ -2247,9 +2233,9 @@ def compute_distances_between_states(states,config):
         A list containing distance matrices for each cluster's unique states.
     """
     distances = []
-    cluster_of_coordinates_to_process = config['cluster_of_coordinates_to_process']
+    community_to_process = config['community_to_process']
     for i,state in enumerate(states):
-        if cluster_of_coordinates_to_process>=0 and i != cluster_of_coordinates_to_process:
+        if community_to_process>=0 and i != community_to_process:
             distances.append([])
             continue
 
@@ -2260,20 +2246,20 @@ def compute_distances_between_states(states,config):
         distances.append(dist_matrix)
     return distances
 
-def extract_frames_from_labels(clusters_data, unique_states_clusters, all_clusters_labels, frames_selected, proba_clusters, config):
-    logging.info("Extracting frames from states...")
+def extract_frames_from_labels(clusters_data, unique_configurations, all_clusters_labels, frames_selected, proba_clusters, config):
+    logging.info("Extracting frames for conformational states...")
 
     frames_by_clusters = []
-    cluster_of_coordinates_to_process = config['cluster_of_coordinates_to_process']
+    community_to_process = config['community_to_process']
     cutoff_proba_conformations = config['cutoff_proba_conformations']
     output_dir = config['output_dir']
     for i, cluster_labels in enumerate(all_clusters_labels):
         
-        if cluster_of_coordinates_to_process >= 0 and i != cluster_of_coordinates_to_process:
+        if community_to_process >= 0 and i != community_to_process:
             frames_by_clusters.append([])
             continue
         
-        logging.info(f"Processing conformations in cluster {i}...")     
+        logging.info(f"Processing conformations for community {i}...")     
         unique_labels = np.unique(cluster_labels)
         nb_conformations = len(unique_labels)
       
@@ -2281,7 +2267,7 @@ def extract_frames_from_labels(clusters_data, unique_states_clusters, all_cluste
         # Prepare storage for frames belonging to each conformation
         frames_conformations = [[] for _ in range(nb_conformations)]
 
-        n_states_i = len(unique_states_clusters[i])
+        n_states_i = len(unique_configurations[i])
         batch=int(1e8/ n_states_i)  # Adjust batch size based on number of unique states
         previous_progress = -1
         for start_shift in range(0, len(frames_selected), batch):
@@ -2289,7 +2275,7 @@ def extract_frames_from_labels(clusters_data, unique_states_clusters, all_cluste
             start= start_shift
             end = min(start + batch, len(frames_selected))
             batch_states = clusters_data[i][start:end]  # Shape: (batch_size, n_coords)
-            dists = np.sum(batch_states[:, None, :] != unique_states_clusters[i][None, :, :], axis=2)  # Shape: (batch_size, n_states_i)
+            dists = np.sum(batch_states[:, None, :] != unique_configurations[i][None, :, :], axis=2)  # Shape: (batch_size, n_states_i)
             closest_indices = np.argmin(dists, axis=1)  # Shape: (batch_size,)
             for t_offset, index_state in enumerate(closest_indices):
                 t = start + t_offset
@@ -2301,11 +2287,11 @@ def extract_frames_from_labels(clusters_data, unique_states_clusters, all_cluste
          # Check if there are enough conformations with high probability
         count_large_proba =len(np.where(proba_clusters[i] >= cutoff_proba_conformations)[0])
         if count_large_proba <= 1:
-            logging.warning(f"Cluster {i} has no several conformations to process.")
+            logging.warning(f"Community {i} has no several conformations to process.")
             continue
         
         # Open output file for current cluster
-        output_file = open(f"{output_dir}conformations_clustering/frames_conformations_from_cluster_of_CV_{i}.ndx", 'w')
+        output_file = open(f"{output_dir}conformational_states_clustering/frames_conformations_from_community_{i}.ndx", 'w')
 
         # Write conformations (excluding noise) to file
         for j in range(nb_conformations):
@@ -2328,7 +2314,7 @@ def extract_frames_from_labels(clusters_data, unique_states_clusters, all_cluste
 def split_trajectory_by_conformations(u_traj, frames_by_clusters,proba_clusters,all_clusters_labels,selected_resids, config):
     
     output_dir = config['output_dir']
-    cluster_of_coordinates_to_process = config['cluster_of_coordinates_to_process']
+    community_to_process = config['community_to_process']
     cutoff_proba_conformations = config['cutoff_proba_conformations']
     topolfile = config['topolfile']
     trajfile = config['trajfile']
@@ -2338,21 +2324,21 @@ def split_trajectory_by_conformations(u_traj, frames_by_clusters,proba_clusters,
     logging.info("\nSplitting trajectory by conformations...")
 
     atoms_selected = u_traj.select_atoms(f"resnum {' '.join(map(str, selected_resids))}")
-    atoms_selected.write(output_dir + "conformations_clustering/atoms_selected." + extension_topol)
+    atoms_selected.write(output_dir + "conformational_states_clustering/atoms_selected." + extension_topol)
 
     for i, frames_conformations in enumerate(frames_by_clusters):
-        if cluster_of_coordinates_to_process >= 0 and i != cluster_of_coordinates_to_process:
-            logging.info(f"Skipping cluster {i} as it is not the one to process.")
+        if community_to_process >= 0 and i != community_to_process:
+            logging.info(f"Skipping community {i} as it is not the one to process.")
             continue
-        logging.info(f"Processing cluster {i}...")
+        logging.info(f"Processing community {i}...")
 
         count_large_proba =len(np.where(proba_clusters[i] >= cutoff_proba_conformations)[0])
         if count_large_proba <= 1:
-            logging.warning(f"Cluster {i} has no several conformations to process.")
+            logging.warning(f"Community {i} has no several conformations to process.")
             continue
 
         # Create directory for storing split trajectories from current cluster
-        cluster_output_dir = os.path.join(output_dir, f"conformations_clustering/trajectories_cluster_{i}")
+        cluster_output_dir = os.path.join(output_dir, f"conformational_states_clustering/splitted_trajectory_community_{i}")
         if os.path.exists(cluster_output_dir):
             shutil.rmtree(cluster_output_dir)  # Remove existing directory            
         os.mkdir(cluster_output_dir)
@@ -2365,11 +2351,11 @@ def split_trajectory_by_conformations(u_traj, frames_by_clusters,proba_clusters,
             if len(frames) == 0 or proba_conf < cutoff_proba_conformations or unique_labels[j] == -1 :
                 continue  # Skip empty frames or low-probability conformations or noise
             
-            logging.info(f"Writing conformation {unique_labels[j]} in cluster {i} with probability {proba_conf:.2f}...")
+            logging.info(f"Writing conformation {unique_labels[j]} for community {i} with probability {proba_conf:.2f}...")
 
             # Define output file path for current conformation
             output_file = os.path.join(
-                cluster_output_dir, f"cluster_{i}_conformation_{unique_labels[j]}.{extension_traj}"
+                cluster_output_dir, f"community_{i}_conformation_{unique_labels[j]}.{extension_traj}"
             )
 
             # Write selected frames to new trajectory file
@@ -2377,19 +2363,19 @@ def split_trajectory_by_conformations(u_traj, frames_by_clusters,proba_clusters,
             atoms_selected.write(output_file, frames=frames)
     logging.info("Trajectory splitting completed.")
 
-def get_most_probable_states(all_clusters_labels, unique_states_clusters, probabilities_unique_states_clusters,config):
-    most_probable_states = []
-    proba_most_probable_states = []
+def get_most_probable_configurations(all_clusters_labels, unique_configurations, probabilities_unique_configurations,config):
+    most_probable_configurations = []
+    proba_most_probable_configurations = []
     cutoff_proba_conformations = config['cutoff_proba_conformations']
-    cluster_of_coordinates_to_process = config['cluster_of_coordinates_to_process']
+    community_to_process = config['community_to_process']
     # Loop through each main cluster
     for i, cluster_labels in enumerate(all_clusters_labels):
-        if cluster_of_coordinates_to_process >= 0 and i != cluster_of_coordinates_to_process:
-            most_probable_states.append([])
-            proba_most_probable_states.append([])
+        if community_to_process >= 0 and i != community_to_process:
+            most_probable_configurations.append([])
+            proba_most_probable_configurations.append([])
             continue
-        most_probable_states_cluster = []
-        proba_most_probable_states_cluster = []
+        most_probable_configurations_cluster = []
+        proba_most_probable_configurations_cluster = []
 
         # Get unique conformation labels in current cluster
         unique_labels = np.unique(cluster_labels)
@@ -2402,98 +2388,99 @@ def get_most_probable_states(all_clusters_labels, unique_states_clusters, probab
         # Loop through conformations (clustering sub-clusters)
         for j, ind_labels in enumerate(ind_labels_cluster):
             # Get the probabilities of the states in the current conformation
-            proba_cluster_conf_j = probabilities_unique_states_clusters[i][ind_labels]
+            proba_cluster_conf_j = probabilities_unique_configurations[i][ind_labels]
 
             # Identify the state with the highest probability
             ind_max_proba = ind_labels[np.argmax(proba_cluster_conf_j)]
 
             # Save the most probable state and its probability
-            most_probable_states_cluster.append(unique_states_clusters[i][ind_max_proba])
-            proba_most_probable_states_cluster.append(
-                probabilities_unique_states_clusters[i][ind_max_proba]
+            most_probable_configurations_cluster.append(unique_configurations[i][ind_max_proba])
+            proba_most_probable_configurations_cluster.append(
+                probabilities_unique_configurations[i][ind_max_proba]
             )
 
             if np.sum(proba_cluster_conf_j) > cutoff_proba_conformations :
                 # Log the result for tracking
                 if unique_labels[j] != -1 :
                     logging.info(
-                        f"Most probable state in cluster {i}, conformation {unique_labels[j]}: "
-                        f"{unique_states_clusters[i][ind_max_proba]} "
-                        f"with probability {probabilities_unique_states_clusters[i][ind_max_proba]}"
+                        f"Most probable configuration in community {i}, conformation {unique_labels[j]}: "
+                        f"{unique_configurations[i][ind_max_proba]} "
+                        f"with probability {probabilities_unique_configurations[i][ind_max_proba]}"
                     )
         # Append results for the current cluster
-        most_probable_states.append(most_probable_states_cluster)
-        proba_most_probable_states.append(proba_most_probable_states_cluster)
+        most_probable_configurations.append(most_probable_configurations_cluster)
+        proba_most_probable_configurations.append(proba_most_probable_configurations_cluster)
 
-    return most_probable_states, proba_most_probable_states
+    return most_probable_configurations, proba_most_probable_configurations
 
-def get_coordinates_in_clusters(config): 
+def get_local_variables_in_clusters(config): 
     output_dir = config['output_dir']
-    file_clusters = open(output_dir + "clusters_of_coordinates.txt", 'r')
-    clusters_coords = []  # List to hold coordinates per cluster
-    current_cluster = []  # Temporarily store coordinates for current cluster
+    file_clusters = open(output_dir + "communities_of_local_variables.txt", 'r')
+    local_variables_communities = []  # List to hold local_variables per cluster
+    current_cluster = []  # Temporarily store local_variables for current cluster
 
     for line in file_clusters:
         line = line.strip()
 
         # Start of a new cluster section
-        if line.startswith("[ Cluster") or line.startswith("[ Noise"):
-            # Save the previous cluster if it had any coordinates
+        if line.startswith("[ Community") or line.startswith("[ Noise"):
+            # Save the previous cluster if it had any local_variables
             if len(current_cluster) > 0:
-                clusters_coords.append(current_cluster)
+                local_variables_communities.append(current_cluster)
                 current_cluster = []  # Reset for the next cluster
 
         elif line:
-            # Line contains a coordinate name, add to current cluster
+            # Line contains a local_variable name, add to current cluster
             current_cluster.append(line)
 
     # Don't forget to append the last cluster if not empty
     if len(current_cluster) > 0:
-        clusters_coords.append(current_cluster)
+        local_variables_communities.append(current_cluster)
 
-    return clusters_coords
+    return local_variables_communities
 
-def write_conformations_to_file(all_cluster_labels,most_probable_states, proba_most_probable_states, proba_clusters, config):
-    clusters_coords = get_coordinates_in_clusters(config)  # Get coordinate names (CVs) associated with each cluster
+def write_conformations_to_file(all_cluster_labels,most_probable_configurations, proba_most_probable_configurations, proba_clusters, config):
+    local_variables_communities = get_local_variables_in_clusters(config)  # Get local_variable names (CVs) associated with each cluster
+    print(local_variables_communities)
     logging.info("\nWriting conformations to file...")
 
     # Open the output file for writing
     # Loop over clusters
-    cluster_of_coordinates_to_process = config['cluster_of_coordinates_to_process']
+    community_to_process = config['community_to_process']
     output_dir = config['output_dir']
     cutoff_proba_conformations = config['cutoff_proba_conformations']
-    for i, cluster_states in enumerate(most_probable_states):
-        if cluster_of_coordinates_to_process >= 0 and i != cluster_of_coordinates_to_process:
+    for i, community_configurations in enumerate(most_probable_configurations):
+        if community_to_process >= 0 and i != community_to_process:
             continue
-        with open(output_dir + f"conformations_clustering/conformations_cluster_{i}.txt", 'w') as file_out:
+        with open(output_dir + f"conformational_states_clustering/conformations_community_{i}.txt", 'w') as file_out:
             
-            file_out.write(f"[ Cluster {i} ]\n")
+            file_out.write(f"[ Community_{i} ]\n\n")
             unique_cluster_labels = np.unique(all_cluster_labels[i])
             # Loop over conformations within the cluster
-            for j, state in enumerate(cluster_states):
+            for j, state in enumerate(community_configurations):
 
                 if unique_cluster_labels[j]==-1 or proba_clusters[i][j] < cutoff_proba_conformations:
                     continue
                 file_out.write(f"Conformation {unique_cluster_labels[j]} - Probability: {proba_clusters[i][j]:.5f}\n")
                 file_out.write(f"Most probable state: {state}\n")
-                file_out.write(f"Probability of the most probable state: {proba_most_probable_states[i][j]:.5f}\n")
+                file_out.write(f"Probability of the most probable state: {proba_most_probable_configurations[i][j]:.5f}\n")
                 file_out.write("Discretized values:\n")
 
-                # Write coordinate name and value
+                # Write local_variable name and value
                 for k, coord in enumerate(state):
-                    file_out.write(f"{clusters_coords[i][k]}: {coord}\n")
+                    file_out.write(f"{local_variables_communities[i][k]}: {coord}\n")
                 file_out.write('\n')  # Blank line between conformations
 
             file_out.write('\n')  # Blank line between clusters
 
 
 ######################### Function to extract conformations from clusters ##########################
-def get_conformations_from_clusters(u_traj,config):
+def get_conformations_for_communities(u_traj,config):
     output_dir = config['output_dir']
 
     method_clustering_conformations = config['method_clustering_conformations']
     parameters_clustering_conformations = config['parameters_clustering_conformations']
-    cluster_of_coordinates_to_process = config['cluster_of_coordinates_to_process']
+    community_to_process = config['community_to_process']
     minimal_size_to_cluster = config['minimal_size_to_cluster']
     cutoff_proba_conformations = config['cutoff_proba_conformations']
     split_trajectory = config['split_trajectory']
@@ -2501,39 +2488,39 @@ def get_conformations_from_clusters(u_traj,config):
     frames_selected = np.load(output_dir + "discretizing_npy/frames_selected.npy")  # Load time indices for frames
 
     # Load top-level cluster assignments
-    cluster_labels = np.load(os.path.join(output_dir, "analysis_npy", "cluster_labels.npy"))
+    community_labels = np.load(os.path.join(output_dir, "analysis_npy", "community_labels.npy"))
 
-    # Load selected coordinates and the discretized representation
-    coordinates, X_cuts, Labels = load_data_discretization(output_dir + "selected_coordinates.txt")
+    # Load selected local_variables and the discretized representation
+    local_variables, X_cuts, Labels = load_data_discretization(output_dir + "selected_local_variables.txt")
     discretized_array = np.load(output_dir + "discretizing_npy/discretized_array.npy")
 
-    logging.info("\nExtracting conformations from clusters...")
+    logging.info("\nExtracting conformations for communities...")
 
     # Split the discretized array based on top-level clustering 
-    clusters_data = split_discretized_array_by_clusters(discretized_array, cluster_labels)
-    logging.info(f"Found {len(clusters_data)} clusters based on clustering labels.")
+    communities_data = splt_discretized_array_by_communities(discretized_array, community_labels)
+    logging.info(f"Found {len(communities_data)} communities based on clustering labels.")
 
     # Extract unique conformational states and their probabilities within each cluster
-    logging.info("Extracting unique states from clusters...")
-    unique_states_clusters, probabilities_unique_states_clusters = get_unique_states_in_splitted_array(clusters_data,config)
-    cumulative_proba = [np.sum(probabilities_unique_states_clusters[i]) for i in range(len(probabilities_unique_states_clusters))]
+    logging.info("Extracting unique configurations for communities...")
+    unique_configurations, probabilities_unique_configurations = get_unique_configurations_in_splitted_array(communities_data,config)
+    cumulative_proba = [np.sum(probabilities_unique_configurations[i]) for i in range(len(probabilities_unique_configurations))]
     cumulative_proba = np.array(cumulative_proba)
-    logging.info(f"Total probability of unique states under cutoff_len_states in each cluster: {cumulative_proba}")
+    logging.info(f"Total probability of unique configurations under cutoff_n_configurations in each cluster: {cumulative_proba}")
     
     # Compute pairwise distances between unique states inside each cluster
-    logging.info(f"Computing distances between unique states in each cluster...")
-    distances_between_states = compute_distances_between_states(unique_states_clusters,config)
+    logging.info(f"Computing distances between unique configurations in each community...")
+    distances_between_configurations = compute_distances_between_configurations(unique_configurations,config)
     
     all_clusters_labels = []
-    for i, dist_states in enumerate(distances_between_states):
-        if cluster_of_coordinates_to_process>=0 and i != cluster_of_coordinates_to_process:
+    for i, dist_states in enumerate(distances_between_configurations):
+        if community_to_process>=0 and i != community_to_process:
             all_clusters_labels.append([])
             logging.info(f'Skip cluster {i} as it is not the one to process.')
             continue
         
-        logging.info(f"Cluster {i}: Found {len(unique_states_clusters[i])} unique states.")    
+        logging.info(f"Cluster {i}: Found {len(unique_configurations[i])} unique configurations.")    
 
-        n_unique_states = len(unique_states_clusters[i])
+        n_unique_states = len(unique_configurations[i])
         # split into each state if not enough states to cluster
         if n_unique_states < minimal_size_to_cluster :
             cluster_labels = np.array([j for j in range(n_unique_states)])
@@ -2545,11 +2532,11 @@ def get_conformations_from_clusters(u_traj,config):
         # Plot and save the clustering results for this sub-cluster
         _ = plot_clustering_results(config,
             dist_states, cluster_labels,
-            output_dir + 'conformations_clustering/',
-            f"distances_between_states_cluster_{i}",
+            output_dir + 'conformational_states_clustering/',
+            f"distances_between_configurations_community_{i}",
             label_data="Normalized distance between states",
-            xlabel="State Index",
-            ylabel="State Index"
+            xlabel="Unique Configuration Index",
+            ylabel="Unique Configuration Index"
         )
         all_clusters_labels.append(cluster_labels)
 
@@ -2557,7 +2544,7 @@ def get_conformations_from_clusters(u_traj,config):
     proba_clusters = []
     for i, cluster_labels in enumerate(all_clusters_labels):
         
-        if cluster_of_coordinates_to_process>=0 and i != cluster_of_coordinates_to_process:
+        if community_to_process>=0 and i != community_to_process:
             proba_clusters.append([])
             continue
         unique_labels = np.unique(cluster_labels)
@@ -2565,12 +2552,12 @@ def get_conformations_from_clusters(u_traj,config):
 
         for j, label in enumerate(cluster_labels):
             ind_label = np.where(unique_labels == label)[0][0]
-            proba_conformations[ind_label] += probabilities_unique_states_clusters[i][j]
+            proba_conformations[ind_label] += probabilities_unique_configurations[i][j]
         #select probabilities larger than 0.001
         selected_unique_labels = unique_labels[proba_conformations > cutoff_proba_conformations]
         selected_proba_conformations = proba_conformations[proba_conformations > cutoff_proba_conformations]
 
-        logging.info(f"Conformations in cluster {i}: {selected_unique_labels}        -1 indicates noise")
+        logging.info(f"Conformations for community {i}: {selected_unique_labels}        -1 indicates noise")
         
         logging.info("Probabilities of conformations: %s", 
                     ["%.3f" % p for p in selected_proba_conformations])
@@ -2578,19 +2565,19 @@ def get_conformations_from_clusters(u_traj,config):
         proba_clusters.append(proba_conformations)
         
     # Extract the most probable states from each cluster 
-    logging.info("\nComputing most probable states in each cluster...")
-    most_probable_states, proba_most_probable_states = get_most_probable_states(all_clusters_labels, unique_states_clusters, probabilities_unique_states_clusters,config)
+    logging.info("\nComputing most probable configuration for each community...")
+    most_probable_configurations, proba_most_probable_configurations = get_most_probable_configurations(all_clusters_labels, unique_configurations, probabilities_unique_configurations,config)
 
     # Write representative conformations to file
-    write_conformations_to_file(all_clusters_labels,most_probable_states, proba_most_probable_states, proba_clusters, config)
+    write_conformations_to_file(all_clusters_labels,most_probable_configurations, proba_most_probable_configurations, proba_clusters, config)
     logging.info("Conformations written to file.")
 
     # Extract original frame indices from final conformation labels
-    frames_by_clusters = extract_frames_from_labels(clusters_data, unique_states_clusters, all_clusters_labels, frames_selected,proba_clusters,config)
+    frames_by_clusters = extract_frames_from_labels(communities_data, unique_configurations, all_clusters_labels, frames_selected,proba_clusters,config)
 
     # Optionally split trajectory files for each conformation cluster
     if split_trajectory:
-        important_atoms, selected_resids, indices_aa, indices_na_pyrimidine, indices_na_purine = load_important_atoms(config)
+        important_atoms, selected_resids, selected_resnames, indices_aa, indices_na_pyrimidine, indices_na_purine = load_important_atoms(config)
         split_trajectory_by_conformations(u_traj, frames_by_clusters,proba_clusters,all_clusters_labels,selected_resids, config)
 
 ################### Function to plot conformations as function of time ##########################
@@ -2603,15 +2590,15 @@ def plot_conformations_as_function_of_time(config):
     frames_selected = np.load(output_dir + "discretizing_npy/frames_selected.npy")  # Load frame indices corresponding to time points
 
     n_frames = len(times_selected)
-    cluster_labels = np.load(os.path.join(output_dir, "analysis_npy", "cluster_labels.npy"))
-    unique_labels = np.unique(cluster_labels)
+    community_labels = np.load(os.path.join(output_dir, "analysis_npy", "community_labels.npy"))
+    unique_labels = np.unique(community_labels)
     unique_labels = unique_labels[unique_labels != -1]  # Exclude noise label (-1)
-    conformations_by_cluster = []
+    conformations_for_community = []
 
     for i in unique_labels:
-        ndx_file = output_dir + f"conformations_clustering/frames_conformations_from_cluster_of_CV_{i}.ndx"
+        ndx_file = output_dir + f"conformational_states_clustering/frames_conformations_from_community_{i}.ndx"
         if not os.path.exists(ndx_file):
-            logging.warning(f"Ndx file for cluster {i} not found. Skipping plot.")
+            logging.warning(f"Ndx file for community {i} not found. Skipping plot.")
             continue
         data_ndx,lines_ndx =open_file(ndx_file)
         conformation_by_frame = np.zeros(n_frames) -1
@@ -2622,11 +2609,14 @@ def plot_conformations_as_function_of_time(config):
             elif len(data_ndx[j])>0 :
                 for f in data_ndx[j] :
                     conformation_by_frame[int(f)-frames_selected[0]] = index_conformation
-        conformations_by_cluster.append(conformation_by_frame)
+        conformations_for_community.append(conformation_by_frame)
 
     # Plotting
-    num_clusters = len(conformations_by_cluster)
-    max_number_of_colors = max([int(np.max(conf)) for conf in conformations_by_cluster if len(conf) > 0]) + 1
+    num_clusters = len(conformations_for_community)
+    if num_clusters == 0:
+        logging.warning("No conformations found for any community. Skipping plot.")
+        return
+    max_number_of_colors = max([int(np.max(conf)) for conf in conformations_for_community if len(conf) > 0]) + 1
     #create a colormap with enough colors
     base_colors = plt.cm.magma(np.linspace(0, 1, max_number_of_colors))
     cmap = ListedColormap(base_colors[:max_number_of_colors])
@@ -2634,21 +2624,21 @@ def plot_conformations_as_function_of_time(config):
     bounds = np.arange(-0.5, max_number_of_colors + 0.5, 1)
     norm = BoundaryNorm(bounds, cmap.N)
 
-    conformations_by_cluster_colored =np.copy(conformations_by_cluster)
+    conformations_for_community_colored =np.copy(conformations_for_community)
     # X-axis uses real times
     extent = [float(times_selected[0]), float(times_selected[-1]), 0, num_clusters]
     values_by_conformation = {}
     for i in range(num_clusters):
         values_by_conformation[i] = {}
-        labels_cluster_i = np.unique(conformations_by_cluster[i])
+        labels_cluster_i = np.unique(conformations_for_community[i])
         n_conformations = len(labels_cluster_i)
         delta_colors = max_number_of_colors / (n_conformations - 1) if n_conformations > 1 else 0
         for j in range(n_conformations):
             values_by_conformation[i][j] = round(delta_colors * j) 
-            conformations_by_cluster_colored[i][conformations_by_cluster[i] ==labels_cluster_i[j] ] = values_by_conformation[i][j]
+            conformations_for_community_colored[i][conformations_for_community[i] ==labels_cluster_i[j] ] = values_by_conformation[i][j]
     
     plt.figure(figsize=(10, 6))
-    for i, cluster_data in enumerate(conformations_by_cluster_colored):
+    for i, cluster_data in enumerate(conformations_for_community_colored):
         # Normalize for this cluster (conformation indices within cluster)
         labels_cluster_i = np.unique(cluster_data)
         labels_cluster_i = labels_cluster_i[labels_cluster_i != -1]  # remove -1
@@ -2680,25 +2670,25 @@ def plot_conformations_as_function_of_time(config):
         )
 
     # Draw horizontal lines between clusters
-    for i in range(len(conformations_by_cluster)-1):
+    for i in range(len(conformations_for_community)-1):
         plt.axhline(y=i+1, color='k', linestyle='-', linewidth=0.5)
 
     plt.yticks(np.arange(0.5, num_clusters + 0.5), unique_labels)
+    plt.title('Conformational States for Communities as a Function of Time')
     plt.xlabel('Time (in ps)')
-    plt.ylabel('Cluster of Coordinates Index')
-    plt.title('Conformational States as a Function of Time')
+    plt.ylabel('Community of LVs Index')
     plt.tight_layout()
-    plt.savefig(output_dir + f"conformations_clustering/conformations_as_function_of_time.{extension_plots}", dpi=resolution_plots)
+    plt.savefig(output_dir + f"conformational_states_clustering/conformational_states_as_function_of_time.{extension_plots}", dpi=resolution_plots)
     plt.close()
     logging.info("Conformational time plot saved.")
 
-    correlation_matrix = np.corrcoef(conformations_by_cluster)
+    correlation_matrix = np.corrcoef(conformations_for_community)
     correlation_matrix = np.nan_to_num(correlation_matrix)  # Replace NaNs with 0 for plotting
     correlation_matrix =np.abs(correlation_matrix)
 
     matrix_to_text = np.array2string(correlation_matrix, formatter={'float_kind': lambda x: f"{x:.2f}"})
 
-    logging.info("Absolute Pearson correlation matrix between clusters of coordinates:")
+    logging.info("Absolute Pearson correlation matrix between clusters of local_variables:")
     logging.info(matrix_to_text)
     plt.figure(figsize=(8, 6))
     plt.imshow(correlation_matrix, cmap='magma', aspect='equal')
@@ -2706,9 +2696,10 @@ def plot_conformations_as_function_of_time(config):
     plt.clim(0, 1)
     plt.xticks(np.arange(num_clusters), unique_labels)
     plt.yticks(np.arange(num_clusters), unique_labels)
-    plt.xlabel('Cluster of Coordinates Index')
-    plt.ylabel('Cluster of Coordinates Index')
+    plt.title('Correlation of Conformational States Between Communities of LVs')
+    plt.xlabel('Community of LVs Index')
+    plt.ylabel('Community of LVs Index')
     plt.tight_layout()
-    plt.savefig(output_dir + f"conformations_clustering/correlation_conformations_between_clusters.{extension_plots}", dpi=resolution_plots)
+    plt.savefig(output_dir + f"conformational_states_clustering/correlation_conformations_between_communities.{extension_plots}", dpi=resolution_plots)
     plt.close()
 
