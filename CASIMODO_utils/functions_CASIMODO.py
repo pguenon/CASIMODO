@@ -23,7 +23,7 @@ import MDAnalysis as mda
 import matplotlib
 matplotlib.use('Agg')
 
-
+from matplotlib.colors import LinearSegmentedColormap
 
 ###################### INITIATE LOGGING #####################
 def initiate_logging(config,basename='casimodo'):
@@ -2646,19 +2646,43 @@ def plot_conformations_as_function_of_time(config):
         for j in range(n_conformations):
             values_by_conformation[i][j] = round(delta_colors * j) 
             conformations_by_cluster_colored[i][conformations_by_cluster[i] ==labels_cluster_i[j] ] = values_by_conformation[i][j]
+    
     plt.figure(figsize=(10, 6))
-    im = plt.imshow(
-        conformations_by_cluster_colored,
-        cmap=cmap,
-        norm=norm,
-        aspect='auto',
-        interpolation='none',
-        extent=extent,
-        origin='lower'
-    )
-    for i in range(num_clusters-1):
-        plt.axhline(y=i + 1, color='k', linestyle='-', linewidth=0.5)
-    #Splt.colorbar(im, ticks=np.arange(0, max_number_of_colors), label='Conformation Index')
+    for i, cluster_data in enumerate(conformations_by_cluster_colored):
+        # Normalize for this cluster (conformation indices within cluster)
+        labels_cluster_i = np.unique(cluster_data)
+        labels_cluster_i = labels_cluster_i[labels_cluster_i != -1]  # remove -1
+        n_conformations = len(labels_cluster_i)
+        if n_conformations > 1:
+            delta_colors = 1.0 / (n_conformations - 1)
+        else:
+            delta_colors = 1.0
+        norm = plt.Normalize(vmin=0, vmax=max(n_conformations - 1, 1))
+        
+        #get a color from tab10 for this cluster
+        base_color= plt.cm.tab10(i % 10)
+        cmap = LinearSegmentedColormap.from_list(f'custom_{base_color}', ['white', base_color,'black'])
+        cmap = ListedColormap(cmap(np.linspace(0.2, 0.8, n_conformations)))
+        
+        # Map conformation indices to normalized color values
+        colored_row = np.copy(cluster_data)
+        for j, label in enumerate(labels_cluster_i):
+            colored_row[cluster_data == label] = j
+        
+        # Plot this row with its own colormap
+        plt.imshow(
+            colored_row[np.newaxis, :],  # Make it 2D: 1 row
+            cmap=cmap,
+            norm=norm,
+            aspect='auto',
+            extent=[times_selected[0], times_selected[-1], i, i+1],
+            origin='lower'
+        )
+
+    # Draw horizontal lines between clusters
+    for i in range(len(conformations_by_cluster)-1):
+        plt.axhline(y=i+1, color='k', linestyle='-', linewidth=0.5)
+
     plt.yticks(np.arange(0.5, num_clusters + 0.5), unique_labels)
     plt.xlabel('Time (in ps)')
     plt.ylabel('Cluster of Coordinates Index')
