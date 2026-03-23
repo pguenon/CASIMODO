@@ -2441,7 +2441,6 @@ def get_local_variables_in_clusters(config):
 
 def write_conformations_to_file(all_cluster_labels,most_probable_configurations, proba_most_probable_configurations, proba_clusters, config):
     local_variables_communities = get_local_variables_in_clusters(config)  # Get local_variable names (CVs) associated with each cluster
-    print(local_variables_communities)
     logging.info("\nWriting conformations to file...")
 
     # Open the output file for writing
