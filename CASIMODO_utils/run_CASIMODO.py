@@ -192,7 +192,7 @@ if step_to_perform in ['all']:
 
 if step_to_perform in ['all', 'discretize_local_variables']:
     subdirs = [
-    'local_variables_plot/',
+    'local_variables_plots/',
     'analysis_npy/',
     'information_plots/'   
     ]
