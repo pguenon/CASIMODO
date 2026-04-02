@@ -1966,6 +1966,11 @@ def cluster_distances(distance_matrix, method_clustering, parameters_clustering)
         cluster_labels = ward_clustering(distance_matrix, *parameters_clustering)
     elif method_clustering == 'k-means':
         cluster_labels = kmeans_clustering(distance_matrix, *parameters_clustering)
+    
+    if type(cluster_labels) == list:
+        cluster_labels = np.array(cluster_labels)
+    if np.min(cluster_labels)==1 : 
+        cluster_labels-=1
     return cluster_labels
 
 
@@ -2262,26 +2267,23 @@ def extract_frames_from_labels(clusters_data, unique_configurations, all_cluster
         logging.info(f"Processing conformations for community {i}...")     
         unique_labels = np.unique(cluster_labels)
         nb_conformations = len(unique_labels)
-      
+        label_map = {label: idx for idx, label in enumerate(unique_labels)}
 
-        # Prepare storage for frames belonging to each conformation
-        frames_conformations = [[] for _ in range(nb_conformations)]
+        config_to_index = {
+            tuple(state): idx for idx, state in enumerate(unique_configurations[i])
+        }
 
-        n_states_i = len(unique_configurations[i])
-        batch=int(1e8/ n_states_i)  # Adjust batch size based on number of unique states
-        previous_progress = -1
-        for start_shift in range(0, len(frames_selected), batch):
-            previous_progress = plot_progress_bar(start_shift, len(frames_selected), previous_progress)
-            start= start_shift
-            end = min(start + batch, len(frames_selected))
-            batch_states = clusters_data[i][start:end]  # Shape: (batch_size, n_coords)
-            dists = np.sum(batch_states[:, None, :] != unique_configurations[i][None, :, :], axis=2)  # Shape: (batch_size, n_states_i)
-            closest_indices = np.argmin(dists, axis=1)  # Shape: (batch_size,)
-            for t_offset, index_state in enumerate(closest_indices):
-                t = start + t_offset
-                label_index = list(unique_labels).index(cluster_labels[index_state])
-                frames_conformations[label_index].append(frames_selected[t])
-        previous_progress = plot_progress_bar(len(frames_selected), len(frames_selected), previous_progress)
+        frames_conformations = [[] for _ in range(len(unique_labels))]
+
+        for t, state in enumerate(clusters_data[i]):
+            index_state = config_to_index.get(tuple(state))
+            if index_state is None:
+                continue
+
+            label_index = label_map[cluster_labels[index_state]]
+            frames_conformations[label_index].append(frames_selected[t])
+        
+
         frames_by_clusters.append(frames_conformations)
         
          # Check if there are enough conformations with high probability
