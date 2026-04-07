@@ -1203,7 +1203,7 @@ def adjust_angle_data(name_angle, data, y_min, y_max, delta_y, config):
     output_data_adjustement = output_dir + 'angles_adjustments.txt'
     if not os.path.exists(output_data_adjustement):
         with open(output_data_adjustement, 'w') as f:
-            f.write('#Coordinate_name  Angle_to_put_periodicity \n')
+            f.write('#Angle_name  Angle_to_put_periodicity 2Pi_to_add\n')
     angle_names_adjusted,angle_values_adjusted,cycle_corrections = load_adjustments_angles(output_dir)
     cycle_correction=0
     
