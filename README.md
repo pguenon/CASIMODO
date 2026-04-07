@@ -23,7 +23,7 @@ To get started, you’ll need a Python environment (Python 3.9 or higher).
 
 You’ll need the following Python packages installed:
 
-- `numpy`
+- `numpy` < 2.4
 - `scipy`
 - `sklearn`
 - `matplotlib`
