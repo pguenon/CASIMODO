@@ -2596,11 +2596,13 @@ def plot_conformations_as_function_of_time(config):
     unique_labels = unique_labels[unique_labels != -1]  # Exclude noise label (-1)
     conformations_for_community = []
 
+    comumunities_to_plot=[]
     for i in unique_labels:
         ndx_file = output_dir + f"conformational_states_clustering/frames_conformations_from_community_{i}.ndx"
         if not os.path.exists(ndx_file):
             logging.warning(f"Ndx file for community {i} not found. Skipping plot.")
             continue
+        comumunities_to_plot.append(i)
         data_ndx,lines_ndx =open_file(ndx_file)
         conformation_by_frame = np.zeros(n_frames) -1
         index_conformation = -1
@@ -2674,7 +2676,7 @@ def plot_conformations_as_function_of_time(config):
     for i in range(len(conformations_for_community)-1):
         plt.axhline(y=i+1, color='k', linestyle='-', linewidth=0.5)
 
-    plt.yticks(np.arange(0.5, num_clusters + 0.5), unique_labels)
+    plt.yticks(np.arange(0.5, num_clusters + 0.5), comumunities_to_plot)
     plt.title('Conformational States for Communities as a Function of Time')
     plt.xlabel('Time (in ps)')
     plt.ylabel('Community of LVs Index')
@@ -2695,8 +2697,8 @@ def plot_conformations_as_function_of_time(config):
     plt.imshow(correlation_matrix, cmap='magma', aspect='equal')
     cbar = plt.colorbar(label='Absolute Pearson Correlation Coefficient')
     plt.clim(0, 1)
-    plt.xticks(np.arange(num_clusters), unique_labels)
-    plt.yticks(np.arange(num_clusters), unique_labels)
+    plt.xticks(np.arange(num_clusters), comumunities_to_plot)
+    plt.yticks(np.arange(num_clusters), comumunities_to_plot)
     plt.title('Correlation of Conformational States Between Communities of LVs')
     plt.xlabel('Community of LVs Index')
     plt.ylabel('Community of LVs Index')
