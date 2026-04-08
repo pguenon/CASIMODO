@@ -7,7 +7,7 @@ A script by _Paul Guénon_, Guillaume Stirnemann, Damien Laage, and Olivier Rivo
 
 ## What is CASIMODO?
 
-**CASIMODO** is a Python-based tool designed to help automatically analyze conformational changes in molecular dynamics (MD) trajectories, especially in large and complex systems. It works by discretizing the conformational space and identifying the geometric variables that change state throughout the simulation.
+**CASIMODO** is a Python-based tool designed to help automatically analyze conformational changes in molecular dynamics (MD) trajectories, especially in large and complex systems. It works by discretizing the conformational space and identifying the local variables that change state throughout the simulation.
 
 The core idea behind CASIMODO is to provide a fast, lightweight, and user-friendly method for uncovering which parts of a system undergo structural changes and how. It is designed to run on a single CPU core and deliver results in a relatively short amount of time, making it accessible even on modest computing resources.
 
@@ -76,13 +76,13 @@ You can modify or integrate this script into your own job submission pipeline, a
 Once the initial full run is complete, you may wish to explore better clustering results by adjusting certain parameters. CASIMODO allows you to rerun only the clustering steps to save time.
 
 Use the `step_to_perform` variable in the submission script to specify the step:
-* `"cluster_coordinates"`: Reruns the clustering of the geometric variables.
+* `"cluster_local_variables"`: Reruns the clustering of the geometric variables.
 * `"get_conformations"`: Reruns the clustering of states and identification of conformations.
 
 #### Parameters to adjust:
-For both the clustering of the coordinates and the clustering of the conformations you can choose a clustering method among `'hdbscan'`, `'yacare'`, `'ward'` and `'k-means'` and assign it to the parameters `method_clustering_coordinates`and `method_clustering_conformations`. The method can be different for clustering coordinates and conformations. We advise using `'hdbscan'` for clustering coordinates and `'ward'` for clustering conformations, but you can experiment with other methods as well.
+For both the clustering of the local variables and the clustering of the conformations you can choose a clustering method among `'hdbscan'`, `'yacare'`, `'ward'` and `'k-means'` and assign it to the parameters `method_clustering_local_variables`and `method_clustering_conformations`. The method can be different for clustering local variables and conformations. We advise using `'hdbscan'` for clustering local variables and `'ward'` for clustering conformations, but you can experiment with other methods as well.
 
-You should then indicate the list of parameters you one to use for the clustering method you chose. To do so, you should enter the value of parameters one after the other with a withspace between successive parameters, and respecting the following orders.
+You should then indicate the list of parameters you want to use for the clustering method you chose. To do so, you should enter the value of parameters one after the other with a withspace between successive parameters, and respecting the following orders.
 
 The parameters to choose are the following ones, for more details about parameters please refer to litterature about the clustering methods:
 
@@ -92,6 +92,7 @@ The parameters to choose are the following ones, for more details about paramete
 - `cluster_selection_epsilon`: Distance between clusters to be merged. Positive float.
 
 **For Yacare**:
+- `min_cluster_size`: minimal size of the cluster you want. Integer superior or equal to 2. 
 - `threshold_variable`: The lower this variable, the purer the inital clusters.
 - `amount_of_noise`: The higher it is, the more data will be removed from noise to be added to clusters.
 - `keep_no_noise`: If `0` you have noise, if `1` you have no noise.
@@ -106,34 +107,34 @@ The parameters to choose are the following ones, for more details about paramete
 You may need to experiment with these values to find a clustering result that best captures the behavior of your system.
 
 When clustering conformations, two more parameters can be adjusted:
-- `cluster_of_coordinates_to_process`: The index of the community of variables to process. `-1` for all communities, `0` for first community, `1` for second community, etc.
+- `community_to_process`: The index of the community of variables to process. `-1` for all communities, `0` for first community, `1` for second community, etc.
 - `split_trajectory`: If `1`, CASIMODO will save the trajectory segments corresponding to each conformation. This can be very useful for visual inspection of the conformations, but it can also take a lot of time and disk space. Keep it to `0`by default.
 
 ### Output Files
 You can tune the outputs of CASIMODO by adjusting the following parameters:
 - `extension_plots`: The file format for the plots (e.g., `png`, `pdf`). By default `png`.
 - `resolution_plots`: The resolution of the plots in dots per inch (DPI). By default `200`.
-- `save_data`: If `1`, data files containing the temporal evolutions of every selected coordinate will be saved in the `coordinates_data/` directory. This can be useful for further analysis or custom plotting, but it can also take up disk space. Set to `0` by default to save space.
-- `save_all_plots`: If `1`, the histograms for all analyzed variables will be saved in the `coordinates_plots/` directory. Even the ones that correspond to variables that are not selected. This can be useful for debugging. Set to `0` by default.
+- `save_data`: If `1`, data files containing the temporal evolutions of every selected local variable will be saved in the `local_variables_data/` directory. This can be useful for further analysis or custom plotting, but it can also take up disk space. Set to `0` by default to save space.
+- `save_all_plots`: If `1`, the histograms for all analyzed variables will be saved in the `local_variables_plots/` directory. Even the ones that correspond to variables that are not selected. This can be useful for debugging. Set to `0` by default.
 
 
 CASIMODO produces a number of output files and directories to help you interpret the results. Here are the key ones:
 
 - `*.log`: Log files containing detailed information about the execution of each step.
-- `important_atoms.txt`: Lists important atoms identified from the dictionary.
-- `selected_coordinates.txt`: Lists all multimodal coordinates and their discretization cutoffs.
-- `clusters_of_coordinates.txt`: Coordinate clusters identified via VI.
-- `resids_in_clusters.txt`: Residues associated with each cluster (mainly for quick inspection).
+- `important_atoms.txt`: List of important atoms identified from the dictionary.
+- `selected_local_variables.txt`: List of all multimodal local variables and their discretization cutoffs.
+- `communities_of_local_variables.txt`: Communities of local variables identified by clustering.
+- `resids_in_communities_of_LVs.txt`: Residues associated with each community of local variables (mainly for quick inspection).
 - `discretizing_npy/`: NumPy arrays from the discretization step.
 - `analysis_npy/`: NumPy arrays from the analysis step.
-- `coordinates_data/`: Time series of each selected coordinate.
-- `coordinates_plots/`: Distributions with cutoff lines of each selected coordinate.
+- `local_variables_data/`: Time series of each selected local variable.
+- `local_variables_plots/`: Distributions with cutoff lines of each selected local variable.
 - `information_plots/`: Entropy and Rajski distance plots.
-- `conformations_clustering/`: States clustering results, and if enabled, the split trajectory files and structure.
+- `conformational_states_clustering/`: Conformational states clustering results, and if enabled, the split trajectory files and structure.
 
 If you’re looking for the most critical outputs, focus on:
-* `clusters_of_coordinates.txt`
-* `conformations_clustering/` (especially when `split_trajectory=1`)
+* `communities_of_local_variables.txt`
+* `conformational_states_clustering/` (especially when `split_trajectory=1`)
 
 ---
 
@@ -178,10 +179,10 @@ These are treated using the same selection and discretization process as distanc
 
 #### c. User-Defined Coordinates
 You can also input your own time-dependent variables:
-- `coordinates_to_add`: List of file paths with coordinate values (first column: time in ps, second: value).  
+- `local_variables_to_add`: List of file paths with coordinate values (first column: time in ps, second: value).  
   *For distances, use Ångströms; for angles, use degrees.*
-- `type_coordinates_to_add`: Specify `"angle"` or `"distance"` for each.
-- `residues_coordinates_to_add`: Residue indices involved (use underscores `_` to join multiple residues).
+- `type_local_variables_to_add`: Specify `"angle"` or `"distance"` for each.
+- `residues_local_variables_to_add`: Residue indices involved (use underscores `_` to join multiple residues).
 
 ### 5. Discretization of Conformational Space
 Each frame is represented as a list of discrete values (one per variable), forming a representation of the system based on the discretized variables. This is saved as `discretized_array.npy`.
@@ -252,7 +253,7 @@ Optional parameter for clustering:
 - `minimal_size_to_cluster`: If a matrix of distances has a size inferior to this value, it will not be clustered and each point will be considered as a cluster. 
 
 Optional parameters for the clustering of conformations:
-- `cutoff_len_states`: The maximum number of states to consider for the clustering of conformations. If the number of states is superior to this value, only the most probable states will be considered for the clustering. This can speed up the analysis for large systems, but it can also lead to missing some conformations. Positive integer.
+- `cutoff_n_configurations`: The maximum number of configurations to consider for the clustering of conformations. If the number of configurations is superior to this value, only the most probable configurations will be considered for the clustering. This can speed up the analysis for large systems, but it can also lead to missing some conformations. Positive integer.
 
 -`cutoff_proba_conformations`: The probability cutoff for the conformations. Only conformations with a probability superior to this value will be kept. This can help focus on the most relevant conformations, but it can also lead to missing some important ones. Positive float between 0 and 1.
 

@@ -1933,7 +1933,7 @@ def ward_clustering(distance_matrix, max_d=1.0):
 
     return cluster_labels
 
-def kmeans_clustering(data, n_clusters=3, random_state=0):
+def kmeans_clustering(data, n_clusters=3):
     """
     Applies KMeans clustering on the given data.
     Parameters
@@ -1952,6 +1952,7 @@ def kmeans_clustering(data, n_clusters=3, random_state=0):
     from sklearn.cluster import KMeans
 
     n_clusters = int(n_clusters)
+    random_state = 0  # Fixed random state for reproducibility
     kmeans = KMeans(n_clusters=n_clusters, random_state=random_state, n_init=10)
     kmeans.fit(data)
       
@@ -1959,14 +1960,38 @@ def kmeans_clustering(data, n_clusters=3, random_state=0):
 
 def cluster_distances(distance_matrix, method_clustering, parameters_clustering) :
     if method_clustering == 'hdbscan':
-        cluster_labels = hdbscan_clustering(distance_matrix, *parameters_clustering)
+        if len(parameters_clustering) != 3:
+            logging.info("HDBSCAN clustering requires exactly three parameters (min_cluster_size, min_samples, cluster_selection_epsilon). No clustering will be performed.")
+            cluster_labels = np.arange(distance_matrix.shape[0])  # Assign each point to its own cluster (no clustering)
+        else:
+            cluster_labels = hdbscan_clustering(distance_matrix, *parameters_clustering)
+
+
     elif method_clustering == 'yacare':
-        cluster_labels = yacare_clustering(distance_matrix, *parameters_clustering)
+        if len(parameters_clustering) != 5:
+            logging.info("YACARE clustering requires exactly five parameters (min_cluster_size, threshold_variable, amount_of_noise, keep_no_noise, size_moving_square). No clustering will be performed.")
+            cluster_labels = np.arange(distance_matrix.shape[0])  # Assign each point to its own cluster (no clustering)
+        else:
+            cluster_labels = yacare_clustering(distance_matrix, *parameters_clustering)
+
     elif method_clustering == 'ward':
-        cluster_labels = ward_clustering(distance_matrix, *parameters_clustering)
-    elif method_clustering == 'k-means':
-        cluster_labels = kmeans_clustering(distance_matrix, *parameters_clustering)
+        if len(parameters_clustering) != 1:
+            logging.info("Ward clustering requires exactly one parameter (threshold). No clustering will be performed.")
+            cluster_labels = np.arange(distance_matrix.shape[0])  # Assign each point to its own cluster (no clustering)
+        else:
+            cluster_labels = ward_clustering(distance_matrix, *parameters_clustering)
     
+    elif method_clustering == 'k-means':
+        if len(parameters_clustering) != 1:
+            logging.info("K-means clustering requires exactly one parameter (n_clusters). No clustering will be performed.")
+            cluster_labels = np.arange(distance_matrix.shape[0])  # Assign each point to its own cluster (no clustering)
+        else:
+            cluster_labels = kmeans_clustering(distance_matrix, *parameters_clustering)
+
+    else:
+        logging.info(f"Clustering method '{method_clustering}' not recognized. No clustering will be performed.")
+        cluster_labels = np.arange(distance_matrix.shape[0])  # Assign each point to its own cluster (no clustering)
+
     if type(cluster_labels) == list:
         cluster_labels = np.array(cluster_labels)
     if np.min(cluster_labels)==1 : 
