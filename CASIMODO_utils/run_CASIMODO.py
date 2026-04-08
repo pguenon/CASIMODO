@@ -41,11 +41,11 @@ def parse_arguments():
     parser.add_argument('--extension_plots', type=str, default='png', choices=['png', 'pdf', 'svg'], help='File extension for saved plots')
     parser.add_argument('--resolution_plots', type=int, default=200, help='Resolution (dpi) for saved plots')
 
-    parser.add_argument('--method_clustering_local_variables', type=str, default='advanced_density_peaks', choices=['advanced_density_peaks', 'hdbscan', 'yacare','ward','k-means'], help='Clustering method for local_variables')
-    parser.add_argument('--parameters_clustering_local_variables', nargs='*', type=float, default=[3.0, 1], help='Parameters for clustering local_variables (e.g., Z_parameter and halo_parameter)')
+    parser.add_argument('--method_clustering_local_variables', type=str, default='hdbscan', choices=['hdbscan', 'yacare','ward','k-means'], help='Clustering method for local_variables')
+    parser.add_argument('--parameters_clustering_local_variables', nargs='*', type=float, default=[10,10,0.5], help='Parameters for clustering local_variables (e.g., Z_parameter and halo_parameter)')
 
-    parser.add_argument('--method_clustering_conformations', type=str, default='advanced_density_peaks', choices=['advanced_density_peaks', 'hdbscan', 'yacare','ward','k-means'], help='Clustering method for conformations')
-    parser.add_argument('--parameters_clustering_conformations', nargs='*', type=float, default=[3.0, 0], help='Parameters for clustering conformations (e.g., Z_parameter and halo_parameter)')
+    parser.add_argument('--method_clustering_conformations', type=str, default='ward', choices=['hdbscan', 'yacare','ward','k-means'], help='Clustering method for conformations')
+    parser.add_argument('--parameters_clustering_conformations', nargs='*', type=float, default=[2.0], help='Parameters for clustering conformations (e.g., Z_parameter and halo_parameter)')
     parser.add_argument('--community_to_process', type=int, default=-1, help='Index of the cluster of local_variables to process (default: -1 for all clusters)')
 
     parser.add_argument('--minimal_size_to_cluster', type=int, default=10, help='Minimal size to perform clustering (if number of states is below this value, no clustering is performed)')
