@@ -738,7 +738,7 @@ def smooth_local_variable(y, delta_y,config):
     y_smooth = np.exp(log_density)  # Convert from log-density to density
 
     # Step 4: Normalize the density so it integrates to 1
-    y_smooth /= np.trapz(y_smooth, x_smooth.ravel())
+    y_smooth /= np.trapezoid(y_smooth, x_smooth.ravel())
     
     # Return 1D arrays for usability
     return x_smooth.ravel(), y_smooth
