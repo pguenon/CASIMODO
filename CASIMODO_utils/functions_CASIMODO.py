@@ -2488,8 +2488,8 @@ def write_conformations_to_file(all_cluster_labels,most_probable_configurations,
                 if unique_cluster_labels[j]==-1 or proba_clusters[i][j] < cutoff_proba_conformations:
                     continue
                 file_out.write(f"Conformation {unique_cluster_labels[j]} - Probability: {proba_clusters[i][j]:.5f}\n")
-                file_out.write(f"Most probable state: {state}\n")
-                file_out.write(f"Probability of the most probable state: {proba_most_probable_configurations[i][j]:.5f}\n")
+                file_out.write(f"Most probable configuration: {state}\n")
+                file_out.write(f"Probability of the most probable configuration: {proba_most_probable_configurations[i][j]:.5f}\n")
                 file_out.write("Discretized values:\n")
 
                 # Write local_variable name and value
