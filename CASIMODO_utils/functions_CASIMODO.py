@@ -2000,17 +2000,17 @@ def cluster_distances(distance_matrix, method_clustering, parameters_clustering)
 
 
 ############# Function to plot clustering results ##########################
-def plot_clustering_results(config,dist_matrix,community_labels, output_dir, output_name, label_data=None, xlabel='X-axis', ylabel='Y-axis'):
+def plot_clustering_results(config,dist_matrix,cluster_labels, output_dir, output_name, label_data=None, xlabel='X-axis', ylabel='Y-axis'):
 
     logging.info("\nPlotting clustering results...")
 
     # Load cluster labels and distance matrix
-    unique_labels= np.unique(community_labels)
+    unique_labels= np.unique(cluster_labels)
     sorted_indices = []
     for label in unique_labels:
         if label == -1:  # Noise
             continue
-        indices = np.where(community_labels == label)[0]
+        indices = np.where(cluster_labels == label)[0]
 
         if len(indices) == 0:
             continue
@@ -2029,10 +2029,10 @@ def plot_clustering_results(config,dist_matrix,community_labels, output_dir, out
         sorted_indices.extend(order)
 
     # Add noise at the end
-    noise_indices = np.where(community_labels == -1)[0]
+    noise_indices = np.where(cluster_labels == -1)[0]
     sorted_indices.extend(noise_indices)
 
-    reordered_labels= community_labels[sorted_indices]
+    reordered_labels= cluster_labels[sorted_indices]
 
     dist_reordered = dist_matrix[sorted_indices, :][:, sorted_indices]
 
@@ -2127,29 +2127,29 @@ def cluster_local_variables(config):
     n_local_variables= rajski_distance.shape[0]
     #keep all in one cluster if not enough local_variables to cluster
     if n_local_variables<minimal_size_to_cluster:
-        community_labels=np.array([0 for j in range(n_local_variables)])
+        cluster_labels=np.array([0 for j in range(n_local_variables)])
     
     #Apply clustering
     else:
-        community_labels = cluster_distances(rajski_distance, method_clustering_local_variables, parameters_clustering_local_variables) 
+        cluster_labels = cluster_distances(rajski_distance, method_clustering_local_variables, parameters_clustering_local_variables) 
 
     # Save the cluster labels to a file
-    np.save(os.path.join(output_dir, "analysis_npy", "community_labels.npy"), community_labels)
+    np.save(os.path.join(output_dir, "analysis_npy", "community_labels.npy"), cluster_labels)
 
     logging.info("Clustering completed and labels saved.")
 
-    reordered_labels = plot_clustering_results(config,rajski_distance,community_labels, output_dir+'information_plots/', "rajski_distance_clustering", "Rajski distance between Local Variables",xlabel="Local Variable Index", ylabel="Local Variable Index")
+    reordered_labels = plot_clustering_results(config,rajski_distance,cluster_labels, output_dir+'information_plots/', "rajski_distance_clustering", "Rajski distance between Local Variables",xlabel="Local Variable Index", ylabel="Local Variable Index")
     local_variables,X_cuts,Labels=load_data_discretization(output_dir + "selected_local_variables.txt")
 
     # Extract clusters and write to file
     clusters_ndx = []
     corresponding_labels=[]
 
-    noise_ndx = np.where(community_labels == -1)[0]  # Indices of noise points
-    for label in np.unique(community_labels):
+    noise_ndx = np.where(cluster_labels == -1)[0]  # Indices of noise points
+    for label in np.unique(cluster_labels):
         if label == -1:  # Noise points
             continue
-        cluster_indices = np.where(community_labels == label)[0]
+        cluster_indices = np.where(cluster_labels == label)[0]
         clusters_ndx.append(cluster_indices)    
         corresponding_labels.append(label)
     # Add noise points as a separate cluster
@@ -2165,7 +2165,7 @@ def cluster_local_variables(config):
 
 
 ###################### Functions to manipulate states and get conformations ########################
-def splt_discretized_array_by_communities(discretized_array, community_labels):
+def splt_discretized_array_by_communities(discretized_array, cluster_labels):
     """
     Splits the discretized array into sub-arrays based on cluster labels.
 
@@ -2173,7 +2173,7 @@ def splt_discretized_array_by_communities(discretized_array, community_labels):
     -----------
     discretized_array : ndarray
         The discretized representation of the local_variables.
-    community_labels : ndarray
+    cluster_labels : ndarray
         The cluster labels for each frame in the discretized array.
 
     Returns:
@@ -2181,13 +2181,13 @@ def splt_discretized_array_by_communities(discretized_array, community_labels):
     communities_data : list of ndarray
         A list where each element is a sub-array corresponding to a unique cluster.
     """
-    unique_labels = np.unique(community_labels)
+    unique_labels = np.unique(cluster_labels)
     communities_data = []
 
     for label in unique_labels:
         if label == -1:  # Skip noise points
             continue
-        indices = np.where(community_labels == label)[0]
+        indices = np.where(cluster_labels == label)[0]
         communities_data.append(discretized_array[:,indices])
 
     return communities_data
@@ -2514,7 +2514,7 @@ def get_conformations_for_communities(u_traj,config):
     frames_selected = np.load(output_dir + "discretizing_npy/frames_selected.npy")  # Load time indices for frames
 
     # Load top-level cluster assignments
-    community_labels = np.load(os.path.join(output_dir, "analysis_npy", "community_labels.npy"))
+    cluster_labels = np.load(os.path.join(output_dir, "analysis_npy", "community_labels.npy"))
 
     # Load selected local_variables and the discretized representation
     local_variables, X_cuts, Labels = load_data_discretization(output_dir + "selected_local_variables.txt")
@@ -2523,7 +2523,7 @@ def get_conformations_for_communities(u_traj,config):
     logging.info("\nExtracting conformations for communities...")
 
     # Split the discretized array based on top-level clustering 
-    communities_data = splt_discretized_array_by_communities(discretized_array, community_labels)
+    communities_data = splt_discretized_array_by_communities(discretized_array, cluster_labels)
     logging.info(f"Found {len(communities_data)} communities based on clustering labels.")
 
     # Extract unique conformational states and their probabilities within each cluster
@@ -2616,8 +2616,8 @@ def plot_conformations_as_function_of_time(config):
     frames_selected = np.load(output_dir + "discretizing_npy/frames_selected.npy")  # Load frame indices corresponding to time points
 
     n_frames = len(times_selected)
-    community_labels = np.load(os.path.join(output_dir, "analysis_npy", "community_labels.npy"))
-    unique_labels = np.unique(community_labels)
+    cluster_labels = np.load(os.path.join(output_dir, "analysis_npy", "community_labels.npy"))
+    unique_labels = np.unique(cluster_labels)
     unique_labels = unique_labels[unique_labels != -1]  # Exclude noise label (-1)
     conformations_for_community = []
 
