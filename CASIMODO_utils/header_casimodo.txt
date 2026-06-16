@@ -8,6 +8,6 @@
  \___\__,_|___/_|_| |_| |_|\___/ \__,_|\___/     |_ |.-.| _|                       
                                                 _|||||_|||||_                      
                                                                                    
-Conformational Analysis via Shared Information of MOlecular Dynamics Observables
+Conformational Analysis via Shared Information by MOlecular Dynamics Observables
 A program by Paul Guénon, Damien Laage and Olivier Rivoire                         
 

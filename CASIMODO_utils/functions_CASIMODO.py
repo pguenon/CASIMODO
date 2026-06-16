@@ -277,6 +277,7 @@ def filter_times_and_indices(u_traj,config):
     delta_t_traj=round(delta_t_traj,3)
     always_keep=False
     time_zero = config['time_zero']
+    last_time = config['last_time']
 
     delta_time= config['delta_time']
     output_dir= config['output_dir']
@@ -291,7 +292,7 @@ def filter_times_and_indices(u_traj,config):
         time_ts= times_from_traj[i]
         frame_ts= i
 
-        if (always_keep or min(time_ts% delta_time,abs(delta_time-time_ts% delta_time)) < delta_t_traj/2) and time_ts >= time_zero:
+        if (always_keep or min(time_ts% delta_time,abs(delta_time-time_ts% delta_time)) < delta_t_traj/2) and time_ts >= time_zero and (last_time < 0 or time_ts <= last_time):
             times_selected.append(time_ts)
             frames_selected.append(frame_ts)
             continue
@@ -2210,12 +2211,14 @@ def get_unique_configurations_in_splitted_array(communities_data,config):
     """
     unique_states = []
     probalities_unique_states = []
+    dic_merged_states= []
     cutoff_n_configurations = config['cutoff_n_configurations']
     community_to_process = config['community_to_process']
     for i,cluster_data in enumerate(communities_data):
         if community_to_process>=0 and i != community_to_process:
             probalities_unique_states.append([])
             unique_states.append([]) 
+            dic_merged_states.append({})
             continue
         unique_i,count_i= np.unique(cluster_data, axis=0, return_counts=True)
         proba_i= count_i / cluster_data.shape[0]  # Normalize counts to get probabilities
@@ -2227,7 +2230,11 @@ def get_unique_configurations_in_splitted_array(communities_data,config):
         
         unique_i_selected = unique_i[:cutoff_n_configurations]  # Keep only states up to the cutoff
         proba_i_selected = proba_i[:cutoff_n_configurations]
+
+        dic_configurations_selected = {tuple(state): [tuple(state)] for state in unique_i_selected}
+
         
+        # Merge non-selected states into closest selected states
         n_non_selected_states = len(unique_i) - cutoff_n_configurations
         if n_non_selected_states > 0:
             logging.info(f"Cluster {i}: Merging {n_non_selected_states} low-probability configurations into closest selected configurations.")
@@ -2238,13 +2245,13 @@ def get_unique_configurations_in_splitted_array(communities_data,config):
                 dists = np.sum(state_to_assign != unique_i_selected, axis=1)  # Hamming distances to selected states
                 closest_index = np.argmin(dists)
                 proba_i_selected[closest_index] += proba_i[j]  # Merge probability into closest selected state
-
+                dic_configurations_selected[tuple(unique_i_selected[closest_index])].append(tuple(state_to_assign))  # Merge configuration into closest selected state
             previous_progress = plot_progress_bar(n_non_selected_states, n_non_selected_states, previous_progress)
 
         probalities_unique_states.append(proba_i_selected) 
         unique_states.append(unique_i_selected)
-        
-    return unique_states, probalities_unique_states
+        dic_merged_states.append(dic_configurations_selected)
+    return unique_states, probalities_unique_states,dic_merged_states
 
 def compute_distances_between_configurations(states,config):
     """
@@ -2276,7 +2283,7 @@ def compute_distances_between_configurations(states,config):
         distances.append(dist_matrix)
     return distances
 
-def extract_frames_from_labels(clusters_data, unique_configurations, all_clusters_labels, frames_selected, proba_clusters, config):
+def extract_frames_from_labels(clusters_data, unique_configurations, all_clusters_labels, frames_selected, proba_clusters, config,dic_merged_states):
     logging.info("Extracting frames for conformational states...")
 
     frames_by_clusters = []
@@ -2299,9 +2306,21 @@ def extract_frames_from_labels(clusters_data, unique_configurations, all_cluster
         }
 
         frames_conformations = [[] for _ in range(len(unique_labels))]
+        dict_i = dic_merged_states[i]
+
+        # Build reverse mapping: state -> key
+        state_to_key = {
+            state: key
+            for key, states in dict_i.items()
+            for state in states
+        }
 
         for t, state in enumerate(clusters_data[i]):
-            index_state = config_to_index.get(tuple(state))
+            key_state = state_to_key.get(tuple(state))
+            if key_state is None:
+                continue
+
+            index_state = config_to_index.get(key_state)
             if index_state is None:
                 continue
 
@@ -2528,7 +2547,7 @@ def get_conformations_for_communities(u_traj,config):
 
     # Extract unique conformational states and their probabilities within each cluster
     logging.info("Extracting unique configurations for communities...")
-    unique_configurations, probabilities_unique_configurations = get_unique_configurations_in_splitted_array(communities_data,config)
+    unique_configurations, probabilities_unique_configurations,dic_merged_states = get_unique_configurations_in_splitted_array(communities_data,config)
     cumulative_proba = [np.sum(probabilities_unique_configurations[i]) for i in range(len(probabilities_unique_configurations))]
     cumulative_proba = np.array(cumulative_proba)
     logging.info(f"Total probability of unique configurations under cutoff_n_configurations in each cluster: {cumulative_proba}")
@@ -2565,7 +2584,7 @@ def get_conformations_for_communities(u_traj,config):
             ylabel="Unique Configuration Index"
         )
         all_clusters_labels.append(cluster_labels)
-
+    
     # Compute probabilities for each conformation cluster (after second-level clustering)
     proba_clusters = []
     for i, cluster_labels in enumerate(all_clusters_labels):
@@ -2599,7 +2618,7 @@ def get_conformations_for_communities(u_traj,config):
     logging.info("Conformations written to file.")
 
     # Extract original frame indices from final conformation labels
-    frames_by_clusters = extract_frames_from_labels(communities_data, unique_configurations, all_clusters_labels, frames_selected,proba_clusters,config)
+    frames_by_clusters = extract_frames_from_labels(communities_data, unique_configurations, all_clusters_labels, frames_selected,proba_clusters,config,dic_merged_states)
 
     # Optionally split trajectory files for each conformation cluster
     if split_trajectory:

@@ -35,6 +35,10 @@ dic_file=dic_important_atoms_protein_nucleic_acids.txt
 ##############################################
 # Time in ps to start the analysis (to skip equilibration)
 time_zero=0  
+
+#Time in ps to end the analysis
+last_time=-1
+
 # Time (ps) between frames to consider. If smaller than actual trajectory temporal resolution, defaults to the actual timestep.
 delta_time=0.0
 
@@ -137,6 +141,7 @@ python CASIMODO_utils/run_CASIMODO.py \
   --dic_file "${dic_file}" \
   --output_directory "${output_directory}" \
   --time_zero "${time_zero}" \
+  --last_time "${last_time}" \
   --delta_time "${delta_time}" \
   --cutoff_distance "${cutoff_distance}" \
   --proba_under_cutoff_distance "${proba_under_cutoff_distance}" \

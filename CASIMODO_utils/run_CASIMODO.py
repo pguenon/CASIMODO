@@ -23,6 +23,7 @@ def parse_arguments():
     
 
     parser.add_argument('--time_zero', type=float, default=0., help='Time (ps) to start analysis')
+    parser.add_argument('--last_time', type=float, default=-1., help='Time (ps) to end analysis (-1 for no limit)')
     parser.add_argument('-dt', '--delta_time', type=float, default=0.0, help='Time (ps) between frames to consider')
 
     parser.add_argument('--cutoff_distance', type=int, default=5, help='Distance cutoff (A) to consider distances in the analysis')
@@ -90,6 +91,7 @@ config={
     'dic': args.dic_file,
     'output_dir': output_dir,
     'time_zero': args.time_zero,
+    'last_time': args.last_time,
     'delta_time': args.delta_time,
     'cutoff_distance': args.cutoff_distance,
     'proba_under_cutoff_distance': args.proba_under_cutoff_distance,

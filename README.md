@@ -67,6 +67,7 @@ Before launching the script, open the file `submit_CASIMODO.sh` and fill in the 
 ### Optional analysis settings 
 
 * `time_zero`: The time (in ps) at which to begin analysis. Use this to skip the equilibration phase if needed.
+* `last_time`: The time (in ps) at which to end analysis. Use this to limit the analysis to a specific time window. Set to `-1` for no limit.
 * `delta_time`: The time (in ps) between frames to analyze. Setting this to a value larger than your trajectory’s native time step will speed up the analysis by sampling fewer frames.
 
 You can modify or integrate this script into your own job submission pipeline, as long as its structure is preserved. CASIMODO should work smoothly in any environment where both Python and Bash are available.
