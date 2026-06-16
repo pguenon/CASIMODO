@@ -75,7 +75,7 @@ extension_plots="png"
 resolution_plots=200  
 
 #Whether to save selected coordinates data
-save_data=1  
+save_data=0  
 
 # Whether to save all coordinates histogram plots, even the non discretized ones
 save_all_plots=0  
