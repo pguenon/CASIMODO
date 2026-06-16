@@ -2635,7 +2635,8 @@ def load_conformation_by_frame_from_ndx(ndx_file,n_frames,frames_selected):
             index_conformation = int(data_ndx[j][1].split('_')[1])
         elif len(data_ndx[j])>0 :
             for f in data_ndx[j] :
-                conformation_by_frame[int(f)-frames_selected[0]] = index_conformation
+                if int(f) in frames_selected:
+                    conformation_by_frame[int(f)-frames_selected[0]] = index_conformation
     return conformation_by_frame
 
 def plot_conformations_as_function_of_time(config):
