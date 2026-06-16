@@ -938,6 +938,22 @@ def plot_histogram(x, hist, x_smooth, y_smooth, xlabel, local_variable_name, min
     # Close the figure to free memory
     plt.close()
 
+def save_temporary_discretized_local_variable(y, local_variable_name,selected_minima,labels, config):
+    n_frames=len(y)
+    n_labels=len(selected_minima)+1
+    data_discretized = np.zeros((n_frames), dtype=int)
+
+    for f in range(n_frames):
+        for i in range(len(selected_minima)):
+            if y[f] < selected_minima[i]:
+                data_discretized[f] = labels[i]
+                break
+            if i == len(selected_minima)-1:
+                data_discretized[f] = labels[-1]
+    out_dir= config['output_dir'] + "discretizing_npy/temporary_discretized_local_variables/"
+    np.save(out_dir + local_variable_name + ".npy", data_discretized)
+
+
 def discretize_local_variable(y, local_variable_type, times,local_variable_name, config, labels=None, selected_minima=None):
     
     cutoff_npoints_discretization= config['cutoff_npoints_discretization']
@@ -986,9 +1002,10 @@ def discretize_local_variable(y, local_variable_type, times,local_variable_name,
     if len(selected_minima) !=0 :
         # Step 5: Save detected minima and corresponding labels
         save_minima(selected_minima, local_variable_name, labels, config)
+        # Step 6: Save the local_variable data
         if save_data:
-            # Step 6: Save the original local_variable data and metadata
             save_local_variable_results(times, y, local_variable_name, config)
+        save_temporary_discretized_local_variable(y, local_variable_name,selected_minima,labels, config)
 
         # Step 7: Plot the histogram with KDE and show detected minima
         plot_histogram(
@@ -1485,7 +1502,7 @@ def add_local_variables(config):
 
 
 ############################ Function to get the discretized array from saved local_variables ##########################
-def get_discretized_array(config):
+def get_discretized_array_old(config):
     # Load local_variable names, discretization cutoffs, and corresponding labels
     output_dir = config['output_dir']
     local_variables, X_cuts, Labels = load_data_discretization(output_dir + "selected_local_variables.txt")
@@ -1522,6 +1539,30 @@ def get_discretized_array(config):
     # Save the resulting discretized data as a .npy file
     np.save(output_dir + "discretizing_npy/discretized_array.npy", data_discretized)
 
+def get_discretized_array(config):
+    # Load local_variable names, discretization cutoffs, and corresponding labels
+    output_dir = config['output_dir']
+    local_variables, X_cuts, Labels = load_data_discretization(output_dir + "selected_local_variables.txt")
+
+    # Load time information from the first local_variable file (assumes all local_variables share the same time points)
+    frames_selected = np.load(output_dir + 'discretizing_npy/frames_selected.npy')
+
+    nframes_to_save = len(frames_selected)
+    # Initialize output array to store discrete labels for each frame and local_variable
+    data_discretized = np.zeros((nframes_to_save, len(local_variables)), dtype=int)
+
+    logging.info("\nDiscretizing data...")
+
+    # Loop over all selected local_variables
+    for i in range(len(local_variables)):
+        # Load data for current local_variable
+        data_coord = np.load(output_dir + "discretizing_npy/temporary_discretized_local_variables/" + local_variables[i] + ".npy")
+        data_discretized[:, i] = data_coord
+
+    logging.info("Discretization completed.")
+
+    # Save the resulting discretized data as a .npy file
+    np.save(output_dir + "discretizing_npy/discretized_array.npy", data_discretized)
 
 ########################### Function to compute frequencies of single and double contacts ##########################
 def compute_frequencies(discretized_array):

@@ -213,6 +213,10 @@ if step_to_perform in ['all', 'discretize_local_variables']:
     if os.path.exists(selected_local_variables_file):
         os.remove(selected_local_variables_file)
 
+    if os.path.exists(os.path.join(output_dir, "discretizing_npy/temporary_discretized_local_variables/")):
+        shutil.rmtree(os.path.join(output_dir, "discretizing_npy/temporary_discretized_local_variables/"))  # Remove existing directory
+    os.mkdir(os.path.join(output_dir, "discretizing_npy/temporary_discretized_local_variables/"))
+
     get_contacts(u_traj, config)
     
     get_dihedrals_protein(u_traj, config)
@@ -224,6 +228,8 @@ if step_to_perform in ['all', 'discretize_local_variables']:
 
     get_discretized_array(config)
     compute_information(config)
+
+    shutil.rmtree(os.path.join(output_dir, "discretizing_npy/temporary_discretized_local_variables/"))  # Clean up temporary files
 
     
 
