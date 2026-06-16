@@ -2626,6 +2626,18 @@ def get_conformations_for_communities(u_traj,config):
         split_trajectory_by_conformations(u_traj, frames_by_clusters,proba_clusters,all_clusters_labels,selected_resids, config)
 
 ################### Function to plot conformations as function of time ##########################
+def load_conformation_by_frame_from_ndx(ndx_file,n_frames,frames_selected):
+    data_ndx,lines_ndx =open_file(ndx_file)
+    conformation_by_frame = np.zeros(n_frames) -1
+    index_conformation = -1
+    for j,l in enumerate(lines_ndx) :
+        if l[0]=='[' : 
+            index_conformation = int(data_ndx[j][1].split('_')[1])
+        elif len(data_ndx[j])>0 :
+            for f in data_ndx[j] :
+                conformation_by_frame[int(f)-frames_selected[0]] = index_conformation
+    return conformation_by_frame
+
 def plot_conformations_as_function_of_time(config):
     logging.info("\nPlotting conformations as a function of time...")
     output_dir = config['output_dir']
@@ -2647,15 +2659,7 @@ def plot_conformations_as_function_of_time(config):
             logging.warning(f"Ndx file for community {i} not found. Skipping plot.")
             continue
         comumunities_to_plot.append(i)
-        data_ndx,lines_ndx =open_file(ndx_file)
-        conformation_by_frame = np.zeros(n_frames) -1
-        index_conformation = -1
-        for j,l in enumerate(lines_ndx) :
-            if l[0]=='[' : 
-                index_conformation = int(data_ndx[j][1].split('_')[1])
-            elif len(data_ndx[j])>0 :
-                for f in data_ndx[j] :
-                    conformation_by_frame[int(f)-frames_selected[0]] = index_conformation
+        conformation_by_frame = load_conformation_by_frame_from_ndx(ndx_file, n_frames, frames_selected)        
         conformations_for_community.append(conformation_by_frame)
 
     # Plotting
