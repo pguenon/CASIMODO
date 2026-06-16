@@ -2626,17 +2626,24 @@ def get_conformations_for_communities(u_traj,config):
         split_trajectory_by_conformations(u_traj, frames_by_clusters,proba_clusters,all_clusters_labels,selected_resids, config)
 
 ################### Function to plot conformations as function of time ##########################
-def load_conformation_by_frame_from_ndx(ndx_file,n_frames,frames_selected):
-    data_ndx,lines_ndx =open_file(ndx_file)
-    conformation_by_frame = np.zeros(n_frames) -1
+def load_conformation_by_frame_from_ndx(ndx_file, n_frames, frames_selected):
+    data_ndx, lines_ndx = open_file(ndx_file)
+    conformation_by_frame = np.full(n_frames, -1, dtype=int)
+    # FAST LOOKUP STRUCTURES
+    frames_selected = np.asarray(frames_selected)
+    frame_to_idx = {int(f): i for i, f in enumerate(frames_selected)}
     index_conformation = -1
-    for j,l in enumerate(lines_ndx) :
-        if l[0]=='[' : 
+    for j, l in enumerate(lines_ndx):
+        if l[0] == '[':
             index_conformation = int(data_ndx[j][1].split('_')[1])
-        elif len(data_ndx[j])>0 :
-            for f in data_ndx[j] :
-                if int(f) in frames_selected:
-                    conformation_by_frame[int(f)-frames_selected[0]] = index_conformation
+        elif data_ndx[j]:
+            conf = index_conformation
+            for f in data_ndx[j]:
+                f_int = int(f)
+                idx = frame_to_idx.get(f_int)
+                if idx is not None:
+                    conformation_by_frame[idx] = conf
+
     return conformation_by_frame
 
 def plot_conformations_as_function_of_time(config):
