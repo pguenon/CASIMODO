@@ -34,6 +34,7 @@ def parse_arguments():
     parser.add_argument('--n_points_per_bin', type=int, default=500, help='Number of points per bin for computing histograms')
     parser.add_argument('--min_bin_size_distances', type=float, default=0.1, help='Minimum size of bins in histograms for distance-based local_variables in A')
     parser.add_argument('--min_bin_size_angles', type=float, default=1.0, help='Minimum size of bins in histograms for angle-based local_variables in °')
+    parser.add_argument('--order_labels',type=str, default='weight', choices=['weight','value'], help='Clustering method for conformations')
     
     parser.add_argument('--cutoff_npoints_discretization', type=int, default=100000, help='Maximum number of points to use for discretization')
 
@@ -100,6 +101,7 @@ config={
     'n_points_per_bin': args.n_points_per_bin,
     'min_bin_size_distances': args.min_bin_size_distances,
     'min_bin_size_angles': args.min_bin_size_angles,
+    'order_labels': args.order_labels,
     'cutoff_npoints_discretization': args.cutoff_npoints_discretization,
     'save_data': save_data,
     'save_all_plots': save_all_plots,

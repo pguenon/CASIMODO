@@ -834,7 +834,7 @@ def find_minima(x_smooth,y_smooth,config) :
 
     return final_minima
 
-def get_labels_discretization(minima, x_smooth, y_smooth):
+def get_labels_discretization_old(minima, x_smooth, y_smooth,order_labels):
     """
     Assigns labels to discretized regions based on their relative importance (e.g., density peak height).
 
@@ -874,6 +874,48 @@ def get_labels_discretization(minima, x_smooth, y_smooth):
         labels[sorted_indices[i]] = i  # Highest peak gets label 0, and so on
 
     return labels
+
+def get_labels_discretization(minima, x_smooth, y_smooth,order_labels):
+    """
+    Assigns labels to discretized regions based on their relative importance (e.g., density peak height).
+
+    Each region is defined by two consecutive minima in the smoothed distribution. The function:
+    1. Determines the index of each minimum in the x_smooth array.
+    2. Calculates the maximum density value (peak) within each region.
+    3. Sorts the regions by peak height (descending).
+    4. Assigns labels to each region based on this order (label 0 = highest peak, etc.).
+
+    Parameters:
+    - minima: List of x values (positions of selected minima).
+    - x_smooth: Array of smoothed x values (e.g., local_variable range).
+    - y_smooth: Array of smoothed density values (same length as x_smooth).
+
+    Returns:
+    - labels: Array of labels, ranked by peak height within each discretized region.
+    """
+    if order_labels == 'value' :
+        return np.arange(len(minima)+1)
+    elif order_labels == 'weight' :
+        # Find indices in x_smooth corresponding to the provided minima
+        indexes_minima = [np.where(x_smooth == mini)[0][0] for mini in minima]
+
+        # Define region boundaries: start at 0, go through all minima, end at last index
+        all_minima = [0] + indexes_minima + [len(x_smooth) - 1]
+        all_minima=sorted(np.unique(all_minima))
+        #compute integral in each region (between minima)
+        integrals = []
+        for i in range(len(all_minima) - 1):
+            integral_region = np.trapz(y_smooth[all_minima[i]:all_minima[i + 1]], x_smooth[all_minima[i]:all_minima[i + 1]])
+            integrals.append(integral_region)
+        
+        sorted_indices = np.argsort(integrals)[::-1]  # Sort by integral (descending)
+
+        labels = np.zeros(len(sorted_indices), dtype=int)
+        for i in range(len(sorted_indices)):
+            labels[sorted_indices[i]] = i  # Highest integral gets label 0, and so on   
+        return labels
+    else :
+        raise ValueError(f"Unsupported order_labels type: {order_labels}")
 
 def save_minima(minima, local_variable, labels, config):
     name_output = config['output_dir'] + "selected_local_variables.txt"
@@ -993,7 +1035,8 @@ def discretize_local_variable(y, local_variable_type, times,local_variable_name,
 
         if len(selected_minima) !=0 :
             # Step 4: Generate region labels from the minima
-            labels = get_labels_discretization(selected_minima, x_smooth, y_smooth)
+            order_labels=config['order_labels']
+            labels = get_labels_discretization(selected_minima, x_smooth, y_smooth,order_labels)
     output_dir= config['output_dir']
     output = output_dir + "selected_local_variables.txt"
     save_data= config['save_data']
@@ -1502,43 +1545,6 @@ def add_local_variables(config):
 
 
 ############################ Function to get the discretized array from saved local_variables ##########################
-def get_discretized_array_old(config):
-    # Load local_variable names, discretization cutoffs, and corresponding labels
-    output_dir = config['output_dir']
-    local_variables, X_cuts, Labels = load_data_discretization(output_dir + "selected_local_variables.txt")
-
-    # Load time information from the first local_variable file (assumes all local_variables share the same time points)
-    frames_selected = np.load(output_dir + 'discretizing_npy/frames_selected.npy')
-
-    nframes_to_save = len(frames_selected)
-    # Initialize output array to store discrete labels for each frame and local_variable
-    data_discretized = np.zeros((nframes_to_save, len(local_variables)), dtype=int)
-
-    logging.info("\nDiscretizing data...")
-
-    # Loop over all selected local_variables
-    for i in range(len(local_variables)):
-        # Load data for current local_variable
-        data_coord = open_data_local_variable(output_dir + "local_variables_data/" + local_variables[i] + ".dat")
-
-        # Loop over all frames
-        for f in range (len(frames_selected)):
-            # Compare the current data value to discretization thresholds
-            for c in range(len(X_cuts[i])):
-                # If the value is less than the current cutoff, assign the corresponding label
-                if data_coord[f, 1] < X_cuts[i][c]:
-                    data_discretized[f, i] = Labels[i][c]
-                    break  # Stop checking more bins once a match is found
-
-                # If value is larger than all cuts, assign the last label
-                if c == len(X_cuts[i]) - 1:
-                    data_discretized[f, i] = Labels[i][-1]
-
-    logging.info("Discretization completed.")
-
-    # Save the resulting discretized data as a .npy file
-    np.save(output_dir + "discretizing_npy/discretized_array.npy", data_discretized)
-
 def get_discretized_array(config):
     # Load local_variable names, discretization cutoffs, and corresponding labels
     output_dir = config['output_dir']
@@ -2029,10 +2035,6 @@ def cluster_distances(distance_matrix, method_clustering, parameters_clustering)
             cluster_labels = np.arange(distance_matrix.shape[0])  # Assign each point to its own cluster (no clustering)
         else:
             cluster_labels = kmeans_clustering(distance_matrix, *parameters_clustering)
-
-    else:
-        logging.info(f"Clustering method '{method_clustering}' not recognized. No clustering will be performed.")
-        cluster_labels = np.arange(distance_matrix.shape[0])  # Assign each point to its own cluster (no clustering)
 
     if type(cluster_labels) == list:
         cluster_labels = np.array(cluster_labels)
