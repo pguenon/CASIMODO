@@ -116,7 +116,7 @@ smooth_factor=10.0
 prominence=0.025  # Prominence parameter for minima detection in discretization
 
 # Parameter for ordering labels in discretization. 
-order_labels="weight"  # Order of labels for discretized variables. Options: 'weight' (default) or 'value'. 'weight' orders labels based on the integral of the probability density function, while 'value' orders labels based on the actual values of the discretized variable.
+order_labels="value"  # Order of labels for discretized variables. Options: 'value' (default) or 'weight'. 'weight' orders labels based on the integral of the probability density function, while 'value' orders labels based on the actual values of the discretized variable.
 
 # Cutoff number of points to use for computing histograms and KDE for discretization. If the number of points is superior to this cutoff, a random subset of points will be used for computing histograms and KDE to save time.
 cutoff_npoints_discretization=100000  

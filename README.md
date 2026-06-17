@@ -250,6 +250,9 @@ To tune histograms computation:
 To tune the selection of modes:
 - `prominence`: The higher it is, the more prominent a peak must be to be selected as a mode. Positive float.
 
+To tune the order of labels in the discretization:
+- `order_labels`: Order of labels for discretized variables. Options: 'value' (default) or 'weight'. 'weight' orders labels based on the integral of the probability density function, while 'value' orders labels based on the actual values of the discretized variable by increasing order.
+
 Optional parameter for clustering:
 - `minimal_size_to_cluster`: If a matrix of distances has a size inferior to this value, it will not be clustered and each point will be considered as a cluster. 
 
