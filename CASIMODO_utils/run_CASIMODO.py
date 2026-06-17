@@ -200,7 +200,7 @@ if step_to_perform in ['all', 'discretize_local_variables']:
     'analysis_npy/',
     'information_plots/'   
     ]
-
+    
     for subdir in subdirs:
         if os.path.exists(os.path.join(output_dir, subdir)):
             shutil.rmtree(os.path.join(output_dir, subdir))  # Remove existing directory  
@@ -224,7 +224,7 @@ if step_to_perform in ['all', 'discretize_local_variables']:
     get_dihedrals_protein(u_traj, config)
 
     get_dihedrals_nucleic_acids(u_traj, config)
-        
+    
     if len(local_variables_to_add) != 0:
         add_local_variables(config)
 

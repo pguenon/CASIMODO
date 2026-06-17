@@ -1510,13 +1510,19 @@ def add_local_variables(config):
     local_variables, X_cuts, Labels = load_data_discretization(output_dir + "selected_local_variables.txt")
 
     # Reference time values from the first known local_variable
-    data_zero = open_data_local_variable(output_dir + "local_variables_data/" + local_variables[0] + ".dat")
-    times_to_compare = data_zero[:, 0]
-
+    times_to_compare = np.load(output_dir + 'discretizing_npy/times_selected.npy')
+    
     logging.info("\nAdding new local variables...")
     for i, coord_file in enumerate(local_variables_to_add):
-        data_coord_raw = open_data_local_variable(coord_file)
         local_variable_name = coord_file.split('/')[-1].split('.')[0]
+
+        if local_variable_name in local_variables:
+            logging.info(f"Warning: {coord_file} already exists in the discretization. Skipping.")
+            continue
+
+        logging.info(f"Processing {local_variable_name}...")
+        
+        data_coord_raw = open_data_local_variable(coord_file)
         local_variable_type = type_local_variables_to_add[i]
 
         # Filter values matching reference times
@@ -1537,7 +1543,7 @@ def add_local_variables(config):
 
         # Fix angle wrapping (e.g., from -180 to 180 or 0 to 360)
         if local_variable_type == 'angle' :
-            y_coord, _, _ = adjust_angle_data(local_variable_name,y_coord, np.min(y_coord), np.max(y_coord), 4,output_dir)
+            y_coord, _, _ = adjust_angle_data(local_variable_name,y_coord, np.min(y_coord), np.max(y_coord), 4,config)
 
         # Discretize and append this local_variable to selected_local_variables.txt
         discretize_local_variable(y_coord, local_variable_type,times_to_compare, local_variable_name, config)
