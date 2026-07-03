@@ -265,6 +265,3 @@ Optional parameters for the clustering of conformations:
 - `cutoff_n_configurations`: The maximum number of configurations to consider for the clustering of conformations. If the number of configurations is superior to this value, only the most probable configurations will be considered for the clustering. This can speed up the analysis for large systems, but it can also lead to missing some conformations. Positive integer.
 
 - `cutoff_proba_conformations`: The probability cutoff for the conformations. Only conformations with a probability superior to this value will be kept. This can help focus on the most relevant conformations, but it can also lead to missing some important ones. Positive float between 0 and 1.
-
-## License
-License to come.
