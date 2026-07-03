@@ -3,6 +3,11 @@
 
 A script by _Paul Guénon_, Guillaume Stirnemann, Damien Laage, and Olivier Rivoire\*.
 
+This software is free for non-commercial research and educational use.
+Commercial use by for-profit organizations requires written permission from the authors.
+
+If you use this software in a publication, please cite:
+
 ---
 
 ## What is CASIMODO?
