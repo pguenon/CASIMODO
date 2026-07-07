@@ -1745,7 +1745,7 @@ def plot_information_clustered(config,Information_matrix, reordered_labels, outp
     plt.savefig(f"{output_dir}/{name_out}.{extension_plots}", dpi=resolution_plots)
     plt.close()
 
-########################## Function to compute mutual information between local_variables ##########################
+########################## Function to compute bias correction for mutual information estimates ##########################
 def get_B_correction(output_dir):
     """
     Compute the bias correction for mutual information estimates.
