@@ -1,0 +1,43 @@
+ALA          CA CB          @amino_acid
+ARG          CA CZ          @amino_acid
+ASN          CA CG          @amino_acid
+ASP          CA CG          @amino_acid
+ASH          CA CG          @amino_acid
+CYS          CA SG          @amino_acid
+GLN          CA CD          @amino_acid
+GLU          CA CD          @amino_acid
+GLH          CA CD          @amino_acid
+GLY          CA             @amino_acid
+HIS          CA CE1         @amino_acid  
+HIP          CA CE1         @amino_acid
+HID          CA CE1         @amino_acid
+HIE          CA CE1         @amino_acid
+ILE          CA CD          @amino_acid
+LEU          CA CG          @amino_acid
+LYS          CA NZ          @amino_acid
+LYN          CA NZ          @amino_acid
+MET          CA CE          @amino_acid
+PHE          CA CZ          @amino_acid
+PRO          CA CG          @amino_acid
+SER          CA OG          @amino_acid
+THR          CA OG1         @amino_acid
+TRP          CA CH2         @amino_acid
+TYR          CA OH          @amino_acid
+VAL          CA CB          @amino_acid
+C            N4 O2 C4' O2'     @nucleic_acid_pyrimidine
+U            O4 N3 C4' O2'     @nucleic_acid_pyrimidine
+T            O4 N3 C4' O2'     @nucleic_acid_pyrimidine
+G            O6 N2 C4' O2'     @nucleic_acid_purine
+A            N1 N6 C4' O2'     @nucleic_acid_purine
+RC           N4 O2 C4' O2'     @nucleic_acid_pyrimidine
+RC3          N4 O2 C4' O2'     @nucleic_acid_pyrimidine
+RC5          N4 O2 C4' O2'     @nucleic_acid_pyrimidine
+RU           O4 N3 C4' O2'     @nucleic_acid_pyrimidine
+RU5          O4 N3 C4' O2'     @nucleic_acid_pyrimidine
+RG           O6 N2 C4' O2'     @nucleic_acid_purine
+RG3          O6 N2 C4' O2'     @nucleic_acid_purine
+RG5          O6 N2 C4' O2'     @nucleic_acid_purine
+RA           N1 N6 C4' O2'     @nucleic_acid_purine
+RA3          N1 N6 C4' O2'     @nucleic_acid_purine
+RAP          N1 N6 C4' O2'     @nucleic_acid_purine
+

@@ -1,0 +1,72 @@
+Logging initiated. Log file created at: results_CASIMODO_tutorial_RNA/casimodo_recluster_local_variables.log
+Start time: 2026-07-07 16:31:56
+                                                 ,__     __,                       
+                                                 |..|   |..|                       
+                                                 ||||_|_||||                       
+               _                     _           |::|:::|::|                       
+  ___ __ _ ___(_)_ __ ___   ___   __| | ___      |,.|.-,|,.|                       
+ / __/ _` / __| | '_ ` _ \ / _ \ / _` |/ _ \     |nn|`-'|nn|                       
+| (_| (_| \__ \ | | | | | | (_) | (_| | (_) |    |||||||||||                       
+ \___\__,_|___/_|_| |_| |_|\___/ \__,_|\___/     |_ |.-.| _|                       
+                                                _|||||_|||||_                      
+                                                                                   
+Conformational Analysis via Shared Information by MOlecular Dynamics Observables
+A program by Paul Guénon, Damien Laage and Olivier Rivoire                         
+
+
+
+
+========= INPUT PARAMETERS =========
+step_to_perform: cluster_local_variables
+output_dir: results_CASIMODO_tutorial_RNA/
+topolfile: input_data/topol_RNA.gro
+trajfile: input_data/traj_RNA.xtc
+dic: dic_for_tutorial_RNA.txt
+position_CASIMODO: ../CASIMODO_utils/
+time_zero: 100000.0
+last_time: -1.0
+delta_time: 0.0
+method_clustering_local_variables: hdbscan
+parameters_clustering_local_variables: [15.0, 15.0, 0.5]
+method_clustering_conformations: ward
+parameters_clustering_conformations: [2.0]
+community_to_process: -1
+split_trajectory: False
+extension_plots: png
+resolution_plots: 200
+save_data: False
+save_all_plots: False
+local_variables_to_add: []
+type_local_variables_to_add: []
+residues_local_variables_to_add: []
+cutoff_distance: 5
+proba_under_cutoff_distance: 0.01
+proportion_per_bin: 0.02
+min_bin_size_distances: 0.1
+min_bin_size_angles: 1.0
+smooth_factor: 10.0
+prominence: 0.025
+order_labels: weight
+cutoff_npoints_discretization: 100000
+minimal_size_to_cluster: 10
+cutoff_n_configurations: 50000
+cutoff_proba_conformations: 0.0
+===================================
+
+Clustering local variables using hdbscan...
+Clustering completed and labels saved.
+
+Plotting clustering results...
+Clustering results plotted and saved.
+
+Writing communities to file...
+Communities written to file.
+
+Getting resids in communities...
+Getting resids in communities completed.
+
+
+
+Analysis complete at 2026-07-07 16:31:57
+Results are saved in: results_CASIMODO_tutorial_RNA/
+Step performed: cluster_local_variables

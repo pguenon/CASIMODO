@@ -9,10 +9,11 @@ import numpy as np
 
 from scipy.stats import t
 from scipy.spatial.distance import pdist, squareform
+from scipy.sparse.csgraph import connected_components
+from scipy.stats import chi2_contingency
 
 from sklearn.neighbors import KernelDensity
-
-from scipy.sparse.csgraph import connected_components
+from sklearn.metrics import adjusted_rand_score
 
 import matplotlib.pyplot as plt
 from matplotlib.patches import Rectangle
@@ -113,7 +114,8 @@ def initiate_logging(config,basename='casimodo'):
 
 
 ###################### PRINT LOGO #####################
-def print_header(header_file="CASIMODO_utils/header_casimodo.txt"):
+def print_header(position_CASIMODO):
+    header_file=f"{position_CASIMODO}/header_casimodo.txt"
     with open(header_file, encoding="utf-8") as f:
         header = f.read()
     logging.info(header)
@@ -999,7 +1001,7 @@ def save_temporary_discretized_local_variable(y, local_variable_name,selected_mi
 def discretize_local_variable(y, local_variable_type, times,local_variable_name, config, labels=None, selected_minima=None):
     
     cutoff_npoints_discretization= config['cutoff_npoints_discretization']
-    n_points_per_bin= config['n_points_per_bin']
+    proportion_per_bin= config['proportion_per_bin']
     min_bin_size_distances= config['min_bin_size_distances']
     min_bin_size_angles= config['min_bin_size_angles']
 
@@ -1013,9 +1015,8 @@ def discretize_local_variable(y, local_variable_type, times,local_variable_name,
         subset_indexes=np.linspace(0,n_points-1,cutoff_npoints_discretization).astype(int)
         y_subset= y_subset[subset_indexes]
         times_subset= times_subset[subset_indexes]
-    n_points_subset=len(y_subset)
 
-    n_bins=n_points_subset//n_points_per_bin
+    n_bins=1//proportion_per_bin
     delta_y=(max(y_subset)-min(y_subset))/(n_bins)
     if local_variable_type=='distance' and delta_y<min_bin_size_distances:
         delta_y=min_bin_size_distances
@@ -2695,9 +2696,34 @@ def load_conformation_by_frame_from_ndx(ndx_file, n_frames, frames_selected):
 
     return conformation_by_frame
 
-def plot_conformations_as_function_of_time(config):
+def sequence_cramers_v(seq1, seq2):
+    if len(seq1) != len(seq2):
+        raise ValueError("Sequences must have the same length")
+
+    labels1 = np.unique(seq1)
+    labels2 = np.unique(seq2)
+
+    table = np.zeros((len(labels1), len(labels2)), dtype=int)
+
+    for a, b in zip(seq1, seq2):
+        i = np.where(labels1 == a)[0][0]
+        j = np.where(labels2 == b)[0][0]
+        table[i, j] += 1
+
+    chi2, _, _, _ = chi2_contingency(table)
+
+    n = np.sum(table)
+    r, c = table.shape
+
+    v = np.sqrt(chi2 / (n * min(r - 1, c - 1)))
+
+    return v
+
+def compare_communities(config):
     logging.info("\nPlotting conformations as a function of time...")
     output_dir = config['output_dir']
+    out_dir_plots= os.path.join(output_dir, 'conformational_states_clustering/', 'plots_compare_communities/')
+
     extension_plots = config['extension_plots']
     resolution_plots = config['resolution_plots']
     times_selected = np.load(output_dir + "discretizing_npy/times_selected.npy")  # Load time points
@@ -2786,7 +2812,7 @@ def plot_conformations_as_function_of_time(config):
     plt.xlabel('Time (in ps)')
     plt.ylabel('Community of LVs Index')
     plt.tight_layout()
-    plt.savefig(output_dir + f"conformational_states_clustering/conformational_states_as_function_of_time.{extension_plots}", dpi=resolution_plots)
+    plt.savefig(out_dir_plots + f"conformational_states_as_function_of_time.{extension_plots}", dpi=resolution_plots)
     plt.close()
     logging.info("Conformational time plot saved.")
 
@@ -2795,7 +2821,7 @@ def plot_conformations_as_function_of_time(config):
     correlation_matrix =np.abs(correlation_matrix)
 
     matrix_to_text = np.array2string(correlation_matrix, formatter={'float_kind': lambda x: f"{x:.2f}"})
-
+    
     logging.info("Absolute Pearson correlation matrix between clusters of local_variables:")
     logging.info(matrix_to_text)
     plt.figure(figsize=(8, 6))
@@ -2808,6 +2834,39 @@ def plot_conformations_as_function_of_time(config):
     plt.xlabel('Community of LVs Index')
     plt.ylabel('Community of LVs Index')
     plt.tight_layout()
-    plt.savefig(output_dir + f"conformational_states_clustering/correlation_conformations_between_communities.{extension_plots}", dpi=resolution_plots)
+    plt.savefig(out_dir_plots + f"correlation_conformations_between_communities.{extension_plots}", dpi=resolution_plots)
     plt.close()
 
+    ARI_matrix=np.zeros((num_clusters, num_clusters))
+    for i in range(num_clusters):
+        for j in range(num_clusters):
+            ARI_matrix[i, j] = adjusted_rand_score(conformations_for_community[i], conformations_for_community[j])
+
+    plt.figure(figsize=(8, 6))
+    plt.imshow(ARI_matrix, cmap='magma', aspect='equal')
+    cbar = plt.colorbar(label='Adjusted Rand Index (ARI)')
+    plt.xticks(np.arange(num_clusters), comumunities_to_plot)
+    plt.yticks(np.arange(num_clusters), comumunities_to_plot)   
+    plt.title('Adjusted Rand Index Between Communities of LVs')
+    plt.xlabel('Community of LVs Index')
+    plt.ylabel('Community of LVs Index')
+    plt.tight_layout()
+    plt.savefig(out_dir_plots + f"ARI_between_communities.{extension_plots}", dpi=resolution_plots)
+    plt.close() 
+
+    cramers_v = np.zeros((num_clusters, num_clusters))
+    for i in range(num_clusters):
+        for j in range(num_clusters):
+            cramers_v[i, j] = sequence_cramers_v(conformations_for_community[i], conformations_for_community[j])
+    plt.figure(figsize=(8, 6))
+    plt.imshow(cramers_v, cmap='magma', aspect='equal')
+    cbar = plt.colorbar(label="Cramér's V")
+    plt.clim(0, 1)
+    plt.xticks(np.arange(num_clusters), comumunities_to_plot)
+    plt.yticks(np.arange(num_clusters), comumunities_to_plot)
+    plt.title("Cramér's V Between Communities of LVs")
+    plt.xlabel('Community of LVs Index')
+    plt.ylabel('Community of LVs Index')
+    plt.tight_layout()
+    plt.savefig(out_dir_plots + f"cramers_v_between_communities.{extension_plots}", dpi=resolution_plots)
+    plt.close()

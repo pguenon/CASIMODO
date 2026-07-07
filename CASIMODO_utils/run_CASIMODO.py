@@ -5,8 +5,6 @@ import shutil
 
 sys.path.append(os.getcwd()) # Add current directory to path for module imports
 
-from CASIMODO_utils.functions_CASIMODO import *
-
 #######################################
 #         ARGUMENT PARSING            #
 #######################################
@@ -14,7 +12,7 @@ from CASIMODO_utils.functions_CASIMODO import *
 def parse_arguments():
     parser = argparse.ArgumentParser(description='CASIMODO - Conformational Analysis via Statistical Inference of MOlecular Dynamics Observables')
     
-    parser.add_argument('--step_to_perform', type=str, default='all', choices=['all','discretize_local_variables','cluster_local_variables','get_conformations','plot_conformations_time'] , help='Step to perform in the pipeline')
+    parser.add_argument('--step_to_perform', type=str, default='all', choices=['all','discretize_local_variables','cluster_local_variables','get_conformations','compare_communities'] , help='Step to perform in the pipeline')
 
     parser.add_argument('--topol_file', type=str, required=True, help='Path to topology file')
     parser.add_argument('--trj_file', type=str, required=True, help='Path to trajectory file')
@@ -31,10 +29,10 @@ def parse_arguments():
     
     parser.add_argument('--prominence', type=float, default=0.025, help='Prominence for minima detection in discretization')
     parser.add_argument('--smooth_factor', type=float, default=10, help='Smoothing factor for determining bin size for KDE')
-    parser.add_argument('--n_points_per_bin', type=int, default=500, help='Number of points per bin for computing histograms')
+    parser.add_argument('--proportion_per_bin', type=float, default=0.02, help='Number of points per bin for computing histograms')
     parser.add_argument('--min_bin_size_distances', type=float, default=0.1, help='Minimum size of bins in histograms for distance-based local_variables in A')
     parser.add_argument('--min_bin_size_angles', type=float, default=1.0, help='Minimum size of bins in histograms for angle-based local_variables in °')
-    parser.add_argument('--order_labels',type=str, default='value', choices=['weight','value'], help='Clustering method for conformations')
+    parser.add_argument('--order_labels',type=str, default='weight', choices=['weight','value'], help='Clustering method for conformations')
     
     parser.add_argument('--cutoff_npoints_discretization', type=int, default=100000, help='Maximum number of points to use for discretization')
 
@@ -61,7 +59,7 @@ def parse_arguments():
     parser.add_argument('--type_local_variables_to_add', nargs='*', default=[], help='List of local_variable types (same order)')
     parser.add_argument('--residues_local_variables_to_add', nargs='*', default=[], help='List of residues to consider for additional local_variables (e.g., 161_162)')
 
-
+    parser.add_argument('--position_CASIMODO', type=str, default='CASIMODO_utils/', help='Position of the CASIMODO_utils folder relative to this script. Default is "CASIMODO_utils" if the script is in the main CASIMODO folder.')
 
     return parser.parse_args()
 
@@ -85,40 +83,49 @@ split_trajectory = bool(split_trajectory_int)
 save_data = bool(args.save_data)
 save_all_plots = bool(args.save_all_plots)
 
+position_CASIMODO = args.position_CASIMODO
+if len(position_CASIMODO)>0 and position_CASIMODO[-1] != '/':
+    position_CASIMODO += '/'
+#import functions from CASIMODO_utils
+sys.path.append(position_CASIMODO)
+
+import functions_CASIMODO as casimodo
+
 config={
     'step_to_perform': args.step_to_perform,
+    'output_dir': output_dir,
     'topolfile': args.topol_file,
     'trajfile': args.trj_file,
     'dic': args.dic_file,
-    'output_dir': output_dir,
+    'position_CASIMODO': position_CASIMODO,
     'time_zero': args.time_zero,
     'last_time': args.last_time,
     'delta_time': args.delta_time,
-    'cutoff_distance': args.cutoff_distance,
-    'proba_under_cutoff_distance': args.proba_under_cutoff_distance,
-    'prominence': args.prominence,
-    'smooth_factor': args.smooth_factor,
-    'n_points_per_bin': args.n_points_per_bin,
-    'min_bin_size_distances': args.min_bin_size_distances,
-    'min_bin_size_angles': args.min_bin_size_angles,
-    'order_labels': args.order_labels,
-    'cutoff_npoints_discretization': args.cutoff_npoints_discretization,
-    'save_data': save_data,
-    'save_all_plots': save_all_plots,
-    'extension_plots': args.extension_plots,
-    'resolution_plots': args.resolution_plots,
     'method_clustering_local_variables': args.method_clustering_local_variables,
     'parameters_clustering_local_variables': args.parameters_clustering_local_variables,
     'method_clustering_conformations': args.method_clustering_conformations,
     'parameters_clustering_conformations': args.parameters_clustering_conformations,
     'community_to_process': args.community_to_process,
+    'split_trajectory': split_trajectory,
+    'extension_plots': args.extension_plots,
+    'resolution_plots': args.resolution_plots,
+    'save_data': save_data,
+    'save_all_plots': save_all_plots,   
+    'local_variables_to_add': args.local_variables_to_add,
+    'type_local_variables_to_add': args.type_local_variables_to_add,
+    'residues_local_variables_to_add': args.residues_local_variables_to_add,
+    'cutoff_distance': args.cutoff_distance,
+    'proba_under_cutoff_distance': args.proba_under_cutoff_distance,
+    'proportion_per_bin': args.proportion_per_bin,
+    'min_bin_size_distances': args.min_bin_size_distances,
+    'min_bin_size_angles': args.min_bin_size_angles,
+    'smooth_factor': args.smooth_factor,
+    'prominence': args.prominence,  
+    'order_labels': args.order_labels,
+    'cutoff_npoints_discretization': args.cutoff_npoints_discretization,
     'minimal_size_to_cluster': args.minimal_size_to_cluster,
     'cutoff_n_configurations': args.cutoff_n_configurations,
     'cutoff_proba_conformations': args.cutoff_proba_conformations,
-    'split_trajectory': split_trajectory,
-    'local_variables_to_add': args.local_variables_to_add,
-    'type_local_variables_to_add': args.type_local_variables_to_add,
-    'residues_local_variables_to_add': args.residues_local_variables_to_add
 }
 
 step_to_perform = config['step_to_perform']
@@ -146,17 +153,17 @@ if not os.path.exists(output_dir):
 ########################################
 #           INITIATE LOGGING            #
 ########################################
-initiate_logging(config)
+casimodo.initiate_logging(config)
 
 ########################################
 #           PRINT HEADER               #
 ########################################
-print_header()
+casimodo.print_header(position_CASIMODO)
 
 #######################################
 #         PRINT INPUTS                #
 #######################################
-print_inputs(config)
+casimodo.print_inputs(config)
 
 
 #######################################
@@ -164,7 +171,7 @@ print_inputs(config)
 #######################################
 
 if step_to_perform in ['all', 'discretize_local_variables','get_conformations','precompute_positions']:
-    u_traj = open_trajectory(config)
+    u_traj = casimodo.open_trajectory(config)
 
 #######################################
 #         TIME FILTERING              #
@@ -178,7 +185,7 @@ if step_to_perform == 'all' :
         if os.path.exists(os.path.join(output_dir, subdir)):
             shutil.rmtree(os.path.join(output_dir, subdir))  # Remove existing directory  
         os.mkdir(os.path.join(output_dir, subdir))
-    times, times_indices = filter_times_and_indices(u_traj,config)
+    times, times_indices = casimodo.filter_times_and_indices(u_traj,config)
 
 #######################################
 #        GET IMPORTANT ATOMS          #
@@ -188,7 +195,7 @@ if step_to_perform in ['all']:
     important_atoms_file = os.path.join(output_dir, 'important_atoms.txt')
     if os.path.exists(important_atoms_file):
         os.remove(important_atoms_file)
-    precompute_all_positions(u_traj, config)
+    casimodo.precompute_all_positions(u_traj, config)
 
 #######################################
 #     DISCRETIZE CONFORMATIONS        #
@@ -219,17 +226,17 @@ if step_to_perform in ['all', 'discretize_local_variables']:
         shutil.rmtree(os.path.join(output_dir, "discretizing_npy/temporary_discretized_local_variables/"))  # Remove existing directory
     os.mkdir(os.path.join(output_dir, "discretizing_npy/temporary_discretized_local_variables/"))
 
-    get_contacts(u_traj, config)
+    casimodo.get_contacts(u_traj, config)
     
-    get_dihedrals_protein(u_traj, config)
+    casimodo.get_dihedrals_protein(u_traj, config)
 
-    get_dihedrals_nucleic_acids(u_traj, config)
+    casimodo.get_dihedrals_nucleic_acids(u_traj, config)
     
     if len(local_variables_to_add) != 0:
-        add_local_variables(config)
+        casimodo.add_local_variables(config)
 
-    get_discretized_array(config)
-    compute_information(config)
+    casimodo.get_discretized_array(config)
+    casimodo.compute_information(config)
 
     shutil.rmtree(os.path.join(output_dir, "discretizing_npy/temporary_discretized_local_variables/"))  # Clean up temporary files
 
@@ -240,7 +247,7 @@ if step_to_perform in ['all', 'discretize_local_variables']:
 #######################################
 
 if step_to_perform in ['all','cluster_local_variables']:
-    cluster_local_variables(config)
+    casimodo.cluster_local_variables(config)
     
 if step_to_perform in ['all','get_conformations']:
     subdirs = [
@@ -263,9 +270,12 @@ if step_to_perform in ['all','get_conformations']:
             os.remove(os.path.join(output_dir, file_ndx))
 
 
-    get_conformations_for_communities(u_traj,config)
+    casimodo.get_conformations_for_communities(u_traj,config)
 
-if step_to_perform in ['all','plot_conformations_time']:
-    plot_conformations_as_function_of_time(config)
+if step_to_perform in ['all','compare_communities']:
+    out_dir_plots= os.path.join(output_dir, 'conformational_states_clustering/', 'plots_compare_communities/')
+    if not os.path.exists(out_dir_plots):
+        os.makedirs(out_dir_plots)
+    casimodo.compare_communities(config)
     
-print_ending_message(config)
+casimodo.print_ending_message(config)

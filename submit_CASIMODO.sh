@@ -11,7 +11,7 @@ set -e  # Exit immediately if any command fails
 #   discretize_local_variables — select and discretize the LVs
 #   cluster_local_variables — cluster LVs in communities based on Rajski's distance
 #   get_conformations — define the configurations based on the LV communities and cluster them to get the conformational states
-#   plot_conformations_time — plot the conformations over time to see the transitions and compute the absolute Pearson's correlation coefficient between the several conformational trajectories
+#   compare_communities — compare the conformational trajectories obtained for each community of LVs to see if they are correlated or not. 
 
 step_to_perform="all"
 
@@ -19,16 +19,21 @@ step_to_perform="all"
 #              REQUIRED INPUTS               #
 ##############################################
 # Directory where all results will be saved
-output_directory=results_CASIMODO_new_PDZ3_ligand
+output_directory=results_CASIMODO_name_system
 
 # topology file in a format readable by MDAnalysis
-topol_file=Data_PDZ3/REST2_new_PDZ3_ligand_no_water_center_fit0_renumbered.gro 
+topol_file=topol_file.gro
 
 # Trajectory file in a format readable by MDAnalysis, centered and fitted
-trj_file=Data_PDZ3/REST2_new_PDZ3_ligand_no_water_center_fit.xtc 
+trj_file=traj_file.xtc
 
 # Dictionary file defining important residue types and their corresponding important atoms for the analysis.
 dic_file=dic_important_atoms_protein_nucleic_acids.txt
+
+##############################################
+#  POSITION of CASIMODO FUNCTIONS (Crucial)  #
+##############################################
+position_CASIMODO=CASIMODO_utils/  # Position of the CASIMODO_utils folder relative to this script. Default is "CASIMODO_utils/" if the directory is in the same location as this script. Adjust if necessary.
 
 ##############################################
 # ANALYSIS SETTINGS (Optional but important) #
@@ -81,7 +86,7 @@ save_data=0
 save_all_plots=0  
 
 ##############################################
-#   OPTION: ADD ADDITIONAL LOCAL VARIABLES   #
+#   ADD ADDITIONAL LOCAL VARIABLES (Optional)   #
 ##############################################
 # Additional local variables to include in the analysis (e.g., RMSD, SASA, etc.)
 local_variables_to_add=()
@@ -104,8 +109,8 @@ residues_local_variables_to_add=()
 cutoff_distance=5
 proba_under_cutoff_distance=0.01  
 
-#Parameter for computing histograms: the bin size will be automatically determined based on the data so that there are at least n_points_per_bin points per bin, but it will not be smaller than min_bin_size_distances (in A) for distance-based coordinates and min_bin_size_angles (in °) for angle-based coordinates
-n_points_per_bin=500  
+#Parameter for computing histograms: the bin size will be automatically determined based on the data so that the average proportion of the trajectory per bin is superior to proportion_per_bin, but it will not be smaller than min_bin_size_distances (in A) for distance-based coordinates and min_bin_size_angles (in °) for angle-based coordinates
+proportion_per_bin=0.02 
 min_bin_size_distances=0.1  
 min_bin_size_angles=1.0  
 
@@ -116,7 +121,7 @@ smooth_factor=10.0
 prominence=0.025  # Prominence parameter for minima detection in discretization
 
 # Parameter for ordering labels in discretization. 
-order_labels="value"  # Order of labels for discretized variables. Options: 'value' (default) or 'weight'. 'weight' orders labels based on the integral of the probability density function, while 'value' orders labels based on the actual values of the discretized variable.
+order_labels="weight"  # Order of labels for discretized variables. Options: 'weight' (default) or 'value'. 'weight' orders labels based on the integral of the probability density function, while 'value' orders labels based on the actual values of the discretized variable.
 
 # Cutoff number of points to use for computing histograms and KDE for discretization. If the number of points is superior to this cutoff, a random subset of points will be used for computing histograms and KDE to save time.
 cutoff_npoints_discretization=100000  
@@ -137,7 +142,7 @@ cutoff_proba_conformations=0.0
 ##############################################
 # Do not modify below unless you know what you're doing
 
-python CASIMODO_utils/run_CASIMODO.py \
+python "${position_CASIMODO}run_CASIMODO.py" \
   --step_to_perform "${step_to_perform}" \
   --topol_file "${topol_file}" \
   --trj_file "${trj_file}" \
@@ -150,7 +155,7 @@ python CASIMODO_utils/run_CASIMODO.py \
   --proba_under_cutoff_distance "${proba_under_cutoff_distance}" \
   --prominence "${prominence}" \
   --smooth_factor "${smooth_factor}" \
-  --n_points_per_bin "${n_points_per_bin}" \
+  --proportion_per_bin "${proportion_per_bin}" \
   --min_bin_size_distances "${min_bin_size_distances}" \
   --min_bin_size_angles "${min_bin_size_angles}" \
   --order_labels "${order_labels}" \
@@ -170,5 +175,5 @@ python CASIMODO_utils/run_CASIMODO.py \
   --split_trajectory ${split_trajectory}\
   --local_variables_to_add "${local_variables_to_add[@]}" \
   --type_local_variables_to_add "${type_local_variables_to_add[@]}" \
-  --residues_local_variables_to_add "${residues_local_variables_to_add[@]}" 
-
+  --residues_local_variables_to_add "${residues_local_variables_to_add[@]}"\
+  --position_CASIMODO ${position_CASIMODO}

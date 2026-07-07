@@ -35,8 +35,9 @@ You’ll need the following Python packages installed:
 - `MDAnalysis`
 - `hdbscan`
 
+You can then download the CASIMODO repository `CASIMODO_utils/` from Github. 
+
 Make sure to also download in your working directory:
-- The `CASIMODO_utils/` directory,
 - The job submission file `submit_CASIMODO.sh` that you will modify to create your own submission file,
 - (Optional) The reference file `dic_important_atoms_protein_nucleic_acids.txt` to help you create your own dictionary.
 
@@ -64,10 +65,12 @@ This dictionary allows CASIMODO to focus on the relevant parts of your system fo
 Before launching the script, open the file `submit_CASIMODO.sh` and fill in the following parameters:
 
 * `step_to_perform`: Choose the step to execute. Begin with `"all"` for a full run. Later on, you can rerun specific steps (see Tuning Clustering).
+* `output_directory`: Where the output files will be saved. CASIMODO will create this directory if it doesn’t exist.
 * `topol_file`: Path to your topology file.
 * `trj_file`: Path to your trajectory file.
 * `dic_file`: Path to your dictionary file.
-* `output_directory`: Where the output files will be saved. CASIMODO will create this directory if it doesn’t exist.
+
+⚠️ **Important**: the position of the `CASIMODO_utils/` directory should be specified using the `position_CASIMODO` parameter. This is crucial for the script to locate its dependencies. By default, `position_CASIMODO=CASIMODO_utils/`.
 
 ### Optional analysis settings 
 
@@ -82,8 +85,8 @@ You can modify or integrate this script into your own job submission pipeline, a
 Once the initial full run is complete, you may wish to explore better clustering results by adjusting certain parameters. CASIMODO allows you to rerun only the clustering steps to save time.
 
 Use the `step_to_perform` variable in the submission script to specify the step:
-* `"cluster_local_variables"`: Reruns the clustering of the geometric variables.
-* `"get_conformations"`: Reruns the clustering of states and identification of conformations.
+* `cluster_local_variables`: Reruns the clustering of the geometric variables.
+* `get_conformations`: Reruns the clustering of states and identification of conformations.
 
 #### Parameters to adjust:
 For both the clustering of the local variables and the clustering of the conformations you can choose a clustering method among `'hdbscan'`, `'yacare'`, `'ward'` and `'k-means'` and assign it to the parameters `method_clustering_local_variables`and `method_clustering_conformations`. The method can be different for clustering local variables and conformations. We advise using `'hdbscan'` for clustering local variables and `'ward'` for clustering conformations, but you can experiment with other methods as well.
@@ -115,6 +118,9 @@ You may need to experiment with these values to find a clustering result that be
 When clustering conformations, two more parameters can be adjusted:
 - `community_to_process`: The index of the community of variables to process. `-1` for all communities, `0` for first community, `1` for second community, etc.
 - `split_trajectory`: If `1`, CASIMODO will save the trajectory segments corresponding to each conformation. This can be very useful for visual inspection of the conformations, but it can also take a lot of time and disk space. Keep it to `0`by default.
+
+### Compare communities
+Once you obtained the conformations for each community of LVs, you can compare the conformational trajectories by changing the `step_to_perform` parameter to `compare_communities` and rerun CASIMODO.
 
 ### Output Files
 You can tune the outputs of CASIMODO by adjusting the following parameters:
@@ -237,6 +243,11 @@ Once communities are defined, CASIMODO identifies conformational states for each
 
 Outputs are saved in `conformations_clustering/`.
 
+## 9. Compare Communities
+Finally, CASIMODO compare the conformational changes identified in the different ommunities by plotting their conformational trajectories along time, by computing the Pearson correlation coefficient, Cramér's V and Adjusted Rand Index between these conformational trajectories.
+
+Outputs are saved in `conformations_clustering/plots_compare_communities/`.
+
 ## Advanced Parameters
 
 You may also want to adjust the following optional parameters in `submit_CASIMODO.sh` for more control: 
@@ -247,7 +258,7 @@ To tune distance selection:
 
 To tune histograms computation:
 - `cutoff_npoints_discretization`: Maximal number of points to use for the histograms in the discretization step. If the number of points is superior to this value, a random subset of points will be used to compute the histograms. This can speed up the analysis for long trajectories, but it can also lead to less accurate histograms. Positive integer.
-- `n_points_per_bin`: Minimal number of points per bin for the histograms used in the discretization step. 
+- `proportion_per_bin`: Minimal part of the trajectory per bin in average.
 - `min_bin_size_distabces`: Minimal size of the bins for the histograms of distances. In Ångströms.
 - `min_bin_size_angles`: Minimal size of the bins for the histograms of angles. In degrees.
 - `smooth_factor`: factor by which to divide the bin size to perform KDE smoothing of the histograms. The higher it is, the closer to the original histogram the smoothed histogram will be. Positive float.
@@ -256,7 +267,7 @@ To tune the selection of modes:
 - `prominence`: The higher it is, the more prominent a peak must be to be selected as a mode. Positive float.
 
 To tune the order of labels in the discretization:
-- `order_labels`: Order of labels for discretized variables. Options: 'value' (default) or 'weight'. 'weight' orders labels based on the integral of the probability density function, while 'value' orders labels based on the actual values of the discretized variable by increasing order.
+- `order_labels`: Order of labels for discretized variables. Options: 'weight' (default) or 'value'. 'weight' orders labels based on the integral of the probability density function, while 'value' orders labels based on the actual values of the discretized variable by increasing order.
 
 Optional parameter for clustering:
 - `minimal_size_to_cluster`: If a matrix of distances has a size inferior to this value, it will not be clustered and each point will be considered as a cluster. 
