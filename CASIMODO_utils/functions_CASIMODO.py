@@ -115,7 +115,7 @@ def initiate_logging(config,basename='casimodo'):
 
 ###################### PRINT LOGO #####################
 def print_header(position_CASIMODO):
-    header_file=f"{position_CASIMODO}/header_casimodo.txt"
+    header_file=f"{position_CASIMODO}/header.txt"
     with open(header_file, encoding="utf-8") as f:
         header = f.read()
     logging.info(header)
