@@ -1505,6 +1505,9 @@ def get_dihedrals_nucleic_acids(u_traj, config):
 ############################# Function to add new local_variables to the existing discretization ##########################
 def add_local_variables(config):
     output_dir = config['output_dir']
+    if 'local_variables_to_add' not in config or 'type_local_variables_to_add' not in config:
+        logging.info("No new local variables specified for addition. Skipping.")
+        return
     local_variables_to_add = config['local_variables_to_add']
     type_local_variables_to_add = config['type_local_variables_to_add']
     # Load already discretized local_variables
@@ -2210,9 +2213,10 @@ def cluster_local_variables(config):
     # Write clusters to file
     write_communities_to_file(clusters_ndx,corresponding_labels, local_variables, output_dir, "communities_of_local_variables.txt")
     # Get resids in clusters and write to file
-    local_variables_to_add=config['local_variables_to_add']
-    name_local_variables_to_add = [coord.split('/')[-1].split('.')[0] for coord in local_variables_to_add]
-    get_resids_in_communities(clusters_ndx, local_variables, name_local_variables_to_add, "resids_in_communities_of_LVs.txt",config)
+    if 'local_variables_to_add' in config:
+        local_variables_to_add=config['local_variables_to_add']
+        name_local_variables_to_add = [coord.split('/')[-1].split('.')[0] for coord in local_variables_to_add]
+        get_resids_in_communities(clusters_ndx, local_variables, name_local_variables_to_add, "resids_in_communities_of_LVs.txt",config)
 
 
 ###################### Functions to manipulate states and get conformations ########################

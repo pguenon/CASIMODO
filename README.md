@@ -165,7 +165,7 @@ Only frames after `time_zero` are kept. Frames are sampled at an interval define
 
 Important residues and atoms are selected based on your dictionary. If a residue is tagged as an amino acid or nucleic acid, CASIMODO will analyze its characteristic dihedral angles as well.
 
-### 4. Coordinate Selection and Discretization
+### 4. Local variable Selection and Discretization
 
 #### a. Distances
 
@@ -189,9 +189,9 @@ For **Nucleic acids**: α, β, γ, δ, ε, ζ, χ
 
 These are treated using the same selection and discretization process as distances.
 
-#### c. User-Defined Coordinates
+#### c. User-Defined Local variables
 You can also input your own time-dependent variables:
-- `local_variables_to_add`: List of file paths with coordinate values (first column: time in ps, second: value).  
+- `local_variables_to_add`: List of file paths with local variable values (first column: time in ps, second: value).  
   *For distances, use Ångströms; for angles, use degrees.*
 - `type_local_variables_to_add`: Specify `"angle"` or `"distance"` for each.
 - `residues_local_variables_to_add`: Residue indices involved (use underscores `_` to join multiple residues).
@@ -223,7 +223,7 @@ $I(X; Y) = \sum_{x,y} P(x, y) \log \left( \frac{P(x, y)}{P(x)P(y)} \right)$
 
 The Rajski's distance is a measure of dissimilarity between two variables, with values between 0 and 1. A value of 0 indicates that the variables are identical, while a value of 1 indicates that they are completely independent.
 
-## 7. Clustering the Coordinates
+## 7. Clustering the Local variables
 
 CASIMODO clusters variables into communities based on Rajski's distance using the algorithms described earlier.
 
@@ -253,7 +253,7 @@ Outputs are saved in `conformations_clustering/plots_compare_communities/`.
 You may also want to adjust the following optional parameters in `submit_CASIMODO.sh` for more control: 
 
 To tune distance selection:
-- `cutoff_distance`: 	Distance threshold below which a coordinate is considered for analysis.
+- `cutoff_distance`: 	Distance threshold below which a distance is considered for analysis.
 - `proba_under_cutoff_distance`: Probability cutoff for the distance threshold.
 
 To tune histograms computation:
