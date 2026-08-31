@@ -16,7 +16,7 @@ def parse_arguments():
 
     parser.add_argument('--topol_file', type=str, required=True, help='Path to topology file')
     parser.add_argument('--trj_file', type=str, required=True, help='Path to trajectory file')
-    parser.add_argument('--dic_file', type=str, required=True, help='Path to important atoms dictionary')
+    parser.add_argument('--dic_file', type=str, default='', help='Path to important atoms dictionary')
     parser.add_argument('--output_directory', type=str, default='results_CASIMODO/', help='Output directory')
     
 
@@ -52,7 +52,6 @@ def parse_arguments():
 
     parser.add_argument('--cutoff_n_configurations', type=int, default=50000, help='Cutoff for the number of states to consider in clustering states')
 
-    parser.add_argument('--cutoff_proba_conformations', type=float, default=0.0, help='Probability cutoff for conformations extraction')
     parser.add_argument('--split_trajectory', type=int, default=1, choices=[0, 1], help='Whether to split the trajectory by conformations (1 for True, 0 for False)')
 
     parser.add_argument('--local_variables_to_add', nargs='*', default=[], help='List of additional local_variable files')
@@ -125,8 +124,7 @@ config={
     'cutoff_npoints_discretization': args.cutoff_npoints_discretization,
     'minimal_size_to_cluster': args.minimal_size_to_cluster,
     'cutoff_n_configurations': args.cutoff_n_configurations,
-    'cutoff_proba_conformations': args.cutoff_proba_conformations,
-}
+    }
 
 step_to_perform = config['step_to_perform']
 topolfile = config['topolfile']
@@ -139,7 +137,7 @@ community_to_process = config['community_to_process']
 #     CHECK INPUT FILE EXISTENCE      #
 #######################################
 
-for path in [topolfile, trajfile, dic]:
+for path in [topolfile, trajfile]:
     if not os.path.exists(path):
         print(f"Error: File '{path}' does not exist.")
         exit(1)
@@ -170,8 +168,9 @@ casimodo.print_inputs(config)
 #       OPEN TRAJECTORY (if needed)   #
 #######################################
 
-if step_to_perform in ['all', 'discretize_local_variables','get_conformations','precompute_positions']:
+if step_to_perform in ['all', 'discretize_local_variables','precompute_positions']:
     u_traj = casimodo.open_trajectory(config)
+
 
 #######################################
 #         TIME FILTERING              #
@@ -268,8 +267,10 @@ if step_to_perform in ['all','get_conformations']:
             os.remove(os.path.join(output_dir, file_png))
         if os.path.exists(os.path.join(output_dir, file_ndx)):
             os.remove(os.path.join(output_dir, file_ndx))
-
-
+    if split_trajectory :
+        u_traj = casimodo.open_trajectory(config)
+    else : 
+        u_traj = None
     casimodo.get_conformations_for_communities(u_traj,config)
 
 if step_to_perform in ['all','compare_communities']:

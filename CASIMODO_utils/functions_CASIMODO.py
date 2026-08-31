@@ -361,9 +361,14 @@ def read_dictionary(dic):
 
 def get_important_atoms_MDA(u_traj, config):
     logging.info("\nGetting important atoms...")
-    important_atoms_dic = config['dic']
+    dictionnary_new_important_atoms = config['dic']
     step_to_perform = config['step_to_perform']
-    atoms_dic, amino_acids, nucleic_acids_pyrimidine, nucleic_acids_purine = read_dictionary(important_atoms_dic)
+    position_CASIMODO= config['position_CASIMODO']
+    initial_dic_file = f"{position_CASIMODO}/dic_important_atoms_protein_nucleic_acids.txt"
+    initial_atoms_dic, initial_amino_acids, initial_nucleic_acids_pyrimidine, initial_nucleic_acids_purine = read_dictionary(initial_dic_file)
+    if len(dictionnary_new_important_atoms)>=1:
+        new_atoms_dic, new_amino_acids, new_nucleic_acids_pyrimidine, new_nucleic_acids_purine = read_dictionary(dictionnary_new_important_atoms)
+    
     important_atoms = []
     selected_resids = []
     selected_resnames = []
@@ -378,19 +383,29 @@ def get_important_atoms_MDA(u_traj, config):
         resid = residue.resid
         if resid in selected_resids:
             continue  # Skip already processed residues
-        if resname in atoms_dic:
-            important_atoms.append(atoms_dic[resname])
+        if len(dictionnary_new_important_atoms)>=1 and resname in new_atoms_dic:
+            important_atoms.append(new_atoms_dic[resname])
             selected_resids.append(resid)
             selected_resnames.append(resname)
-            if resname in amino_acids:
+            if resname in new_amino_acids:
                 indices_aa.append(resid)
-            elif resname in nucleic_acids_pyrimidine:
+            elif resname in new_nucleic_acids_pyrimidine:
                 indices_na_pyrimidine.append(resid)
-            elif resname in nucleic_acids_purine:
+            elif resname in new_nucleic_acids_purine:
+                indices_na_purine.append(resid)
+        elif resname in initial_atoms_dic:
+            important_atoms.append(initial_atoms_dic[resname])
+            selected_resids.append(resid)
+            selected_resnames.append(resname)
+            if resname in initial_amino_acids:
+                indices_aa.append(resid)
+            elif resname in initial_nucleic_acids_pyrimidine:
+                indices_na_pyrimidine.append(resid)
+            elif resname in initial_nucleic_acids_purine:
                 indices_na_purine.append(resid)
         elif resname not in res_not_found:
             if step_to_perform == 'all':
-                logging.info(f"Residue {resname} not found in {important_atoms_dic}. Skipping it.")
+                logging.info(f"Residue {resname} not found in dictionaries. Skipping it.")
             res_not_found.append(resname)
     if step_to_perform == 'all':
         logging.info("\nSelected residues:")
@@ -522,9 +537,9 @@ def precompute_backbone_protein(u_traj, indices_aa, frames_selected):
     ]
 
     # Initialize arrays to store positions of backbone atoms over time
-    Positions_atoms_C = np.zeros((num_residues, len(frames_selected), 3))
-    Positions_atoms_N = np.zeros((num_residues, len(frames_selected), 3))
-    Positions_atoms_CA = np.zeros((num_residues, len(frames_selected), 3))
+    positions_atoms_C = np.zeros((num_residues, len(frames_selected), 3))
+    positions_atoms_N = np.zeros((num_residues, len(frames_selected), 3))
+    positions_atoms_CA = np.zeros((num_residues, len(frames_selected), 3))
 
     # Iterate through selected frames and record positions
     previous_progress = -1
@@ -533,15 +548,15 @@ def precompute_backbone_protein(u_traj, indices_aa, frames_selected):
         u_traj.trajectory[frame]  # Set trajectory to the specific frame
 
         for i in range(num_residues):
-            Positions_atoms_C[i, k, :] = atom_C_selections[i].positions
-            Positions_atoms_N[i, k, :] = atom_N_selections[i].positions
-            Positions_atoms_CA[i, k, :] = atom_CA_selections[i].positions
+            positions_atoms_C[i, k, :] = atom_C_selections[i].positions
+            positions_atoms_N[i, k, :] = atom_N_selections[i].positions
+            positions_atoms_CA[i, k, :] = atom_CA_selections[i].positions
 
     # Complete progress bar
     plot_progress_bar(len(frames_selected), len(frames_selected), previous_progress)
     logging.info("Positions of protein backbone atoms precomputed.")
 
-    return Positions_atoms_C, Positions_atoms_N, Positions_atoms_CA
+    return positions_atoms_C, positions_atoms_N, positions_atoms_CA
 
 def precompute_backbone_nucleic_acids(u_traj, indices_na_pyrimidine, indices_na_purine, frames_selected):
     logging.info("\nPrecomputing positions of nucleic acids backbone atoms...")
@@ -607,17 +622,17 @@ def precompute_backbone_nucleic_acids(u_traj, indices_na_pyrimidine, indices_na_
 
 
     # Initialize arrays to store positions of backbone atoms over time
-    Positions_atoms_P = np.empty((num_residues, len(frames_selected), 3))
-    Positions_atoms_P.fill(np.inf)  # Fill with NaN to handle residues without P atom (e.g., first residue)
-    Positions_atoms_O5p = np.zeros((num_residues, len(frames_selected), 3))
-    Positions_atoms_C5p = np.zeros((num_residues, len(frames_selected), 3))
-    Positions_atoms_O4p = np.zeros((num_residues, len(frames_selected), 3))
-    Positions_atoms_C4p = np.zeros((num_residues, len(frames_selected), 3))
-    Positions_atoms_C3p = np.zeros((num_residues, len(frames_selected), 3))
-    Positions_atoms_O3p = np.zeros((num_residues, len(frames_selected), 3))
-    Positions_atoms_C1p = np.zeros((num_residues, len(frames_selected), 3))
-    Positions_atoms_Nbs = np.zeros((num_residues, len(frames_selected), 3))
-    Positions_atoms_Cbs = np.zeros((num_residues, len(frames_selected), 3))
+    positions_atoms_P = np.empty((num_residues, len(frames_selected), 3))
+    positions_atoms_P.fill(np.inf)  # Fill with NaN to handle residues without P atom (e.g., first residue)
+    positions_atoms_O5p = np.zeros((num_residues, len(frames_selected), 3))
+    positions_atoms_C5p = np.zeros((num_residues, len(frames_selected), 3))
+    positions_atoms_O4p = np.zeros((num_residues, len(frames_selected), 3))
+    positions_atoms_C4p = np.zeros((num_residues, len(frames_selected), 3))
+    positions_atoms_C3p = np.zeros((num_residues, len(frames_selected), 3))
+    positions_atoms_O3p = np.zeros((num_residues, len(frames_selected), 3))
+    positions_atoms_C1p = np.zeros((num_residues, len(frames_selected), 3))
+    positions_atoms_Nbs = np.zeros((num_residues, len(frames_selected), 3))
+    positions_atoms_Cbs = np.zeros((num_residues, len(frames_selected), 3))
 
 
 
@@ -631,22 +646,22 @@ def precompute_backbone_nucleic_acids(u_traj, indices_na_pyrimidine, indices_na_
 
         for i in range(num_residues):
             if len(atom_P_selections[i].positions) != 0:
-                Positions_atoms_P[i, k, :] = atom_P_selections[i].positions
-            Positions_atoms_O5p[i, k, :] = atom_O5p_selections[i].positions
-            Positions_atoms_C5p[i, k, :] = atom_C5p_selections[i].positions
-            Positions_atoms_O4p[i, k, :] = atom_O4p_selections[i].positions
-            Positions_atoms_C4p[i, k, :] = atom_C4p_selections[i].positions
-            Positions_atoms_C3p[i, k, :] = atom_C3p_selections[i].positions
-            Positions_atoms_O3p[i, k, :] = atom_O3p_selections[i].positions
-            Positions_atoms_C1p[i, k, :] = atom_C1p_selections[i].positions
-            Positions_atoms_Nbs[i, k, :] = atom_Nbs_selections[i].positions
-            Positions_atoms_Cbs[i, k, :] = atom_Cbs_selections[i].positions
+                positions_atoms_P[i, k, :] = atom_P_selections[i].positions
+            positions_atoms_O5p[i, k, :] = atom_O5p_selections[i].positions
+            positions_atoms_C5p[i, k, :] = atom_C5p_selections[i].positions
+            positions_atoms_O4p[i, k, :] = atom_O4p_selections[i].positions
+            positions_atoms_C4p[i, k, :] = atom_C4p_selections[i].positions
+            positions_atoms_C3p[i, k, :] = atom_C3p_selections[i].positions
+            positions_atoms_O3p[i, k, :] = atom_O3p_selections[i].positions
+            positions_atoms_C1p[i, k, :] = atom_C1p_selections[i].positions
+            positions_atoms_Nbs[i, k, :] = atom_Nbs_selections[i].positions
+            positions_atoms_Cbs[i, k, :] = atom_Cbs_selections[i].positions
 
     # Complete progress bar
     plot_progress_bar(len(frames_selected), len(frames_selected), previous_progress)
     logging.info("Positions of nucleic acids backbone atoms precomputed.")
 
-    return Positions_atoms_P, Positions_atoms_O5p, Positions_atoms_C5p, Positions_atoms_O4p, Positions_atoms_C4p, Positions_atoms_C3p, Positions_atoms_O3p, Positions_atoms_C1p, Positions_atoms_Nbs, Positions_atoms_Cbs
+    return positions_atoms_P, positions_atoms_O5p, positions_atoms_C5p, positions_atoms_O4p, positions_atoms_C4p, positions_atoms_C3p, positions_atoms_O3p, positions_atoms_C1p, positions_atoms_Nbs, positions_atoms_Cbs
 
 
 ###########################Save positions###################################
@@ -920,7 +935,7 @@ def get_labels_discretization(minima, x_smooth, y_smooth,order_labels):
         raise ValueError(f"Unsupported order_labels type: {order_labels}")
 
 def save_minima(minima, local_variable, labels, config):
-    name_output = config['output_dir'] + "selected_local_variables.txt"
+    name_output = config['output_dir'] + "discretized_local_variables.txt"
 
     # Open the output file in append mode
     with open(name_output, 'a') as file_output:
@@ -1039,7 +1054,7 @@ def discretize_local_variable(y, local_variable_type, times,local_variable_name,
             order_labels=config['order_labels']
             labels = get_labels_discretization(selected_minima, x_smooth, y_smooth,order_labels)
     output_dir= config['output_dir']
-    output = output_dir + "selected_local_variables.txt"
+    output = output_dir + "discretized_local_variables.txt"
     save_data= config['save_data']
     save_all_plots= config['save_all_plots']
     
@@ -1081,20 +1096,20 @@ def compute_min_distances(positions_important_atoms, i, j, important_atoms,confi
     ind_term_0_j = sum([len(important_atoms[k]) for k in range(j)])
 
     # Extract positions for all important atoms of residue i and j
-    Positions_i = [positions_important_atoms[ind_term_0_i + k, :, :] for k in range(num_term_i)]
-    Positions_j = [positions_important_atoms[ind_term_0_j + k, :, :] for k in range(num_term_j)]
+    positions_i = [positions_important_atoms[ind_term_0_i + k, :, :] for k in range(num_term_i)]
+    positions_j = [positions_important_atoms[ind_term_0_j + k, :, :] for k in range(num_term_j)]
 
     # Copy the important atom names
     atoms_i = important_atoms[i].copy()
     atoms_j = important_atoms[j].copy()
 
     # Initialize distance matrix: shape (num_atoms_i, num_atoms_j, num_frames)
-    distances = np.zeros((len(atoms_i), len(atoms_j), len(Positions_i[0])))
+    distances = np.zeros((len(atoms_i), len(atoms_j), len(positions_i[0])))
 
     # Compute pairwise distances over time
     for k in range(len(atoms_i)):
         for l in range(len(atoms_j)):
-            distances[k, l] = np.linalg.norm(Positions_i[k] - Positions_j[l], axis=1)
+            distances[k, l] = np.linalg.norm(positions_i[k] - positions_j[l], axis=1)
 
     cutoff_distance = config['cutoff_distance']
     proba_under_cutoff_distance = config['proba_under_cutoff_distance']
@@ -1193,33 +1208,33 @@ def precompute_all_positions(u_traj, config):
 
     if len(indices_aa)!=0:
         # Precompute backbone atom positions (N, C, and CA atoms)
-        Positions_atoms_C, Positions_atoms_N, Positions_atoms_CA = precompute_backbone_protein(
+        positions_atoms_C, positions_atoms_N, positions_atoms_CA = precompute_backbone_protein(
             u_traj, indices_aa, frames_selected
         )
 
         # Save backbone atom positions to disk for future use
-        save_positions(Positions_atoms_C, output_dir + "discretizing_npy/Positions_C_atoms.npy")
-        save_positions(Positions_atoms_N, output_dir + "discretizing_npy/Positions_N_atoms.npy")
-        save_positions(Positions_atoms_CA, output_dir + "discretizing_npy/Positions_CA_atoms.npy")
+        save_positions(positions_atoms_C, output_dir + "discretizing_npy/positions_C_atoms.npy")
+        save_positions(positions_atoms_N, output_dir + "discretizing_npy/positions_N_atoms.npy")
+        save_positions(positions_atoms_CA, output_dir + "discretizing_npy/positions_CA_atoms.npy")
 
     
     if len(indices_na_pyrimidine) != 0 or len(indices_na_purine) != 0 : 
         # Precompute backbone atom positions (N, C, and CA atoms)
-        Positions_atoms_P, Positions_atoms_O5p, Positions_atoms_C5p, Positions_atoms_O4p, Positions_atoms_C4p, Positions_atoms_C3p, Positions_atoms_O3p, Positions_atoms_C1p, Positions_atoms_Nbs, Positions_atoms_Cbs = precompute_backbone_nucleic_acids(
+        positions_atoms_P, positions_atoms_O5p, positions_atoms_C5p, positions_atoms_O4p, positions_atoms_C4p, positions_atoms_C3p, positions_atoms_O3p, positions_atoms_C1p, positions_atoms_Nbs, positions_atoms_Cbs = precompute_backbone_nucleic_acids(
             u_traj, indices_na_pyrimidine, indices_na_purine, frames_selected
         )   
 
         # Save backbone atom positions to disk for future use
-        save_positions(Positions_atoms_P, output_dir + "discretizing_npy/Positions_P_atoms.npy")
-        save_positions(Positions_atoms_O5p, output_dir + "discretizing_npy/Positions_O5p_atoms.npy")
-        save_positions(Positions_atoms_C5p, output_dir + "discretizing_npy/Positions_C5p_atoms.npy")
-        save_positions(Positions_atoms_O4p, output_dir + "discretizing_npy/Positions_O4p_atoms.npy")
-        save_positions(Positions_atoms_C4p, output_dir + "discretizing_npy/Positions_C4p_atoms.npy")
-        save_positions(Positions_atoms_C3p, output_dir + "discretizing_npy/Positions_C3p_atoms.npy")
-        save_positions(Positions_atoms_O3p, output_dir + "discretizing_npy/Positions_O3p_atoms.npy")
-        save_positions(Positions_atoms_C1p, output_dir + "discretizing_npy/Positions_C1p_atoms.npy")
-        save_positions(Positions_atoms_Nbs, output_dir + "discretizing_npy/Positions_Nbs_atoms.npy")
-        save_positions(Positions_atoms_Cbs, output_dir + "discretizing_npy/Positions_Cbs_atoms.npy")
+        save_positions(positions_atoms_P, output_dir + "discretizing_npy/positions_P_atoms.npy")
+        save_positions(positions_atoms_O5p, output_dir + "discretizing_npy/positions_O5p_atoms.npy")
+        save_positions(positions_atoms_C5p, output_dir + "discretizing_npy/positions_C5p_atoms.npy")
+        save_positions(positions_atoms_O4p, output_dir + "discretizing_npy/positions_O4p_atoms.npy")
+        save_positions(positions_atoms_C4p, output_dir + "discretizing_npy/positions_C4p_atoms.npy")
+        save_positions(positions_atoms_C3p, output_dir + "discretizing_npy/positions_C3p_atoms.npy")
+        save_positions(positions_atoms_O3p, output_dir + "discretizing_npy/positions_O3p_atoms.npy")
+        save_positions(positions_atoms_C1p, output_dir + "discretizing_npy/positions_C1p_atoms.npy")
+        save_positions(positions_atoms_Nbs, output_dir + "discretizing_npy/positions_Nbs_atoms.npy")
+        save_positions(positions_atoms_Cbs, output_dir + "discretizing_npy/positions_Cbs_atoms.npy")
 
 
 
@@ -1304,7 +1319,7 @@ def adjust_angle_data(name_angle, data, y_min, y_max, delta_y, config):
 
     
 
-def process_dihedral_i_protein(i, Positions_atoms_C, Positions_atoms_N, Positions_atoms_CA, indices_aa,times, config):
+def process_dihedral_i_protein(i, positions_atoms_C, positions_atoms_N, positions_atoms_CA, indices_aa,times, config):
     local_variable_type = 'angle'
 
     # Initialize empty arrays (optional, overwritten later)
@@ -1313,31 +1328,31 @@ def process_dihedral_i_protein(i, Positions_atoms_C, Positions_atoms_N, Position
 
     # Process phi dihedral if previous residue exists and backbone geometry is valid
     if i > 0:
-        distance_C_N = np.linalg.norm(Positions_atoms_C[i - 1, 0, :] - Positions_atoms_N[i, 0, :])
+        distance_C_N = np.linalg.norm(positions_atoms_C[i - 1, 0, :] - positions_atoms_N[i, 0, :])
         if distance_C_N < 2:
             local_variable_name = f"phi_{indices_aa[i]}"
             # Calculate phi dihedral angles (radians) and convert to degrees
-            phi_angle = np.rad2deg(mda.lib.distances.calc_dihedrals(Positions_atoms_C[i - 1, :, :],Positions_atoms_N[i, :, :],Positions_atoms_CA[i, :, :],Positions_atoms_C[i, :, :])            )
+            phi_angle = np.rad2deg(mda.lib.distances.calc_dihedrals(positions_atoms_C[i - 1, :, :],positions_atoms_N[i, :, :],positions_atoms_CA[i, :, :],positions_atoms_C[i, :, :])            )
             # Adjust angles if range spans more than 180 degrees (unwrap circular data)
             phi_angle, _, _ = adjust_angle_data(local_variable_name,phi_angle, np.min(phi_angle), np.max(phi_angle), 4,config)
             # Discretize the phi angle data for further analysis
             discretize_local_variable(phi_angle, local_variable_type,times, local_variable_name,config)
 
     # Process psi dihedral if next residue exists and backbone geometry is valid
-    if i < len(Positions_atoms_C) - 1:
-        distance_N_C = np.linalg.norm(Positions_atoms_N[i + 1, 0, :] - Positions_atoms_C[i, 0, :])
+    if i < len(positions_atoms_C) - 1:
+        distance_N_C = np.linalg.norm(positions_atoms_N[i + 1, 0, :] - positions_atoms_C[i, 0, :])
         if distance_N_C < 2:
             local_variable_name = f"psi_{indices_aa[i]}"
             # Calculate psi dihedral angles (radians) and convert to degrees
-            psi_angle = np.rad2deg(mda.lib.distances.calc_dihedrals(Positions_atoms_N[i, :, :],Positions_atoms_CA[i, :, :],Positions_atoms_C[i, :, :],Positions_atoms_N[i + 1, :, :]))
+            psi_angle = np.rad2deg(mda.lib.distances.calc_dihedrals(positions_atoms_N[i, :, :],positions_atoms_CA[i, :, :],positions_atoms_C[i, :, :],positions_atoms_N[i + 1, :, :]))
             # Adjust angles if range spans more than 180 degrees (unwrap circular data)
             psi_angle, _, _ = adjust_angle_data(local_variable_name,psi_angle, np.min(psi_angle), np.max(psi_angle), 4,config)
             
             # Discretize the psi angle data for further analysis
             discretize_local_variable(psi_angle, local_variable_type,times, local_variable_name,config)
             
-def process_dihedral_i_nucleic_acids(i, Positions_atoms_P, Positions_atoms_O5p, Positions_atoms_C5p, Positions_atoms_O4p, Positions_atoms_C4p, Positions_atoms_C3p,
-                                     Positions_atoms_O3p, Positions_atoms_C1p, Positions_atoms_Nbs, Positions_atoms_Cbs, indices_na, 
+def process_dihedral_i_nucleic_acids(i, positions_atoms_P, positions_atoms_O5p, positions_atoms_C5p, positions_atoms_O4p, positions_atoms_C4p, positions_atoms_C3p,
+                                     positions_atoms_O3p, positions_atoms_C1p, positions_atoms_Nbs, positions_atoms_Cbs, indices_na, 
                                     times, config):
     local_variable_type = 'angle'
 
@@ -1351,12 +1366,12 @@ def process_dihedral_i_nucleic_acids(i, Positions_atoms_P, Positions_atoms_O5p, 
     chi_angle = np.zeros(len(times))
 
     # Process phi dihedral if previous residue exists and backbone geometry is valid
-    if i > 1 and np.any(np.isinf(Positions_atoms_P[i, :, :]))==False :
-        distance_O_P = np.linalg.norm(Positions_atoms_O3p[i - 1, 0, :] - Positions_atoms_P[i, 0, :])
+    if i > 1 and np.any(np.isinf(positions_atoms_P[i, :, :]))==False :
+        distance_O_P = np.linalg.norm(positions_atoms_O3p[i - 1, 0, :] - positions_atoms_P[i, 0, :])
         if distance_O_P < 2:
             local_variable_name = f"alpha_{indices_na[i]}"
             # Calculate alpha dihedral angles (radians) and convert to degrees
-            alpha_angle = np.rad2deg(mda.lib.distances.calc_dihedrals(Positions_atoms_O3p[i - 1, :, :],Positions_atoms_P[i, :, :],Positions_atoms_O5p[i, :, :],Positions_atoms_C5p[i, :, :]) )
+            alpha_angle = np.rad2deg(mda.lib.distances.calc_dihedrals(positions_atoms_O3p[i - 1, :, :],positions_atoms_P[i, :, :],positions_atoms_O5p[i, :, :],positions_atoms_C5p[i, :, :]) )
             # Adjust angles if range spans more than 180 degrees (unwrap circular data)
             alpha_angle, _, _ = adjust_angle_data(local_variable_name,alpha_angle, np.min(alpha_angle), np.max(alpha_angle), 4,config)
             
@@ -1366,7 +1381,7 @@ def process_dihedral_i_nucleic_acids(i, Positions_atoms_P, Positions_atoms_O5p, 
             
         local_variable_name = f"beta_{indices_na[i]}"
         # Calculate beta dihedral angles (radians) and convert to degrees
-        beta_angle = np.rad2deg(mda.lib.distances.calc_dihedrals(Positions_atoms_P[i, :, :],Positions_atoms_O5p[i, :, :],Positions_atoms_C5p[i, :, :],Positions_atoms_C4p[i, :, :]) )
+        beta_angle = np.rad2deg(mda.lib.distances.calc_dihedrals(positions_atoms_P[i, :, :],positions_atoms_O5p[i, :, :],positions_atoms_C5p[i, :, :],positions_atoms_C4p[i, :, :]) )
         # Adjust angles if range spans more than 180 degrees (unwrap circular data)
         beta_angle, _, _ = adjust_angle_data(local_variable_name,beta_angle, np.min(beta_angle), np.max(beta_angle), 4,config)
         
@@ -1375,7 +1390,7 @@ def process_dihedral_i_nucleic_acids(i, Positions_atoms_P, Positions_atoms_O5p, 
     
     local_variable_name = f"gamma_{indices_na[i]}"
     # Calculate gamma dihedral angles (radians) and convert to degrees
-    gamma_angle = np.rad2deg(mda.lib.distances.calc_dihedrals(Positions_atoms_O5p[i, :, :],Positions_atoms_C5p[i, :, :],Positions_atoms_C4p[i, :, :],Positions_atoms_C3p[i, :, :]) )
+    gamma_angle = np.rad2deg(mda.lib.distances.calc_dihedrals(positions_atoms_O5p[i, :, :],positions_atoms_C5p[i, :, :],positions_atoms_C4p[i, :, :],positions_atoms_C3p[i, :, :]) )
     # Adjust angles if range spans more than 180 degrees (unwrap circular data)
     gamma_angle, _, _ = adjust_angle_data(local_variable_name,gamma_angle, np.min(gamma_angle), np.max(gamma_angle), 4,config)
     
@@ -1384,7 +1399,7 @@ def process_dihedral_i_nucleic_acids(i, Positions_atoms_P, Positions_atoms_O5p, 
     
     local_variable_name = f"delta_{indices_na[i]}"
     # Calculate delta dihedral angles (radians) and convert to degrees
-    delta_angle = np.rad2deg(mda.lib.distances.calc_dihedrals(Positions_atoms_C5p[i, :, :],Positions_atoms_C4p[i, :, :],Positions_atoms_C3p[i, :, :],Positions_atoms_O3p[i, :, :]) )
+    delta_angle = np.rad2deg(mda.lib.distances.calc_dihedrals(positions_atoms_C5p[i, :, :],positions_atoms_C4p[i, :, :],positions_atoms_C3p[i, :, :],positions_atoms_O3p[i, :, :]) )
     # Adjust angles if range spans more than 180 degrees (unwrap circular data)
     delta_angle, _, _ = adjust_angle_data(local_variable_name,delta_angle, np.min(delta_angle), np.max(delta_angle), 4,config)
     
@@ -1393,7 +1408,7 @@ def process_dihedral_i_nucleic_acids(i, Positions_atoms_P, Positions_atoms_O5p, 
     
     local_variable_name = f"chi_{indices_na[i]}"
     # Calculate chi dihedral angles (radians) and convert to degrees
-    chi_angle = np.rad2deg(mda.lib.distances.calc_dihedrals(Positions_atoms_O4p[i, :, :],Positions_atoms_C1p[i, :, :],Positions_atoms_Nbs[i, :, :],Positions_atoms_Cbs[i, :, :]) )
+    chi_angle = np.rad2deg(mda.lib.distances.calc_dihedrals(positions_atoms_O4p[i, :, :],positions_atoms_C1p[i, :, :],positions_atoms_Nbs[i, :, :],positions_atoms_Cbs[i, :, :]) )
     # Adjust angles if range spans more than 180 degrees (unwrap circular data)
     chi_angle, _, _ = adjust_angle_data(local_variable_name,chi_angle, np.min(chi_angle), np.max(chi_angle), 4,config)
     
@@ -1401,12 +1416,12 @@ def process_dihedral_i_nucleic_acids(i, Positions_atoms_P, Positions_atoms_O5p, 
     discretize_local_variable(chi_angle, local_variable_type, times, local_variable_name,config)
 
     # Process psi dihedral if next residue exists and backbone geometry is valid
-    if i < len(Positions_atoms_P) - 1:
-        distance_O_P = np.linalg.norm(Positions_atoms_O3p[i, 0, :] - Positions_atoms_P[i+1, 0, :])
-        if distance_O_P < 2 and  np.any(np.isinf(Positions_atoms_P[i+1, :, :]))==False:
+    if i < len(positions_atoms_P) - 1:
+        distance_O_P = np.linalg.norm(positions_atoms_O3p[i, 0, :] - positions_atoms_P[i+1, 0, :])
+        if distance_O_P < 2 and  np.any(np.isinf(positions_atoms_P[i+1, :, :]))==False:
             local_variable_name = f"epsilon_{indices_na[i]}"
             # Calculate psi dihedral angles (radians) and convert to degrees
-            epsilon_angle = np.rad2deg(mda.lib.distances.calc_dihedrals(Positions_atoms_C4p[i, :, :],Positions_atoms_C3p[i, :, :],Positions_atoms_O3p[i, :, :],Positions_atoms_P[i + 1, :, :]))
+            epsilon_angle = np.rad2deg(mda.lib.distances.calc_dihedrals(positions_atoms_C4p[i, :, :],positions_atoms_C3p[i, :, :],positions_atoms_O3p[i, :, :],positions_atoms_P[i + 1, :, :]))
             # Adjust angles if range spans more than 180 degrees (unwrap circular data)
             epsilon_angle, _, _ = adjust_angle_data(local_variable_name,epsilon_angle, np.min(epsilon_angle), np.max(epsilon_angle), 4,config)
             
@@ -1415,7 +1430,7 @@ def process_dihedral_i_nucleic_acids(i, Positions_atoms_P, Positions_atoms_O5p, 
             
             local_variable_name = f"zeta_{indices_na[i]}"
             # Calculate psi dihedral angles (radians) and convert to degrees
-            zeta_angle = np.rad2deg(mda.lib.distances.calc_dihedrals(Positions_atoms_C3p[i, :, :],Positions_atoms_O3p[i, :, :],Positions_atoms_P[i+1, :, :],Positions_atoms_O5p[i + 1, :, :]))
+            zeta_angle = np.rad2deg(mda.lib.distances.calc_dihedrals(positions_atoms_C3p[i, :, :],positions_atoms_O3p[i, :, :],positions_atoms_P[i+1, :, :],positions_atoms_O5p[i + 1, :, :]))
             # Adjust angles if range spans more than 180 degrees (unwrap circular data)
             zeta_angle, _, _ = adjust_angle_data(local_variable_name,zeta_angle, np.min(zeta_angle), np.max(zeta_angle), 4,config)
             
@@ -1424,7 +1439,7 @@ def process_dihedral_i_nucleic_acids(i, Positions_atoms_P, Positions_atoms_O5p, 
         
     
 ########################### Functions to compute dihedrals for all residues ##########################
-def compute_all_dihedrals_protein(indices_aa, Positions_atoms_C, Positions_atoms_N, Positions_atoms_CA, times, config):  
+def compute_all_dihedrals_protein(indices_aa, positions_atoms_C, positions_atoms_N, positions_atoms_CA, times, config):  
 
     num_residues = len(indices_aa)
 
@@ -1432,19 +1447,19 @@ def compute_all_dihedrals_protein(indices_aa, Positions_atoms_C, Positions_atoms
     previous_progress = -1  # Initialize progress bar
     for i in range(num_residues):
         previous_progress=plot_progress_bar(i, num_residues,previous_progress)
-        process_dihedral_i_protein(i, Positions_atoms_C, Positions_atoms_N, Positions_atoms_CA, indices_aa, times, config)
+        process_dihedral_i_protein(i, positions_atoms_C, positions_atoms_N, positions_atoms_CA, indices_aa, times, config)
 
     plot_progress_bar(num_residues, num_residues,previous_progress)
     logging.info("Dihedrals computed and saved.")
 
-def compute_all_dihedrals_nucleic_acids(indices_na, Positions_atoms_P, Positions_atoms_O5p, Positions_atoms_C5p, Positions_atoms_O4p, Positions_atoms_C4p, Positions_atoms_C3p, Positions_atoms_O3p, Positions_atoms_C1p, Positions_atoms_Nbs, Positions_atoms_Cbs,times, config):  
+def compute_all_dihedrals_nucleic_acids(indices_na, positions_atoms_P, positions_atoms_O5p, positions_atoms_C5p, positions_atoms_O4p, positions_atoms_C4p, positions_atoms_C3p, positions_atoms_O3p, positions_atoms_C1p, positions_atoms_Nbs, positions_atoms_Cbs,times, config):  
     num_residues = len(indices_na)
 
     logging.info("\nComputing dihedrals in nucleic acids backbone...")
     previous_progress = -1  # Initialize progress bar
     for i in range(num_residues):
         previous_progress=plot_progress_bar(i, num_residues,previous_progress)
-        process_dihedral_i_nucleic_acids(i,  Positions_atoms_P, Positions_atoms_O5p, Positions_atoms_C5p, Positions_atoms_O4p, Positions_atoms_C4p, Positions_atoms_C3p, Positions_atoms_O3p, Positions_atoms_C1p, Positions_atoms_Nbs, Positions_atoms_Cbs, indices_na, times, config)
+        process_dihedral_i_nucleic_acids(i,  positions_atoms_P, positions_atoms_O5p, positions_atoms_C5p, positions_atoms_O4p, positions_atoms_C4p, positions_atoms_C3p, positions_atoms_O3p, positions_atoms_C1p, positions_atoms_Nbs, positions_atoms_Cbs, indices_na, times, config)
 
     plot_progress_bar(num_residues, num_residues,previous_progress)
     logging.info("Dihedrals computed and saved.")
@@ -1463,12 +1478,12 @@ def get_dihedrals_protein(u_traj, config):
     frames_selected = np.load(output_dir + 'discretizing_npy/frames_selected.npy')
 
     # Load precomputed backbone atom positions (N, C, and CA atoms)
-    Positions_atoms_C =np.load( output_dir + "discretizing_npy/Positions_C_atoms.npy")
-    Positions_atoms_N =np.load( output_dir + "discretizing_npy/Positions_N_atoms.npy")
-    Positions_atoms_CA =np.load( output_dir + "discretizing_npy/Positions_CA_atoms.npy")
+    positions_atoms_C =np.load( output_dir + "discretizing_npy/positions_C_atoms.npy")
+    positions_atoms_N =np.load( output_dir + "discretizing_npy/positions_N_atoms.npy")
+    positions_atoms_CA =np.load( output_dir + "discretizing_npy/positions_CA_atoms.npy")
 
     # Step 3: Compute all dihedral angles and write selected features
-    compute_all_dihedrals_protein(indices_aa, Positions_atoms_C, Positions_atoms_N, Positions_atoms_CA, times, config)
+    compute_all_dihedrals_protein(indices_aa, positions_atoms_C, positions_atoms_N, positions_atoms_CA, times, config)
 
 
 ########################## Function to get the multimodal dihedrals of nucleic acids ################################
@@ -1485,21 +1500,21 @@ def get_dihedrals_nucleic_acids(u_traj, config):
     frames_selected = np.load(output_dir + 'discretizing_npy/frames_selected.npy')
 
     # Load precomputed backbone atom positions
-    Positions_atoms_P = np.load( output_dir + "discretizing_npy/Positions_P_atoms.npy")
-    Positions_atoms_O5p = np.load( output_dir + "discretizing_npy/Positions_O5p_atoms.npy")
-    Positions_atoms_C5p = np.load( output_dir + "discretizing_npy/Positions_C5p_atoms.npy")
-    Positions_atoms_O4p = np.load( output_dir + "discretizing_npy/Positions_O4p_atoms.npy")
-    Positions_atoms_C4p = np.load( output_dir + "discretizing_npy/Positions_C4p_atoms.npy")
-    Positions_atoms_C3p = np.load( output_dir + "discretizing_npy/Positions_C3p_atoms.npy")
-    Positions_atoms_O3p = np.load( output_dir + "discretizing_npy/Positions_O3p_atoms.npy")
-    Positions_atoms_C1p = np.load( output_dir + "discretizing_npy/Positions_C1p_atoms.npy")
-    Positions_atoms_Nbs = np.load( output_dir + "discretizing_npy/Positions_Nbs_atoms.npy")
-    Positions_atoms_Cbs = np.load( output_dir + "discretizing_npy/Positions_Cbs_atoms.npy")
+    positions_atoms_P = np.load( output_dir + "discretizing_npy/positions_P_atoms.npy")
+    positions_atoms_O5p = np.load( output_dir + "discretizing_npy/positions_O5p_atoms.npy")
+    positions_atoms_C5p = np.load( output_dir + "discretizing_npy/positions_C5p_atoms.npy")
+    positions_atoms_O4p = np.load( output_dir + "discretizing_npy/positions_O4p_atoms.npy")
+    positions_atoms_C4p = np.load( output_dir + "discretizing_npy/positions_C4p_atoms.npy")
+    positions_atoms_C3p = np.load( output_dir + "discretizing_npy/positions_C3p_atoms.npy")
+    positions_atoms_O3p = np.load( output_dir + "discretizing_npy/positions_O3p_atoms.npy")
+    positions_atoms_C1p = np.load( output_dir + "discretizing_npy/positions_C1p_atoms.npy")
+    positions_atoms_Nbs = np.load( output_dir + "discretizing_npy/positions_Nbs_atoms.npy")
+    positions_atoms_Cbs = np.load( output_dir + "discretizing_npy/positions_Cbs_atoms.npy")
 
 
     indices_na= np.sort(indices_na_pyrimidine+indices_na_purine)
     # Step 3: Compute all dihedral angles and write selected features
-    compute_all_dihedrals_nucleic_acids(indices_na, Positions_atoms_P, Positions_atoms_O5p, Positions_atoms_C5p, Positions_atoms_O4p, Positions_atoms_C4p, Positions_atoms_C3p, Positions_atoms_O3p, Positions_atoms_C1p, Positions_atoms_Nbs, Positions_atoms_Cbs, times, config)
+    compute_all_dihedrals_nucleic_acids(indices_na, positions_atoms_P, positions_atoms_O5p, positions_atoms_C5p, positions_atoms_O4p, positions_atoms_C4p, positions_atoms_C3p, positions_atoms_O3p, positions_atoms_C1p, positions_atoms_Nbs, positions_atoms_Cbs, times, config)
 
 
 ############################# Function to add new local_variables to the existing discretization ##########################
@@ -1511,7 +1526,7 @@ def add_local_variables(config):
     local_variables_to_add = config['local_variables_to_add']
     type_local_variables_to_add = config['type_local_variables_to_add']
     # Load already discretized local_variables
-    local_variables, X_cuts, Labels = load_data_discretization(output_dir + "selected_local_variables.txt")
+    local_variables, X_cuts, Labels = load_data_discretization(output_dir + "discretized_local_variables.txt")
 
     # Reference time values from the first known local_variable
     times_to_compare = np.load(output_dir + 'discretizing_npy/times_selected.npy')
@@ -1549,7 +1564,7 @@ def add_local_variables(config):
         if local_variable_type == 'angle' :
             y_coord, _, _ = adjust_angle_data(local_variable_name,y_coord, np.min(y_coord), np.max(y_coord), 4,config)
 
-        # Discretize and append this local_variable to selected_local_variables.txt
+        # Discretize and append this local_variable to discretized_local_variables.txt
         discretize_local_variable(y_coord, local_variable_type,times_to_compare, local_variable_name, config)
     logging.info("New local variables added and discretized.")
 
@@ -1558,7 +1573,7 @@ def add_local_variables(config):
 def get_discretized_array(config):
     # Load local_variable names, discretization cutoffs, and corresponding labels
     output_dir = config['output_dir']
-    local_variables, X_cuts, Labels = load_data_discretization(output_dir + "selected_local_variables.txt")
+    local_variables, X_cuts, Labels = load_data_discretization(output_dir + "discretized_local_variables.txt")
 
     # Load time information from the first local_variable file (assumes all local_variables share the same time points)
     frames_selected = np.load(output_dir + 'discretizing_npy/frames_selected.npy')
@@ -1677,7 +1692,7 @@ def plot_information(config,Information_matrix,output_dir,name_out,label_data=No
     """
     extension_plots = config['extension_plots']
     resolution_plots = config['resolution_plots']
-    plt.figure(figsize=(10, 6))
+    plt.figure(figsize=(10, 8))
     plt.imshow(Information_matrix, cmap='magma', interpolation='nearest')
     plt.colorbar(label=label_data)
     plt.title(f'{label_data} Matrix')
@@ -2193,7 +2208,7 @@ def cluster_local_variables(config):
     logging.info("Clustering completed and labels saved.")
 
     reordered_labels = plot_clustering_results(config,rajski_distance,cluster_labels, output_dir+'information_plots/', "rajski_distance_clustering", "Rajski distance between Local Variables",xlabel="Local Variable Index", ylabel="Local Variable Index")
-    local_variables,X_cuts,Labels=load_data_discretization(output_dir + "selected_local_variables.txt")
+    local_variables,X_cuts,Labels=load_data_discretization(output_dir + "discretized_local_variables.txt")
 
     # Extract clusters and write to file
     clusters_ndx = []
@@ -2342,7 +2357,6 @@ def extract_frames_from_labels(clusters_data, unique_configurations, all_cluster
 
     frames_by_clusters = []
     community_to_process = config['community_to_process']
-    cutoff_proba_conformations = config['cutoff_proba_conformations']
     output_dir = config['output_dir']
     for i, cluster_labels in enumerate(all_clusters_labels):
         
@@ -2385,8 +2399,8 @@ def extract_frames_from_labels(clusters_data, unique_configurations, all_cluster
         frames_by_clusters.append(frames_conformations)
         
          # Check if there are enough conformations with high probability
-        count_large_proba =len(np.where(proba_clusters[i] >= cutoff_proba_conformations)[0])
-        if count_large_proba <= 1:
+        count_clusters =len(proba_clusters[i])
+        if count_clusters <= 1:
             logging.warning(f"Community {i} has no several conformations to process.")
             continue
         
@@ -2396,7 +2410,7 @@ def extract_frames_from_labels(clusters_data, unique_configurations, all_cluster
         # Write conformations (excluding noise) to file
         for j in range(nb_conformations):
             proba_conformation= proba_clusters[i][j]
-            if unique_labels[j] == -1 or proba_conformation < cutoff_proba_conformations or len(frames_conformations[j]) == 0:
+            if unique_labels[j] == -1 or len(frames_conformations[j]) == 0:
                 continue
             output_file.write(f"[ Conformation_{unique_labels[j]} ]\n")
             indexes = frames_conformations[j]
@@ -2415,7 +2429,6 @@ def split_trajectory_by_conformations(u_traj, frames_by_clusters,proba_clusters,
     
     output_dir = config['output_dir']
     community_to_process = config['community_to_process']
-    cutoff_proba_conformations = config['cutoff_proba_conformations']
     topolfile = config['topolfile']
     trajfile = config['trajfile']
     extension_topol = topolfile.split('.')[-1]
@@ -2432,8 +2445,8 @@ def split_trajectory_by_conformations(u_traj, frames_by_clusters,proba_clusters,
             continue
         logging.info(f"Processing community {i}...")
 
-        count_large_proba =len(np.where(proba_clusters[i] >= cutoff_proba_conformations)[0])
-        if count_large_proba <= 1:
+        count_clusters =len(proba_clusters[i])
+        if count_clusters <= 1:
             logging.warning(f"Community {i} has no several conformations to process.")
             continue
 
@@ -2448,7 +2461,7 @@ def split_trajectory_by_conformations(u_traj, frames_by_clusters,proba_clusters,
             
             proba_conf = proba_clusters[i][j]
             
-            if len(frames) == 0 or proba_conf < cutoff_proba_conformations or unique_labels[j] == -1 :
+            if len(frames) == 0 or unique_labels[j] == -1 :
                 continue  # Skip empty frames or low-probability conformations or noise
             
             logging.info(f"Writing conformation {unique_labels[j]} for community {i} with probability {proba_conf:.2f}...")
@@ -2466,7 +2479,6 @@ def split_trajectory_by_conformations(u_traj, frames_by_clusters,proba_clusters,
 def get_most_probable_configurations(all_clusters_labels, unique_configurations, probabilities_unique_configurations,config):
     most_probable_configurations = []
     proba_most_probable_configurations = []
-    cutoff_proba_conformations = config['cutoff_proba_conformations']
     community_to_process = config['community_to_process']
     # Loop through each main cluster
     for i, cluster_labels in enumerate(all_clusters_labels):
@@ -2499,14 +2511,14 @@ def get_most_probable_configurations(all_clusters_labels, unique_configurations,
                 probabilities_unique_configurations[i][ind_max_proba]
             )
 
-            if np.sum(proba_cluster_conf_j) > cutoff_proba_conformations :
-                # Log the result for tracking
-                if unique_labels[j] != -1 :
-                    logging.info(
-                        f"Most probable configuration in community {i}, conformation {unique_labels[j]}: "
-                        f"{unique_configurations[i][ind_max_proba]} "
-                        f"with probability {probabilities_unique_configurations[i][ind_max_proba]}"
-                    )
+
+            # Log the result for tracking
+            if unique_labels[j] != -1 :
+                logging.info(
+                    f"Most probable configuration in community {i}, conformation {unique_labels[j]}: "
+                    f"{unique_configurations[i][ind_max_proba]} "
+                    f"with probability {probabilities_unique_configurations[i][ind_max_proba]}"
+                )
         # Append results for the current cluster
         most_probable_configurations.append(most_probable_configurations_cluster)
         proba_most_probable_configurations.append(proba_most_probable_configurations_cluster)
@@ -2547,7 +2559,6 @@ def write_conformations_to_file(all_cluster_labels,most_probable_configurations,
     # Loop over clusters
     community_to_process = config['community_to_process']
     output_dir = config['output_dir']
-    cutoff_proba_conformations = config['cutoff_proba_conformations']
     for i, community_configurations in enumerate(most_probable_configurations):
         if community_to_process >= 0 and i != community_to_process:
             continue
@@ -2558,7 +2569,7 @@ def write_conformations_to_file(all_cluster_labels,most_probable_configurations,
             # Loop over conformations within the cluster
             for j, state in enumerate(community_configurations):
 
-                if unique_cluster_labels[j]==-1 or proba_clusters[i][j] < cutoff_proba_conformations:
+                if unique_cluster_labels[j]==-1 :
                     continue
                 file_out.write(f"Conformation {unique_cluster_labels[j]} - Probability: {proba_clusters[i][j]:.5f}\n")
                 file_out.write(f"Most probable configuration: {state}\n")
@@ -2581,8 +2592,9 @@ def get_conformations_for_communities(u_traj,config):
     parameters_clustering_conformations = config['parameters_clustering_conformations']
     community_to_process = config['community_to_process']
     minimal_size_to_cluster = config['minimal_size_to_cluster']
-    cutoff_proba_conformations = config['cutoff_proba_conformations']
     split_trajectory = config['split_trajectory']
+
+    logging.info("\nLoading data for conformational analysis...")
 
     frames_selected = np.load(output_dir + "discretizing_npy/frames_selected.npy")  # Load time indices for frames
 
@@ -2590,10 +2602,10 @@ def get_conformations_for_communities(u_traj,config):
     cluster_labels = np.load(os.path.join(output_dir, "analysis_npy", "community_labels.npy"))
 
     # Load selected local_variables and the discretized representation
-    local_variables, X_cuts, Labels = load_data_discretization(output_dir + "selected_local_variables.txt")
+    local_variables, X_cuts, Labels = load_data_discretization(output_dir + "discretized_local_variables.txt")
     discretized_array = np.load(output_dir + "discretizing_npy/discretized_array.npy")
 
-    logging.info("\nExtracting conformations for communities...")
+    logging.info("\nSplitting discretized array by communities...")
 
     # Split the discretized array based on top-level clustering 
     communities_data = splt_discretized_array_by_communities(discretized_array, cluster_labels)
@@ -2653,14 +2665,12 @@ def get_conformations_for_communities(u_traj,config):
             ind_label = np.where(unique_labels == label)[0][0]
             proba_conformations[ind_label] += probabilities_unique_configurations[i][j]
         #select probabilities larger than 0.001
-        selected_unique_labels = unique_labels[proba_conformations > cutoff_proba_conformations]
-        selected_proba_conformations = proba_conformations[proba_conformations > cutoff_proba_conformations]
 
-        logging.info(f"Conformations for community {i}: {selected_unique_labels}        -1 indicates noise")
+        logging.info(f"Conformations for community {i}: {unique_labels}        -1 indicates noise")
         
         logging.info("Probabilities of conformations: %s", 
-                    ["%.3f" % p for p in selected_proba_conformations])
-        logging.info("Total probability: %.3f" % np.sum(selected_proba_conformations))
+                    ["%.3f" % p for p in proba_conformations])
+        logging.info("Total probability: %.3f" % np.sum(proba_conformations))
         proba_clusters.append(proba_conformations)
         
     # Extract the most probable states from each cluster 
@@ -2820,6 +2830,7 @@ def compare_communities(config):
     plt.close()
     logging.info("Conformational time plot saved.")
 
+    """
     correlation_matrix = np.corrcoef(conformations_for_community)
     correlation_matrix = np.nan_to_num(correlation_matrix)  # Replace NaNs with 0 for plotting
     correlation_matrix =np.abs(correlation_matrix)
@@ -2840,12 +2851,13 @@ def compare_communities(config):
     plt.tight_layout()
     plt.savefig(out_dir_plots + f"correlation_conformations_between_communities.{extension_plots}", dpi=resolution_plots)
     plt.close()
-
+    """
+    
     ARI_matrix=np.zeros((num_clusters, num_clusters))
     for i in range(num_clusters):
         for j in range(num_clusters):
             ARI_matrix[i, j] = adjusted_rand_score(conformations_for_community[i], conformations_for_community[j])
-
+    np.save(out_dir_plots + "ARI_between_communities.npy", ARI_matrix)
     plt.figure(figsize=(8, 6))
     plt.imshow(ARI_matrix, cmap='magma', aspect='equal')
     cbar = plt.colorbar(label='Adjusted Rand Index (ARI)')
@@ -2862,6 +2874,8 @@ def compare_communities(config):
     for i in range(num_clusters):
         for j in range(num_clusters):
             cramers_v[i, j] = sequence_cramers_v(conformations_for_community[i], conformations_for_community[j])
+
+    np.save(out_dir_plots + "cramers_v_between_communities.npy", cramers_v)
     plt.figure(figsize=(8, 6))
     plt.imshow(cramers_v, cmap='magma', aspect='equal')
     cbar = plt.colorbar(label="Cramér's V")

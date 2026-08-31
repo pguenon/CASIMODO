@@ -27,9 +27,6 @@ topol_file=topol_file.gro
 # Trajectory file in a format readable by MDAnalysis, centered and fitted
 trj_file=traj_file.xtc
 
-# Dictionary file defining important residue types and their corresponding important atoms for the analysis.
-dic_file=dic_important_atoms_protein_nucleic_acids.txt
-
 ##############################################
 #  POSITION of CASIMODO FUNCTIONS (Crucial)  #
 ##############################################
@@ -38,6 +35,9 @@ position_CASIMODO=CASIMODO_utils/  # Position of the CASIMODO_utils folder relat
 ##############################################
 # ANALYSIS SETTINGS (Optional but important) #
 ##############################################
+# Dictionary file defining important residue types and their corresponding important atoms for the analysis. An initial dictionary is provided in the CASIMODO_utils folder, but you can add residues and their corresponding important atoms, or modify existing ones, in a new dictionary file and provide its path here.
+dic_file=''
+
 # Time in ps to start the analysis (to skip equilibration)
 time_zero=0  
 
@@ -79,10 +79,10 @@ extension_plots="png"
 # Resolution for saved plots in dpi
 resolution_plots=200  
 
-#Whether to save selected coordinates data
+#Whether to save selected local variables data
 save_data=0  
 
-# Whether to save all coordinates histogram plots, even the non discretized ones
+# Whether to save all local variables histogram plots, even the non discretized ones
 save_all_plots=0  
 
 ##############################################
@@ -130,12 +130,8 @@ cutoff_npoints_discretization=100000
 minimal_size_to_cluster=10
 
 #Cutoff for the number of configuration to consider when clustering the conformations. If the number of configurations is superior to this cutoff, only the most populated configurations will be clustered to save time in the analysis. 
-cutoff_n_configurations=50000 
+cutoff_n_configurations=10000 
 
-# Probability cutoff for conformations extraction. Only conformations with a probability superior to this cutoff will be extracted. 
-cutoff_proba_conformations=0.0 
-
- 
 
 ##############################################
 #            MAIN EXECUTION BLOCK            #
@@ -171,7 +167,6 @@ python "${position_CASIMODO}run_CASIMODO.py" \
   --community_to_process "${community_to_process}" \
   --minimal_size_to_cluster "${minimal_size_to_cluster}" \
   --cutoff_n_configurations "${cutoff_n_configurations}" \
-  --cutoff_proba_conformations "${cutoff_proba_conformations}" \
   --split_trajectory ${split_trajectory}\
   --local_variables_to_add "${local_variables_to_add[@]}" \
   --type_local_variables_to_add "${type_local_variables_to_add[@]}" \

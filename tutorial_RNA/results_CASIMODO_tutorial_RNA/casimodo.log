@@ -1,5 +1,5 @@
 Logging initiated. Log file created at: results_CASIMODO_tutorial_RNA/casimodo.log
-Start time: 2026-07-07 16:27:10
+Start time: 2026-08-25 17:36:54
                                                  ,__     __,                       
                                                  |..|   |..|                       
                                                  ||||_|_||||                       
@@ -27,10 +27,10 @@ time_zero: 100000.0
 last_time: -1.0
 delta_time: 0.0
 method_clustering_local_variables: hdbscan
-parameters_clustering_local_variables: [10.0, 10.0, 0.5]
+parameters_clustering_local_variables: [10.0, 15.0, 0.5]
 method_clustering_conformations: ward
-parameters_clustering_conformations: [2.0]
-community_to_process: -1
+parameters_clustering_conformations: [5.0]
+community_to_process: 4
 split_trajectory: False
 extension_plots: png
 resolution_plots: 200
@@ -50,40 +50,39 @@ order_labels: weight
 cutoff_npoints_discretization: 100000
 minimal_size_to_cluster: 10
 cutoff_n_configurations: 50000
-cutoff_proba_conformations: 0.0
 ===================================
 
 Filtering times and indices...
 Trajectory time step: 50.0 ps
-Progress: [----------------------------------------] 0%  2026-07-07 16:27:10
-Progress: [##--------------------------------------] 5%  2026-07-07 16:27:10
-Progress: [####------------------------------------] 10%  2026-07-07 16:27:10
-Progress: [######----------------------------------] 15%  2026-07-07 16:27:10
-Progress: [########--------------------------------] 20%  2026-07-07 16:27:10
-Progress: [##########------------------------------] 25%  2026-07-07 16:27:10
-Progress: [############----------------------------] 30%  2026-07-07 16:27:10
-Progress: [##############--------------------------] 35%  2026-07-07 16:27:10
-Progress: [################------------------------] 40%  2026-07-07 16:27:10
-Progress: [##################----------------------] 45%  2026-07-07 16:27:10
-Progress: [####################--------------------] 50%  2026-07-07 16:27:10
-Progress: [######################------------------] 55%  2026-07-07 16:27:10
-Progress: [########################----------------] 60%  2026-07-07 16:27:10
-Progress: [##########################--------------] 65%  2026-07-07 16:27:10
-Progress: [############################------------] 70%  2026-07-07 16:27:10
-Progress: [##############################----------] 75%  2026-07-07 16:27:10
-Progress: [################################--------] 80%  2026-07-07 16:27:10
-Progress: [##################################------] 85%  2026-07-07 16:27:10
-Progress: [####################################----] 90%  2026-07-07 16:27:11
-Progress: [######################################--] 95%  2026-07-07 16:27:11
-Progress: [########################################] 100%  2026-07-07 16:27:11
+Progress: [----------------------------------------] 0%  2026-08-25 17:36:54
+Progress: [##--------------------------------------] 5%  2026-08-25 17:36:54
+Progress: [####------------------------------------] 10%  2026-08-25 17:36:54
+Progress: [######----------------------------------] 15%  2026-08-25 17:36:54
+Progress: [########--------------------------------] 20%  2026-08-25 17:36:54
+Progress: [##########------------------------------] 25%  2026-08-25 17:36:54
+Progress: [############----------------------------] 30%  2026-08-25 17:36:54
+Progress: [##############--------------------------] 35%  2026-08-25 17:36:54
+Progress: [################------------------------] 40%  2026-08-25 17:36:54
+Progress: [##################----------------------] 45%  2026-08-25 17:36:54
+Progress: [####################--------------------] 50%  2026-08-25 17:36:54
+Progress: [######################------------------] 55%  2026-08-25 17:36:54
+Progress: [########################----------------] 60%  2026-08-25 17:36:54
+Progress: [##########################--------------] 65%  2026-08-25 17:36:54
+Progress: [############################------------] 70%  2026-08-25 17:36:54
+Progress: [##############################----------] 75%  2026-08-25 17:36:54
+Progress: [################################--------] 80%  2026-08-25 17:36:54
+Progress: [##################################------] 85%  2026-08-25 17:36:54
+Progress: [####################################----] 90%  2026-08-25 17:36:54
+Progress: [######################################--] 95%  2026-08-25 17:36:54
+Progress: [########################################] 100%  2026-08-25 17:36:54
 Times and indices filtered.
 Filtered times (ps): [100000.0, 100050.0, 100100.0, 100150.0, 100200.0, 100250.0, 100300.0, 100350.0, 100400.0, 100450.0, '...', 199550.0, 199600.0, 199650.0, 199700.0, 199750.0, 199800.0, 199850.0, 199900.0, 199950.0, 200000.0]
 Corresponding frame indices: [2000, 2001, 2002, 2003, 2004, 2005, 2006, 2007, 2008, 2009, '...', 3991, 3992, 3993, 3994, 3995, 3996, 3997, 3998, 3999, 4000]
 
 Getting important atoms...
 Skipping line: []
-Residue K not found in dic_for_tutorial_RNA.txt. Skipping it.
-Residue CL not found in dic_for_tutorial_RNA.txt. Skipping it.
+Residue K not found in dictionaries. Skipping it.
+Residue CL not found in dictionaries. Skipping it.
 
 Selected residues:
  RU5 - 1 
@@ -152,96 +151,96 @@ Saving important atoms to file...
 Important atoms saved to file.
 
 Precomputing positions of important atoms...
-Progress: [----------------------------------------] 0%  2026-07-07 16:27:11
-Progress: [##--------------------------------------] 5%  2026-07-07 16:27:11
-Progress: [####------------------------------------] 10%  2026-07-07 16:27:11
-Progress: [######----------------------------------] 15%  2026-07-07 16:27:11
-Progress: [########--------------------------------] 20%  2026-07-07 16:27:11
-Progress: [##########------------------------------] 25%  2026-07-07 16:27:11
-Progress: [############----------------------------] 30%  2026-07-07 16:27:11
-Progress: [##############--------------------------] 35%  2026-07-07 16:27:11
-Progress: [################------------------------] 40%  2026-07-07 16:27:11
-Progress: [##################----------------------] 45%  2026-07-07 16:27:12
-Progress: [####################--------------------] 50%  2026-07-07 16:27:12
-Progress: [######################------------------] 56%  2026-07-07 16:27:12
-Progress: [########################----------------] 61%  2026-07-07 16:27:12
-Progress: [##########################--------------] 66%  2026-07-07 16:27:12
-Progress: [############################------------] 71%  2026-07-07 16:27:12
-Progress: [##############################----------] 76%  2026-07-07 16:27:12
-Progress: [################################--------] 81%  2026-07-07 16:27:12
-Progress: [##################################------] 86%  2026-07-07 16:27:12
-Progress: [####################################----] 91%  2026-07-07 16:27:12
-Progress: [######################################--] 96%  2026-07-07 16:27:13
-Progress: [########################################] 100%  2026-07-07 16:27:13
+Progress: [----------------------------------------] 0%  2026-08-25 17:36:54
+Progress: [##--------------------------------------] 5%  2026-08-25 17:36:54
+Progress: [####------------------------------------] 10%  2026-08-25 17:36:55
+Progress: [######----------------------------------] 15%  2026-08-25 17:36:55
+Progress: [########--------------------------------] 20%  2026-08-25 17:36:55
+Progress: [##########------------------------------] 25%  2026-08-25 17:36:55
+Progress: [############----------------------------] 30%  2026-08-25 17:36:55
+Progress: [##############--------------------------] 35%  2026-08-25 17:36:55
+Progress: [################------------------------] 40%  2026-08-25 17:36:55
+Progress: [##################----------------------] 45%  2026-08-25 17:36:55
+Progress: [####################--------------------] 50%  2026-08-25 17:36:55
+Progress: [######################------------------] 56%  2026-08-25 17:36:55
+Progress: [########################----------------] 61%  2026-08-25 17:36:55
+Progress: [##########################--------------] 66%  2026-08-25 17:36:55
+Progress: [############################------------] 71%  2026-08-25 17:36:56
+Progress: [##############################----------] 76%  2026-08-25 17:36:56
+Progress: [################################--------] 81%  2026-08-25 17:36:56
+Progress: [##################################------] 86%  2026-08-25 17:36:56
+Progress: [####################################----] 91%  2026-08-25 17:36:56
+Progress: [######################################--] 96%  2026-08-25 17:36:56
+Progress: [########################################] 100%  2026-08-25 17:36:56
 Positions of important atoms precomputed.
 
 Precomputing positions of nucleic acids backbone atoms...
-Progress: [----------------------------------------] 0%  2026-07-07 16:27:13
-Progress: [##--------------------------------------] 5%  2026-07-07 16:27:13
-Progress: [####------------------------------------] 10%  2026-07-07 16:27:13
-Progress: [######----------------------------------] 15%  2026-07-07 16:27:13
-Progress: [########--------------------------------] 20%  2026-07-07 16:27:14
-Progress: [##########------------------------------] 25%  2026-07-07 16:27:14
-Progress: [############----------------------------] 30%  2026-07-07 16:27:14
-Progress: [##############--------------------------] 35%  2026-07-07 16:27:14
-Progress: [################------------------------] 40%  2026-07-07 16:27:14
-Progress: [##################----------------------] 45%  2026-07-07 16:27:15
-Progress: [####################--------------------] 50%  2026-07-07 16:27:15
-Progress: [######################------------------] 56%  2026-07-07 16:27:15
-Progress: [########################----------------] 61%  2026-07-07 16:27:15
-Progress: [##########################--------------] 66%  2026-07-07 16:27:15
-Progress: [############################------------] 71%  2026-07-07 16:27:15
-Progress: [##############################----------] 76%  2026-07-07 16:27:16
-Progress: [################################--------] 81%  2026-07-07 16:27:16
-Progress: [##################################------] 86%  2026-07-07 16:27:16
-Progress: [####################################----] 91%  2026-07-07 16:27:16
-Progress: [######################################--] 96%  2026-07-07 16:27:16
-Progress: [########################################] 100%  2026-07-07 16:27:17
+Progress: [----------------------------------------] 0%  2026-08-25 17:36:56
+Progress: [##--------------------------------------] 5%  2026-08-25 17:36:56
+Progress: [####------------------------------------] 10%  2026-08-25 17:36:57
+Progress: [######----------------------------------] 15%  2026-08-25 17:36:57
+Progress: [########--------------------------------] 20%  2026-08-25 17:36:57
+Progress: [##########------------------------------] 25%  2026-08-25 17:36:57
+Progress: [############----------------------------] 30%  2026-08-25 17:36:57
+Progress: [##############--------------------------] 35%  2026-08-25 17:36:57
+Progress: [################------------------------] 40%  2026-08-25 17:36:58
+Progress: [##################----------------------] 45%  2026-08-25 17:36:58
+Progress: [####################--------------------] 50%  2026-08-25 17:36:58
+Progress: [######################------------------] 56%  2026-08-25 17:36:58
+Progress: [########################----------------] 61%  2026-08-25 17:36:58
+Progress: [##########################--------------] 66%  2026-08-25 17:36:59
+Progress: [############################------------] 71%  2026-08-25 17:36:59
+Progress: [##############################----------] 76%  2026-08-25 17:36:59
+Progress: [################################--------] 81%  2026-08-25 17:36:59
+Progress: [##################################------] 86%  2026-08-25 17:36:59
+Progress: [####################################----] 91%  2026-08-25 17:36:59
+Progress: [######################################--] 96%  2026-08-25 17:37:00
+Progress: [########################################] 100%  2026-08-25 17:37:00
 Positions of nucleic acids backbone atoms precomputed.
 
 Computing distances...
-Progress: [----------------------------------------] 0%  2026-07-07 16:27:17
-Progress: [##--------------------------------------] 5%  2026-07-07 16:27:29
-Progress: [####------------------------------------] 10%  2026-07-07 16:27:31
-Progress: [######----------------------------------] 15%  2026-07-07 16:27:34
-Progress: [########--------------------------------] 20%  2026-07-07 16:27:49
-Progress: [##########------------------------------] 25%  2026-07-07 16:27:55
-Progress: [############----------------------------] 30%  2026-07-07 16:27:57
-Progress: [##############--------------------------] 35%  2026-07-07 16:28:04
-Progress: [################------------------------] 40%  2026-07-07 16:28:17
-Progress: [##################----------------------] 45%  2026-07-07 16:28:22
-Progress: [####################--------------------] 50%  2026-07-07 16:28:23
-Progress: [######################------------------] 55%  2026-07-07 16:28:25
-Progress: [########################----------------] 60%  2026-07-07 16:28:29
-Progress: [##########################--------------] 65%  2026-07-07 16:28:32
-Progress: [############################------------] 70%  2026-07-07 16:28:39
-Progress: [##############################----------] 75%  2026-07-07 16:28:47
-Progress: [################################--------] 80%  2026-07-07 16:28:51
-Progress: [##################################------] 85%  2026-07-07 16:29:03
-Progress: [####################################----] 90%  2026-07-07 16:29:19
-Progress: [######################################--] 96%  2026-07-07 16:29:28
-Progress: [########################################] 100%  2026-07-07 16:29:37
+Progress: [----------------------------------------] 0%  2026-08-25 17:37:01
+Progress: [##--------------------------------------] 5%  2026-08-25 17:37:13
+Progress: [####------------------------------------] 10%  2026-08-25 17:37:15
+Progress: [######----------------------------------] 15%  2026-08-25 17:37:18
+Progress: [########--------------------------------] 20%  2026-08-25 17:37:33
+Progress: [##########------------------------------] 25%  2026-08-25 17:37:39
+Progress: [############----------------------------] 30%  2026-08-25 17:37:41
+Progress: [##############--------------------------] 35%  2026-08-25 17:37:48
+Progress: [################------------------------] 40%  2026-08-25 17:38:01
+Progress: [##################----------------------] 45%  2026-08-25 17:38:06
+Progress: [####################--------------------] 50%  2026-08-25 17:38:07
+Progress: [######################------------------] 55%  2026-08-25 17:38:09
+Progress: [########################----------------] 60%  2026-08-25 17:38:13
+Progress: [##########################--------------] 65%  2026-08-25 17:38:16
+Progress: [############################------------] 70%  2026-08-25 17:38:23
+Progress: [##############################----------] 75%  2026-08-25 17:38:30
+Progress: [################################--------] 80%  2026-08-25 17:38:35
+Progress: [##################################------] 85%  2026-08-25 17:38:47
+Progress: [####################################----] 90%  2026-08-25 17:39:03
+Progress: [######################################--] 96%  2026-08-25 17:39:13
+Progress: [########################################] 100%  2026-08-25 17:39:21
 Distances computed and saved.
 Not enough amino acids selected for dihedral analysis. Skipping.
 
 Computing dihedrals in nucleic acids backbone...
-Progress: [----------------------------------------] 0%  2026-07-07 16:29:37
-Progress: [###-------------------------------------] 7%  2026-07-07 16:29:39
-Progress: [#####-----------------------------------] 13%  2026-07-07 16:29:43
-Progress: [########--------------------------------] 20%  2026-07-07 16:29:45
-Progress: [##########------------------------------] 26%  2026-07-07 16:29:49
-Progress: [#############---------------------------] 33%  2026-07-07 16:29:51
-Progress: [################------------------------] 39%  2026-07-07 16:29:53
-Progress: [##################----------------------] 46%  2026-07-07 16:29:55
-Progress: [#####################-------------------] 52%  2026-07-07 16:29:57
-Progress: [########################----------------] 59%  2026-07-07 16:29:59
-Progress: [##########################--------------] 66%  2026-07-07 16:30:01
-Progress: [#############################-----------] 72%  2026-07-07 16:30:05
-Progress: [###############################---------] 79%  2026-07-07 16:30:08
-Progress: [##################################------] 85%  2026-07-07 16:30:11
-Progress: [#####################################---] 92%  2026-07-07 16:30:14
-Progress: [#######################################-] 98%  2026-07-07 16:30:17
-Progress: [########################################] 100%  2026-07-07 16:30:17
+Progress: [----------------------------------------] 0%  2026-08-25 17:39:22
+Progress: [###-------------------------------------] 7%  2026-08-25 17:39:24
+Progress: [#####-----------------------------------] 13%  2026-08-25 17:39:27
+Progress: [########--------------------------------] 20%  2026-08-25 17:39:29
+Progress: [##########------------------------------] 26%  2026-08-25 17:39:33
+Progress: [#############---------------------------] 33%  2026-08-25 17:39:35
+Progress: [################------------------------] 39%  2026-08-25 17:39:37
+Progress: [##################----------------------] 46%  2026-08-25 17:39:40
+Progress: [#####################-------------------] 52%  2026-08-25 17:39:41
+Progress: [########################----------------] 59%  2026-08-25 17:39:44
+Progress: [##########################--------------] 66%  2026-08-25 17:39:46
+Progress: [#############################-----------] 72%  2026-08-25 17:39:50
+Progress: [###############################---------] 79%  2026-08-25 17:39:52
+Progress: [##################################------] 85%  2026-08-25 17:39:56
+Progress: [#####################################---] 92%  2026-08-25 17:39:58
+Progress: [#######################################-] 98%  2026-08-25 17:40:01
+Progress: [########################################] 100%  2026-08-25 17:40:02
 Dihedrals computed and saved.
 
 Discretizing data...
@@ -249,27 +248,27 @@ Discretization completed.
 Computing single frequencies...
 Single frequencies computed.
 Computing double frequencies...
-Progress: [----------------------------------------] 0%  2026-07-07 16:30:17
-Progress: [##--------------------------------------] 5%  2026-07-07 16:30:19
-Progress: [####------------------------------------] 10%  2026-07-07 16:30:20
-Progress: [######----------------------------------] 15%  2026-07-07 16:30:21
-Progress: [########--------------------------------] 20%  2026-07-07 16:30:22
-Progress: [##########------------------------------] 25%  2026-07-07 16:30:24
-Progress: [############----------------------------] 30%  2026-07-07 16:30:25
-Progress: [##############--------------------------] 35%  2026-07-07 16:30:26
-Progress: [################------------------------] 40%  2026-07-07 16:30:28
-Progress: [##################----------------------] 45%  2026-07-07 16:30:29
-Progress: [####################--------------------] 50%  2026-07-07 16:30:30
-Progress: [######################------------------] 55%  2026-07-07 16:30:31
-Progress: [########################----------------] 60%  2026-07-07 16:30:33
-Progress: [##########################--------------] 65%  2026-07-07 16:30:34
-Progress: [############################------------] 70%  2026-07-07 16:30:35
-Progress: [##############################----------] 75%  2026-07-07 16:30:36
-Progress: [################################--------] 80%  2026-07-07 16:30:38
-Progress: [##################################------] 85%  2026-07-07 16:30:39
-Progress: [####################################----] 90%  2026-07-07 16:30:40
-Progress: [######################################--] 95%  2026-07-07 16:30:41
-Progress: [########################################] 100%  2026-07-07 16:30:42
+Progress: [----------------------------------------] 0%  2026-08-25 17:40:02
+Progress: [##--------------------------------------] 5%  2026-08-25 17:40:03
+Progress: [####------------------------------------] 10%  2026-08-25 17:40:04
+Progress: [######----------------------------------] 15%  2026-08-25 17:40:05
+Progress: [########--------------------------------] 20%  2026-08-25 17:40:07
+Progress: [##########------------------------------] 25%  2026-08-25 17:40:08
+Progress: [############----------------------------] 30%  2026-08-25 17:40:09
+Progress: [##############--------------------------] 35%  2026-08-25 17:40:10
+Progress: [################------------------------] 40%  2026-08-25 17:40:12
+Progress: [##################----------------------] 45%  2026-08-25 17:40:13
+Progress: [####################--------------------] 50%  2026-08-25 17:40:14
+Progress: [######################------------------] 55%  2026-08-25 17:40:15
+Progress: [########################----------------] 60%  2026-08-25 17:40:16
+Progress: [##########################--------------] 65%  2026-08-25 17:40:18
+Progress: [############################------------] 70%  2026-08-25 17:40:19
+Progress: [##############################----------] 75%  2026-08-25 17:40:20
+Progress: [################################--------] 80%  2026-08-25 17:40:21
+Progress: [##################################------] 85%  2026-08-25 17:40:22
+Progress: [####################################----] 90%  2026-08-25 17:40:23
+Progress: [######################################--] 95%  2026-08-25 17:40:25
+Progress: [########################################] 100%  2026-08-25 17:40:26
 Double frequencies computed.
 
 Computing entropy...
@@ -296,236 +295,14 @@ Getting resids in communities...
 Getting resids in communities completed.
 
 Extracting conformations for communities...
-Found 8 communities based on clustering labels.
+Found 5 communities based on clustering labels.
 Extracting unique configurations for communities...
-Total probability of unique configurations under cutoff_n_configurations in each cluster: [1. 1. 1. 1. 1. 1. 1. 1.]
+Total probability of unique configurations under cutoff_n_configurations in each cluster: [0. 0. 0. 0. 1.]
 Computing distances between unique configurations in each community...
-Cluster 0: Found 382 unique configurations.
+Skip cluster 0 as it is not the one to process.
+Skip cluster 1 as it is not the one to process.
+Skip cluster 2 as it is not the one to process.
+Skip cluster 3 as it is not the one to process.
+Cluster 4: Found 44 unique configurations.
 
 Plotting clustering results...
-Clustering results plotted and saved.
-Cluster 1: Found 260 unique configurations.
-
-Plotting clustering results...
-Clustering results plotted and saved.
-Cluster 2: Found 44 unique configurations.
-
-Plotting clustering results...
-Clustering results plotted and saved.
-Cluster 3: Found 154 unique configurations.
-
-Plotting clustering results...
-Clustering results plotted and saved.
-Cluster 4: Found 142 unique configurations.
-
-Plotting clustering results...
-Clustering results plotted and saved.
-Cluster 5: Found 139 unique configurations.
-
-Plotting clustering results...
-Clustering results plotted and saved.
-Cluster 6: Found 1559 unique configurations.
-
-Plotting clustering results...
-Clustering results plotted and saved.
-Cluster 7: Found 44 unique configurations.
-
-Plotting clustering results...
-Clustering results plotted and saved.
-Conformations for community 0: [0 1 2 3 4 5]        -1 indicates noise
-Probabilities of conformations: ['0.228', '0.080', '0.082', '0.489', '0.036', '0.085']
-Total probability: 1.000
-Conformations for community 1: [0 1]        -1 indicates noise
-Probabilities of conformations: ['0.853', '0.147']
-Total probability: 1.000
-Conformations for community 2: [0 1]        -1 indicates noise
-Probabilities of conformations: ['0.069', '0.931']
-Total probability: 1.000
-Conformations for community 3: [0 1 2 3]        -1 indicates noise
-Probabilities of conformations: ['0.731', '0.037', '0.070', '0.161']
-Total probability: 1.000
-Conformations for community 4: [0 1 2]        -1 indicates noise
-Probabilities of conformations: ['0.735', '0.088', '0.177']
-Total probability: 1.000
-Conformations for community 5: [0 1 2]        -1 indicates noise
-Probabilities of conformations: ['0.461', '0.018', '0.520']
-Total probability: 1.000
-Conformations for community 6: [0 1 2 3 4]        -1 indicates noise
-Probabilities of conformations: ['0.071', '0.203', '0.109', '0.102', '0.515']
-Total probability: 1.000
-Conformations for community 7: [0 1]        -1 indicates noise
-Probabilities of conformations: ['0.891', '0.109']
-Total probability: 1.000
-
-Computing most probable configuration for each community...
-Most probable configuration in community 0, conformation 0: [1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1] with probability 0.19940029985007496
-Most probable configuration in community 0, conformation 1: [2 0 0 3 2 0 1 1 1 1 1 1 1 1 1 1 1] with probability 0.02348825587206397
-Most probable configuration in community 0, conformation 2: [0 0 2 2 0 2 0 2 0 0 0 2 0 2 0 2 0] with probability 0.010494752623688156
-Most probable configuration in community 0, conformation 3: [0 0 0 0 0 0 0 0 2 2 0 0 0 0 0 0 0] with probability 0.0864567716141929
-Most probable configuration in community 0, conformation 4: [2 0 0 3 2 0 0 2 0 3 0 2 0 1 1 1 1] with probability 0.004997501249375313
-Most probable configuration in community 0, conformation 5: [2 0 0 2 0 2 0 2 0 3 0 2 0 2 0 2 0] with probability 0.0079960019990005
-Most probable configuration in community 1, conformation 0: [0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0
- 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0] with probability 0.6241879060469765
-Most probable configuration in community 1, conformation 1: [1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1
- 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1] with probability 0.02448775612193903
-Most probable configuration in community 2, conformation 0: [1 1 1 1 1 1 1 2 1 1 1 1 1 1] with probability 0.047976011994003
-Most probable configuration in community 2, conformation 1: [0 0 0 0 0 0 0 0 0 0 0 0 0 0] with probability 0.7821089455272364
-Most probable configuration in community 3, conformation 0: [0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0] with probability 0.6766616691654173
-Most probable configuration in community 3, conformation 1: [1 1 0 0 0 1 1 2 1 1 1 1 1 1 1 0 1] with probability 0.01699150424787606
-Most probable configuration in community 3, conformation 2: [2 2 1 1 1 0 3 1 1 2 1 2 3 1 2 1 1] with probability 0.029985007496251874
-Most probable configuration in community 3, conformation 3: [1 1 1 1 1 1 1 1 1 1 1 1 1 2 1 1 1] with probability 0.0399800099950025
-Most probable configuration in community 4, conformation 0: [0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0] with probability 0.5377311344327836
-Most probable configuration in community 4, conformation 1: [1 1 1 1 1 1 2 2 2 1 1 1 2 1 2 2 1 1 1 4 1 1 1 1 1] with probability 0.031484257871064465
-Most probable configuration in community 4, conformation 2: [2 1 2 2 2 1 1 1 1 2 1 1 1 1 1 1 2 2 3 2 1 1 1 1 1] with probability 0.05847076461769116
-Most probable configuration in community 5, conformation 0: [1 0 0 1 1 1 1 1 1 1 1] with probability 0.11244377811094453
-Most probable configuration in community 5, conformation 1: [1 0 0 1 2 0 0 0 0 0 1] with probability 0.004997501249375313
-Most probable configuration in community 5, conformation 2: [0 1 1 0 0 0 0 0 0 0 0] with probability 0.37681159420289856
-Most probable configuration in community 6, conformation 0: [1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 2 1 2 2 0 0 2 2 1 2 1 0 2 1 1 1 1
- 1 1 1 1 2 1 1 2 1 1 2 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 2 1 1 1 1 1 0 1
- 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 2 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1
- 1 1 1 1 1 1 1 1 1 1 2 1 1 1 1 1 1 0 1 1 1 1 1 1 1 2 1 2 2 2 2 2 2 1 2 1 2
- 4 1 3 3 1 4 1 1 1 1 1 1 1 1 1 1 1 1 0 1 1 1 1 2 1 1 1 1 1 1 1 1 1 2 1 1 1
- 1 0 1 0 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 2 1 1 1 1 1 1 0 1 0 1 0 1 1 1 1 1
- 1 1 1 1 1 1 1 1 1 1 1] with probability 0.0004997501249375312
-Most probable configuration in community 6, conformation 1: [1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 2 1 2 2 2 1 1 1 1 1
- 1 1 1 1 2 1 1 2 1 1 2 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 2 2 1 1 2 1 1
- 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 2 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1
- 1 1 1 1 1 1 1 1 1 1 2 1 1 1 1 1 1 0 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 3 1 1 2
- 1 1 2 2 1 3 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1
- 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 2 1 1 1 1 1 1 1 1 1 2 1 1 1 1 1 1
- 1 1 1 1 1 1 1 1 1 1 1] with probability 0.0024987506246876563
-Most probable configuration in community 6, conformation 2: [0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0
- 0 0 0 0 3 0 2 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0
- 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 2 0 2 1 2 2 2 1 1 2 0 2 2 0 1 1 2
- 2 2 2 2 2 2 2 2 2 2 0 0 2 1 2 2 2 0 1 1 1 0 2 0 0 2 1 2 2 2 2 2 2 1 2 1 2
- 1 1 1 1 2 2 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0
- 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0
- 0 0 0 0 0 2 0 0 0 0 0] with probability 0.0069965017491254375
-Most probable configuration in community 6, conformation 3: [0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0
- 0 0 0 0 1 2 0 0 0 2 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0
- 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 1 0 0 0 1 0 1 1 1 0 0 0 1 1 1 1 1 1 0 0 1
- 1 1 1 1 1 1 1 1 1 1 1 0 0 0 0 0 0 2 0 0 0 0 0 0 0 0 0 0 0 0 3 3 0 0 0 0 0
- 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0
- 0 0 0 0 0 0 0 0 0 0 0 0 0 2 2 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0
- 0 0 0 0 0 1 1 0 0 0 0] with probability 0.004497751124437781
-Most probable configuration in community 6, conformation 4: [0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0
- 0 0 0 0 0 0 0 1 0 0 1 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0
- 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0
- 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 1 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0
- 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0
- 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0
- 0 0 0 0 0 0 0 0 0 0 0] with probability 0.05697151424287856
-Most probable configuration in community 7, conformation 0: [0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0
- 0 0 0] with probability 0.8775612193903048
-Most probable configuration in community 7, conformation 1: [1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 2 1 1 1 1 1 1 1 1 1 1 1
- 1 1 1] with probability 0.028985507246376812
-
-Writing conformations to file...
-Conformations written to file.
-Extracting frames for conformational states...
-Processing conformations for community 0...
-Processing conformations for community 1...
-Processing conformations for community 2...
-Processing conformations for community 3...
-Processing conformations for community 4...
-Processing conformations for community 5...
-Processing conformations for community 6...
-Processing conformations for community 7...
-Frame extraction completed.
-
-Plotting conformations as a function of time...
-Conformational time plot saved.
-Absolute Pearson correlation matrix between clusters of local_variables:
-[[1.00 0.16 0.09 0.06 0.00 0.11 0.25 0.08]
- [0.16 1.00 0.11 0.24 0.24 0.39 0.35 0.15]
- [0.09 0.11 1.00 0.32 0.55 0.01 0.23 0.10]
- [0.06 0.24 0.32 1.00 0.47 0.08 0.31 0.20]
- [0.00 0.24 0.55 0.47 1.00 0.03 0.38 0.20]
- [0.11 0.39 0.01 0.08 0.03 1.00 0.52 0.33]
- [0.25 0.35 0.23 0.31 0.38 0.52 1.00 0.19]
- [0.08 0.15 0.10 0.20 0.20 0.33 0.19 1.00]]
-
-
-
-Analysis complete at 2026-07-07 16:30:59
-Results are saved in: results_CASIMODO_tutorial_RNA/
-Step performed: all
-
-
-
-
-
-
-
-
-
-
-Logging initiated for step: compare_communities. Log file updated at: results_CASIMODO_tutorial_RNA/casimodo.log
-Start time: 2026-07-07 16:32:28
-                                                 ,__     __,                       
-                                                 |..|   |..|                       
-                                                 ||||_|_||||                       
-               _                     _           |::|:::|::|                       
-  ___ __ _ ___(_)_ __ ___   ___   __| | ___      |,.|.-,|,.|                       
- / __/ _` / __| | '_ ` _ \ / _ \ / _` |/ _ \     |nn|`-'|nn|                       
-| (_| (_| \__ \ | | | | | | (_) | (_| | (_) |    |||||||||||                       
- \___\__,_|___/_|_| |_| |_|\___/ \__,_|\___/     |_ |.-.| _|                       
-                                                _|||||_|||||_                      
-                                                                                   
-Conformational Analysis via Shared Information by MOlecular Dynamics Observables
-A program by Paul Guénon, Damien Laage and Olivier Rivoire                         
-
-
-
-
-========= INPUT PARAMETERS =========
-step_to_perform: compare_communities
-output_dir: results_CASIMODO_tutorial_RNA/
-topolfile: input_data/topol_RNA.gro
-trajfile: input_data/traj_RNA.xtc
-dic: dic_for_tutorial_RNA.txt
-position_CASIMODO: ../CASIMODO_utils/
-time_zero: 100000.0
-last_time: -1.0
-delta_time: 0.0
-method_clustering_local_variables: hdbscan
-parameters_clustering_local_variables: [15.0, 15.0, 0.5]
-method_clustering_conformations: k-means
-parameters_clustering_conformations: [2.0]
-community_to_process: 3
-split_trajectory: False
-extension_plots: png
-resolution_plots: 200
-save_data: False
-save_all_plots: False
-local_variables_to_add: []
-type_local_variables_to_add: []
-residues_local_variables_to_add: []
-cutoff_distance: 5
-proba_under_cutoff_distance: 0.01
-proportion_per_bin: 0.02
-min_bin_size_distances: 0.1
-min_bin_size_angles: 1.0
-smooth_factor: 10.0
-prominence: 0.025
-order_labels: weight
-cutoff_npoints_discretization: 100000
-minimal_size_to_cluster: 10
-cutoff_n_configurations: 50000
-cutoff_proba_conformations: 0.0
-===================================
-
-Plotting conformations as a function of time...
-Conformational time plot saved.
-Absolute Pearson correlation matrix between clusters of local_variables:
-[[1.00 0.08 0.22 0.27 0.02]
- [0.08 1.00 0.19 0.28 0.16]
- [0.22 0.19 1.00 0.25 0.15]
- [0.27 0.28 0.25 1.00 0.21]
- [0.02 0.16 0.15 0.21 1.00]]
-
-
-
-Analysis complete at 2026-07-07 16:32:30
-Results are saved in: results_CASIMODO_tutorial_RNA/
-Step performed: compare_communities

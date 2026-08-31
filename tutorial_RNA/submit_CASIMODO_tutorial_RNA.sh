@@ -13,7 +13,7 @@ set -e  # Exit immediately if any command fails
 #   get_conformations — define the configurations based on the LV communities and cluster them to get the conformational states
 #   compare_communities — compare the conformational trajectories obtained for each community of LVs to see if they are correlated or not. 
 
-step_to_perform="compare_communities"
+step_to_perform="all"
 
 ##############################################
 #              REQUIRED INPUTS               #
@@ -38,6 +38,9 @@ position_CASIMODO=../CASIMODO_utils/  # Position of the CASIMODO_utils folder re
 ##############################################
 # ANALYSIS SETTINGS (Optional but important) #
 ##############################################
+# Dictionary file defining important residue types and their corresponding important atoms for the analysis. An initial dictionary is provided in the CASIMODO_utils folder, but you can add residues and their corresponding important atoms, or modify existing ones, in a new dictionary file and provide its path here.
+dic_file=dic_for_tutorial_RNA.txt
+
 # Time in ps to start the analysis (to skip equilibration)
 time_zero=100000  
 
@@ -59,14 +62,14 @@ delta_time=0.0
 # Method for performing clustering of the local variables (options: 'hdbscan', 'yacare')
 method_clustering_local_variables="hdbscan"
 # Parameters for performing clustering of the local variables
-parameters_clustering_local_variables=(15 15 0.5)
+parameters_clustering_local_variables=(10 15 0.5)
 
 # Method for performing clustering of the conformations (options: 'yacare', 'ward','k-means')
-method_clustering_conformations="k-means"
+method_clustering_conformations="ward"
 #Parameters for performing clustering of the conformations
-parameters_clustering_conformations=(2)  
+parameters_clustering_conformations=(5.0)  
 #Choose the community of local variables to process. -1 for all communities, 0 for first community, 1 for second community, etc.
-community_to_process=3 
+community_to_process=4 
 # Whether to split the trajectory by conformations or not. 1 for True, 0 for False. 
 split_trajectory=0 
 
@@ -79,10 +82,10 @@ extension_plots="png"
 # Resolution for saved plots in dpi
 resolution_plots=200  
 
-#Whether to save selected coordinates data
+#Whether to save selected local variables data
 save_data=0  
 
-# Whether to save all coordinates histogram plots, even the non discretized ones
+# Whether to save all local variable histogram plots, even the non discretized ones
 save_all_plots=0  
 
 ##############################################
@@ -132,11 +135,6 @@ minimal_size_to_cluster=10
 #Cutoff for the number of configuration to consider when clustering the conformations. If the number of configurations is superior to this cutoff, only the most populated configurations will be clustered to save time in the analysis. 
 cutoff_n_configurations=50000 
 
-# Probability cutoff for conformations extraction. Only conformations with a probability superior to this cutoff will be extracted. 
-cutoff_proba_conformations=0.0 
-
- 
-
 ##############################################
 #            MAIN EXECUTION BLOCK            #
 ##############################################
@@ -171,7 +169,6 @@ python "${position_CASIMODO}run_CASIMODO.py" \
   --community_to_process "${community_to_process}" \
   --minimal_size_to_cluster "${minimal_size_to_cluster}" \
   --cutoff_n_configurations "${cutoff_n_configurations}" \
-  --cutoff_proba_conformations "${cutoff_proba_conformations}" \
   --split_trajectory ${split_trajectory}\
   --local_variables_to_add "${local_variables_to_add[@]}" \
   --type_local_variables_to_add "${type_local_variables_to_add[@]}" \
