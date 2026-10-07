@@ -1584,6 +1584,10 @@ def get_discretized_array(config):
     frames_selected = np.load(output_dir + 'discretizing_npy/frames_selected.npy')
 
     nframes_to_save = len(frames_selected)
+
+    out_file = output_dir + "discretizing_npy/discretized_array.npy"
+    if os.path.exists(out_file):
+        os.remove(out_file)  # Remove existing file to avoid appending to old data
     # Initialize output array to store discrete labels for each frame and local_variable
     data_discretized = np.zeros((nframes_to_save, len(local_variables)), dtype=int)
 
@@ -1598,7 +1602,7 @@ def get_discretized_array(config):
     logging.info("Discretization completed.")
 
     # Save the resulting discretized data as a .npy file
-    np.save(output_dir + "discretizing_npy/discretized_array.npy", data_discretized)
+    np.save(out_file, data_discretized)
 
 ########################### Function to compute frequencies of single and double contacts ##########################
 def compute_frequencies(discretized_array):

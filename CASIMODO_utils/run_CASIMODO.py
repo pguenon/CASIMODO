@@ -217,9 +217,9 @@ if step_to_perform in ['all', 'discretize_local_variables']:
             shutil.rmtree(os.path.join(output_dir, subdir))  # Remove existing directory  
         os.mkdir(os.path.join(output_dir, subdir))
 
-    selected_local_variables_file = os.path.join(output_dir, 'selected_local_variables.txt')
-    if os.path.exists(selected_local_variables_file):
-        os.remove(selected_local_variables_file)
+    discretized_local_variables_file = os.path.join(output_dir, 'discretized_local_variables.txt')
+    if os.path.exists(discretized_local_variables_file):
+        os.remove(discretized_local_variables_file)
 
     if os.path.exists(os.path.join(output_dir, "discretizing_npy/temporary_discretized_local_variables/")):
         shutil.rmtree(os.path.join(output_dir, "discretizing_npy/temporary_discretized_local_variables/"))  # Remove existing directory
@@ -258,11 +258,11 @@ if step_to_perform in ['all','get_conformations']:
                 shutil.rmtree(os.path.join(output_dir, subdir))  # Remove existing directory  
             os.mkdir(os.path.join(output_dir, subdir))
     else:
-        subdir = 'conformational_states_clustering/trajectories_cluster_' + str(community_to_process)
+        subdir = 'conformational_states_clustering/trajectories_community_' + str(community_to_process)
         if os.path.exists(os.path.join(output_dir, subdir)):
             shutil.rmtree(os.path.join(output_dir, subdir))
-        file_png = 'conformational_states_clustering/distances_between_states_cluster_' + str(community_to_process) + '.png'
-        file_ndx = 'conformational_states_clustering/frames_conformations_from_cluster_of_CV_' + str(community_to_process) + '.ndx'
+        file_png = 'conformational_states_clustering/distances_between_configurations_community_' + str(community_to_process) + '.png'
+        file_ndx = 'conformational_states_clustering/frames_conformations_from_community_' + str(community_to_process) + '.ndx'
         if os.path.exists(os.path.join(output_dir, file_png)):
             os.remove(os.path.join(output_dir, file_png))
         if os.path.exists(os.path.join(output_dir, file_ndx)):
