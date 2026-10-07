@@ -258,9 +258,6 @@ if step_to_perform in ['all','get_conformations']:
                 shutil.rmtree(os.path.join(output_dir, subdir))  # Remove existing directory  
             os.mkdir(os.path.join(output_dir, subdir))
     else:
-        subdir = 'conformational_states_clustering/trajectories_community_' + str(community_to_process)
-        if os.path.exists(os.path.join(output_dir, subdir)):
-            shutil.rmtree(os.path.join(output_dir, subdir))
         file_png = 'conformational_states_clustering/distances_between_configurations_community_' + str(community_to_process) + '.png'
         file_ndx = 'conformational_states_clustering/frames_conformations_from_community_' + str(community_to_process) + '.ndx'
         if os.path.exists(os.path.join(output_dir, file_png)):
